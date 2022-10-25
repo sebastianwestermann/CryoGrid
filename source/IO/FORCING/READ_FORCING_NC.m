@@ -1,4 +1,4 @@
-classdef READ_FORCING_NC < READ_FORCING_BASE
+classdef READ_FORCING_NC < READ_FORCING_base
     
     properties
         

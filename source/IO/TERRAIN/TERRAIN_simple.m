@@ -6,15 +6,6 @@
 
 classdef TERRAIN_simple < TERRAIN_base
     
-    properties
-        PARA
-        CONST
-        TEMP
-        STATVAR
-        DATA            % terrain data time series
-    end
-    
-    
     methods
         
         % function terrain = provide_PARA(terrain)
