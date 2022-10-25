@@ -1,10 +1,10 @@
 %========================================================================
 % CryoGrid FORCING class FORCING_slope_seb
 % simple model forcing for GROUND classes computing the surface energy balance
-% (keyword ìsebî). The data must be stored in a Matlab ì.matî file which contains
-% a struct FORCING with field ìdataî, which contain the time series of the actual
+% (keyword ‚Äúseb‚Äù). The data must be stored in a Matlab ‚Äú.mat‚Äù file which contains
+% a struct FORCING with field ‚Äúdata‚Äù, which contain the time series of the actual
 % forcing data, e.g. FORCING.data.Tair contains the time series of air temperatures.
-% Have a look at the existing forcing files in the folder ìforcingî and prepare
+% Have a look at the existing forcing files in the folder ‚Äúforcing‚Äù and prepare
 % new forcing files in the same way. The mandatory forcing variables are air temperature
 % (Tair, in degree Celsius), incoming long-wave radiation (Lin, in W/m2),
 % incoming short-.wave radiation (Sin, in W/m2), absolute humidity (q, in
@@ -112,7 +112,9 @@ classdef FORCING_slope_seb_readNc < SEB %matlab.mixin.Copyable
             forcing.DATA.rainfall = temp.tp .*24.*1000 .* (double(forcing.DATA.Tair >= forcing.PARA.all_rain_T)  + ...
                 double(forcing.DATA.Tair > forcing.PARA.all_snow_T & forcing.DATA.Tair < forcing.PARA.all_rain_T) .* ...
                 (1 - (forcing.DATA.Tair - forcing.PARA.all_snow_T) ./ max(1e-12, (forcing.PARA.all_rain_T - forcing.PARA.all_snow_T))));
-            
+            forcing.DATA.rainfall = forcing.DATA.rainfall .* forcing.PARA.rain_fraction.*cosd(forcing.PARA.slope_angle);
+            forcing.DATA.snowfall = forcing.DATA.snowfall .* forcing.PARA.snow_fraction.*cosd(forcing.PARA.slope_angle);
+
             forcing.DATA.albedo_foot = forcing.PARA.albedo_surrounding_terrain; %Albedo at the foot of the slope
             
             
@@ -168,7 +170,7 @@ classdef FORCING_slope_seb_readNc < SEB %matlab.mixin.Copyable
             % Additional forcing data for slopes:
             forcing.TEMP.S_TOA=0;
             forcing.TEMP.albedo_foot=0;
-            
+
             % Non-mandatory forcing data for slopes:
             %             if isfield(temp.FORCING.data,'seaT') == 1
             %                 forcing.TEMP.seaT=0;
@@ -204,6 +206,7 @@ classdef FORCING_slope_seb_readNc < SEB %matlab.mixin.Copyable
             
             forcing.TEMP.rainfall = forcing.TEMP.rainfall + double(forcing.TEMP.Tair > 2) .* forcing.TEMP.snowfall;  %reassign unphysical snowfall
             forcing.TEMP.snowfall = double(forcing.TEMP.Tair <= 2) .* forcing.TEMP.snowfall;
+            
             forcing.TEMP.t = t;
             
         end
@@ -251,8 +254,7 @@ classdef FORCING_slope_seb_readNc < SEB %matlab.mixin.Copyable
             SW_diff = SW_diff_total .* sky_view_factor; %Reduction of diffuse SW by sky view factor
             
             % Calculation of reflected SW
-            
-            SW_refl = (forcing.DATA.Sin .* forcing.DATA.albedo_foot) .* sky_view_factor;
+            SW_refl = (forcing.DATA.Sin .* forcing.DATA.albedo_foot) .* (1 - sky_view_factor); % corrected RBZ Aug-21
             
             %Calculation of reprojected direct SW
             
@@ -292,18 +294,17 @@ classdef FORCING_slope_seb_readNc < SEB %matlab.mixin.Copyable
             Sin_face_direction = double(delta_angle_surf_norm < 85 & delta_angle_face < 85) .* Sin_sun_direction.*cos(delta_angle_face.*pi/180);
             
             % Calculation of Lin
-            
-            %             if isfield(forcing.DATA,'seaT') == 1 %water at the foot of the slope
-            %                 if forcing.DATA.seaIce(i,1) == 0 %no sea ice --> take sea temperature
-            %                 Lin(i,1) = sky_view_factor * forcing.DATA.Lin(i,1) + (1 - sky_view_factor) * sigma * (forcing.DATA.seaT(i,1) + 273.15)^4; %T of ocean for calculation
-            %                 elseif forcing.DATA.seaIce(i,1) == 1 %sea ice --> take air temperature
-            %                 Lin(i,1) = sky_view_factor * forcing.DATA.Lin(i,1) + (1 - sky_view_factor) * sigma * (forcing.DATA.Tair(i,1) + 273.15)^4; %Tair for calculation
-            %                 end
-            %             else %no water at the foot of the slope
-            Lin = sky_view_factor .* forcing.DATA.Lin + (1 - sky_view_factor) .* sigma .* (forcing.DATA.Tair + 273.15).^4; %Tair for calculation
-            %             end
-            
-            %end
+%             if isfield(forcing.DATA,'seaT') == 1 %water at the foot of the slope
+%                 if forcing.DATA.seaIce(i,1) == 0 %no sea ice --> take sea temperature
+%                 Lin(i,1) = sky_view_factor * forcing.DATA.Lin(i,1) + (1 - sky_view_factor) * sigma * (forcing.DATA.seaT(i,1) + 273.15)^4; %T of ocean for calculation
+%                 elseif forcing.DATA.seaIce(i,1) == 1 %sea ice --> take air temperature
+%                 Lin(i,1) = sky_view_factor * forcing.DATA.Lin(i,1) + (1 - sky_view_factor) * sigma * (forcing.DATA.Tair(i,1) + 273.15)^4; %Tair for calculation
+%                 end
+%             else %no water at the foot of the slope
+            Lin = sky_view_factor .* forcing.DATA.Lin + (1 - sky_view_factor) .* sigma .* (forcing.DATA.Tair + forcing.CONST.Tmfw).^4; %Tair for calculation
+%             end
+         
+         %end
             
             forcing.DATA.Sin = Sin_face_direction + SW_diff + SW_refl;
             forcing.DATA.Lin = Lin;
