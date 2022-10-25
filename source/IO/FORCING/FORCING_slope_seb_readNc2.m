@@ -4,7 +4,7 @@
 % R. B. Zweigel, August 2021
 %========================================================================
 
-classdef FORCING_slope_seb_readNc2_new < FORCING_base
+classdef FORCING_slope_seb_readNc2 < FORCING_base & READER_FORCING_NC
     
     properties
         
@@ -43,7 +43,7 @@ classdef FORCING_slope_seb_readNc2_new < FORCING_base
         end
         
         function forcing = finalize_init(forcing, tile)
-            forcing = readNC(forcing, tile); % Read files and populate forcing.DATA
+            forcing = read_NC_ERA5(forcing, tile); % Read files and populate forcing.DATA
             forcing = checkAndCorrect(forcing); % Remove known errors
             forcing = initialize_TEMP(forcing);
             forcing = initialize_TEMP_slope(forcing);
@@ -56,7 +56,6 @@ classdef FORCING_slope_seb_readNc2_new < FORCING_base
             forcing = terrain_corr_Sin_dif(forcing);
             forcing = reproject_Sin_dir(forcing, tile);
             forcing = terrain_corr_Lin(forcing);
-            
         end
         
         function forcing = interpolate_forcing(forcing, tile)
