@@ -1,9 +1,10 @@
+
 %========================================================================
-% CryoGrid STRATIGRAPHY class STRAT_layers defines the initial stratigraphy
-% state variables as seperate layers with constant values. The depth
-% below the surface for the top position of each layer must be provided,
-% and the last layer is assumed to reach until the bottom of the model
-% domain.
+% CryoGrid STRATIGRAPHYSTATVAR class STRAT_layers 
+% STRAT_layers defines the initial stratigraphy of model state variables 
+% as seperate layers with constant values. The depth below the surface 
+% for the top position of each layer must be provided, and the last 
+% layer is assumed to reach until the bottom of the model domain.
 % S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
 %========================================================================
 
@@ -66,7 +67,21 @@ classdef STRAT_layers < matlab.mixin.Copyable
                     end
                 end
             end
-        end           
+         end           
+        
+         
+         %-------------param file generation-----
+         function stratigraphy = param_file_info(stratigraphy)
+             stratigraphy = provide_PARA(stratigraphy);
+             %default
+             stratigraphy.PARA.default_value = [];
+             stratigraphy.PARA.STATVAR = [];
+             stratigraphy.PARA.comment = [];
+             stratigraphy.PARA.class_category = 'STRATIGRAPHY_STATVAR';
+             stratigraphy.PARA.options.layers.name = 'STRAT_MATRIX';
+             stratigraphy.PARA.options.layers.entries_y = {0; 10};
+             stratigraphy.PARA.options.layers.is_statvar_matrix = 1; %fill with STATVAR that are identified for initialization in GROUND classes
+         end
             
 %             variable_gridded = repmat(tile.GRID.MIDPOINTS .* 0, 1, size(self.variable_values,2));
 %             for j=1:size(self.variable_values,1)-1

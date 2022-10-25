@@ -74,7 +74,7 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
             %    forcing:    instance of FORCING class
             forcing = tile.FORCING;
             
-            out.OUTPUT_TIME = forcing.PARA.start_time + out.PARA.output_timestep;
+            out.OUTPUT_TIME = forcing.PARA.start_time; % + out.PARA.output_timestep;
             if isempty(out.PARA.save_interval) || isnan(out.PARA.save_interval) 
                 out.SAVE_TIME = forcing.PARA.end_time;
             else
@@ -82,7 +82,7 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
             end
             
             out.TEMP = struct();
-            
+            out.TEMP.first_step = true;
         end
         
         %---------------time integration-------------
@@ -106,7 +106,15 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
                 % It is time to collect output
                 % Store the current state of the model in the out structure.                
                 
-                disp([datestr(t)])
+                if ~out.TEMP.first_step
+                    fprintf(repmat('\b',1,19))
+                else
+                    fprintf('\n')
+                    out.TEMP.first_step = false;
+                end
+                fprintf(datestr(t, 'yyyy-mm-dd HH:MM:SS'))
+%                disp(datestr(t))
+                
                 out.TIMESTAMP=[out.TIMESTAMP t];
                 
                 CURRENT =TOP.NEXT;
@@ -119,7 +127,7 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
                 while ~isequal(CURRENT, BOTTOM)
                     if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
                         res=copy(CURRENT.CHILD);
-                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_NEXT=[];  res.PARENT = []; %cut all dependencies
+                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
                         result=[result; {res}];
                     end
                     res = copy(CURRENT);
@@ -147,11 +155,9 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    end
+                
+                    filename = get_filename(out, t, result_path, run_name);
+                    save(filename, 'out');
                     
                     % Clear the out structure
                     out.STRATIGRAPHY=[];
@@ -166,12 +172,55 @@ classdef OUT_all_tagged < matlab.mixin.Copyable
                 end
             end
         end
-
-        function xls_out = write_excel(out)
-            % XLS_OUT  Is a cell array corresponding to the class-specific content of the parameter excel file (refer to function write_controlsheet).
-            
-            xls_out = {'OUT','index',NaN,NaN;'OUT_all',1,NaN,NaN;'output_timestep',0.250000000000000,'[days]',NaN;'save_date','01.09.','provide in format dd.mm.',NaN;'save_interval',1,'[y]','if left empty, the entire output will be written out at the end';'OUT_END',NaN,NaN,NaN};
-        end
         
+
+
+
+        function filename = get_filename(out, t, result_path, run_name)
+            % compose and return out-filename
+
+            out_tag = out.PARA.tag;
+            
+            if isnumeric(t)
+               if length(t) == 3
+                   out_date = datestr(datetime(t(1), t(2), t(3)), 'yyyymmdd');
+               elseif length(t) == 1
+                   out_date = datestr(t, 'yyyymmdd');
+               else
+                   error(['Unknown date formate: ' num2str(t)]);
+               end
+            else
+               error(['Unknown date formate: ' num2str(t)]);
+            end
+            
+            if isempty(out_tag) || all(isnan(out_tag))
+                filename = [result_path run_name '/' run_name '_' out_date '.mat'];
+            else
+                filename = [result_path run_name '/' run_name '_' out_tag '_' out_date '.mat'];
+            end
+
+        end
+
+        
+        %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+            
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+            
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+            
+            out.PARA.default_value.save_date = {'01.09.'};
+            out.PARA.comment.save_date = {'date (dd.mm.) when output file is written'};
+            
+            out.PARA.default_value.save_interval = {1};
+            out.PARA.comment.save_interval = {'interval of output files [years]'};
+            
+            out.PARA.default_value.tag = {''};
+            out.PARA.comment.tag = {'additional tag added to file name'};
+        end
     end
 end
