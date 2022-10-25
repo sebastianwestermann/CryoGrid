@@ -112,6 +112,10 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+        function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq(ground, lateral)
+   
+        end
+        
         function ground = lateral3D_pull_water_general_aquifer(ground, lateral)
             lateral.TEMP.open_system = 0;
         end
@@ -137,7 +141,7 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
-        function ground = reset_time_BGC(ground, tile)
+        function ground = reset_timestamps(ground, tile)
             
         end
         
