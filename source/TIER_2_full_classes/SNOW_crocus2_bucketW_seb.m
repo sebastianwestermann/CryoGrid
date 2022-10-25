@@ -106,6 +106,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         function snow = finalize_init(snow, tile)
             snow.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
             snow.PARA.airT_height = tile.FORCING.PARA.airT_height;
+            snow.PARA.slope = tile.FORCING.PARA.slope_angle;
             
             snow = initialize_zero_snow_BASE(snow);  %initialize all values to be zero
             snow.PARA.spectral_ranges = [snow.PARA.SW_spectral_range1 snow.PARA.SW_spectral_range2 1 - snow.PARA.SW_spectral_range1 - snow.PARA.SW_spectral_range2];
@@ -564,6 +565,11 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         function [snow, regridded_yesNo] = regrid_snow(snow, extensive_variables, intensive_variables, intensive_scaling_variable)
             [snow, regridded_yesNo] = regrid_snow@REGRID(snow, extensive_variables, intensive_variables, intensive_scaling_variable);
         end
+        
+        function z0 = get_z0_surface(snow)
+            z0 = get_z0_surface@SNOW(snow);
+        end
+        
     end
     
 end
