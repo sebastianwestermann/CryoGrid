@@ -165,7 +165,7 @@ classdef GLACIER_freeW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_FLUXES_
             
             ground = get_T_water_freeW(ground);
             
-            ground.STATVAR.runoff = ground.STATVAR.water;
+            ground.STATVAR.runoff = ground.STATVAR.runoff + sum(ground.STATVAR.water);
             ground.STATVAR.waterIce = ground.STATVAR.waterIce - ground.STATVAR.water;
             ground.STATVAR.waterIce = max(0, ground.STATVAR.waterIce);
             ground.STATVAR.water = ground.STATVAR.water .* 0;
@@ -213,12 +213,12 @@ classdef GLACIER_freeW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_FLUXES_
           if ground.STATVAR.ice(1) < 0.99*ground.PARA.target_layerThick(1) % move up mass
                     sf = (ground.PARA.target_layerThick(1) - ground.STATVAR.ice(1))./ground.STATVAR.ice;
                                      
-                    ground.STATVAR.waterIce = ground.STATVAR.waterIce + [ground.STATVAR.waterIce(2:end).*sf(2:end); 0] - [0; ground.STATVAR.waterIce(2:end).*sf(2:end)];
-                    ground.STATVAR.energy = ground.STATVAR.energy + [ground.STATVAR.energy(2:end).*sf(2:end); 0] - [0; ground.STATVAR.energy(2:end).*sf(2:end)]; 
-                    ground.STATVAR.layerThick = ground.STATVAR.layerThick + [ground.STATVAR.layerThick(2:end).*sf(2:end); 0] - [0; ground.STATVAR.layerThick(2:end).*sf(2:end)];
+                    ground.STATVAR.waterIce = ground.STATVAR.waterIce + [ground.STATVAR.waterIce(2:end).*sf(2:end); 0] - [0; ground.STATVAR.waterIce(2:end-1).*sf(2:end-1); 0];
+                    ground.STATVAR.energy = ground.STATVAR.energy + [ground.STATVAR.energy(2:end).*sf(2:end); 0] - [0; ground.STATVAR.energy(2:end-1).*sf(2:end-1); 0]; 
+                    ground.STATVAR.layerThick = ground.STATVAR.layerThick + [ground.STATVAR.layerThick(2:end).*sf(2:end); 0] - [0; ground.STATVAR.layerThick(2:end-1).*sf(2:end-1); 0];
 
-                    ground.STATVAR.mineral = ground.STATVAR.mineral + [ground.STATVAR.mineral(2:end).*sf(2:end); 0] - [0; ground.STATVAR.mineral(2:end).*sf(2:end)];
-                    ground.STATVAR.organic = ground.STATVAR.organic + [ground.STATVAR.organic(2:end).*sf(2:end); 0] - [0; ground.STATVAR.organic(2:end).*sf(2:end)]; 
+                    ground.STATVAR.mineral = ground.STATVAR.mineral + [ground.STATVAR.mineral(2:end).*sf(2:end); 0] - [0; ground.STATVAR.mineral(2:end-1).*sf(2:end-1);0];
+                    ground.STATVAR.organic = ground.STATVAR.organic + [ground.STATVAR.organic(2:end).*sf(2:end); 0] - [0; ground.STATVAR.organic(2:end-1).*sf(2:end-1); 0]; 
                    % ground.STATVAR.air = ground.STATVAR.air + [ground.STATVAR.air(2:end).*sf(2:end); 0] - [0; ground.STATVAR.air(2:end).*sf(2:end)]; 
 
           end
@@ -248,15 +248,42 @@ classdef GLACIER_freeW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_FLUXES_
                       end
                   end
                 end
-         
-           end
-
-      end
+                
+          end
+          
+        end
         
         
         
         function ground = conductivity(ground)
             ground = conductivity_mixing_squares(ground);
+        end
+        
+        
+        %-------------param file generation-----
+        function ground = param_file_info(ground)
+            ground = param_file_info@BASE(ground);
+            %ground = provide_PARA(ground);
+            
+            ground.PARA.class_category = 'GLACIER';
+            
+            %ground.PARA.options = [];
+            ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'T'};
+            
+            ground.PARA.default_value.albedo = {0.6};
+            ground.PARA.comment.albedo = {'surface albedo [-]'};
+            
+            ground.PARA.default_value.epsilon = {0.99};
+            ground.PARA.comment.epsilon = {'surface emissivity [-]'};
+            
+            ground.PARA.default_value.z0 = {0.01};
+            ground.PARA.comment.z0 = {'roughness length [m]'};
+            
+            ground.PARA.default_value.dt_max = {3600};
+            ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
+            
+            ground.PARA.default_value.dE_max = {50000};
+            ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
         end
         
         %-----LATERAL-------------------

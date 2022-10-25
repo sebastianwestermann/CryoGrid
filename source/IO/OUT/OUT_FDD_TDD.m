@@ -1,11 +1,11 @@
 %========================================================================
-% CryoGrid OUT class defining storage format of the output 
-% OUT_all stores identical copies of all GROUND classses (including STATVAR, TEMP, PARA) in the
-% stratigraphy for each output timestep, while lateral classes are not stored.
-% The user can specify the save date and the save interval (e.g. yearly
-% files), as well as the output timestep (e.g. 6 hourly). The output files
-% are in Matlab (".mat") format.
-% S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
+% CryoGrid OUT class OUT_FDD_TDD
+% accumulates and stores depth profiles of thawing and freezing degree days
+% over the entire simulation period. The resulting output file can e.g. be
+% used by the INIT_STEADY_STATE class INIT_TTOP_from_out to initialize
+% a steady-state temperature profile for a subsequent TILE class; used in
+% the accelerated spin-up procedure.
+% S. Westermann, Jan 2021
 %========================================================================
 
 
@@ -115,6 +115,25 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
             end
         end
 
+        
+                %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+           
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+
+            out.PARA.default_value.max_depth = {'4'};
+            out.PARA.comment.max_depth = {'maximum depth checked for permafrost table'};
+            
+            out.PARA.default_value.cell_size = {2e-2};
+            out.PARA.comment.cell_size = {'interpolation grid'};
+            
+        end
 
     end
 end

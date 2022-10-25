@@ -101,7 +101,7 @@ classdef OUT_all_lateral_DA < matlab.mixin.Copyable
                 while ~isequal(CURRENT, BOTTOM)
                     if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
                         res=copy(CURRENT.CHILD);
-                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_NEXT=[];  res.PARENT = []; %cut all dependencies
+                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
                         result=[result; {res}];
                     end
                     res = copy(CURRENT);
@@ -157,6 +157,27 @@ classdef OUT_all_lateral_DA < matlab.mixin.Copyable
                    out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
                 end
             end
+        end
+        
+        %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+           
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+
+            out.PARA.default_value.save_date = {'01.09.'};
+            out.PARA.comment.save_date = {'date (dd.mm.) when output file is written'};
+            
+            out.PARA.default_value.save_interval = {1};
+            out.PARA.comment.save_interval = {'interval of output files [years]'};
+            
+%             out.PARA.default_value.tag = {''};
+%             out.PARA.comment.tag = {'additional tag added to file name'};
         end
 
 %         function xls_out = write_excel(out)

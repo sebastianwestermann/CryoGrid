@@ -205,7 +205,16 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb_snow < GROUND_freezeC_RichardsEqW_X
                 end
             end
         end
-        
+       
+                
+        %----------
+        %reset timestamp when changing TILES
+        function ground = reset_timestamps(ground, tile)
+            if ground.CHILD ~= 0
+                ground.CHILD = reset_timestamps(ground.CHILD, tile);
+            end
+        end
+
         function z0 = get_z0_surface(ground)
             if ground.CHILD ~= 0 % Snow is a CHILD
                 z0g = ground.PARA.z0;

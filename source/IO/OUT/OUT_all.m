@@ -1,4 +1,5 @@
 %========================================================================
+% CryoGrid OUT class OUT_all
 % CryoGrid OUT class defining storage format of the output 
 % OUT_all stores identical copies of all GROUND classses (including STATVAR, TEMP, PARA) in the
 % stratigraphy for each output timestep, while lateral classes are not stored.
@@ -119,7 +120,7 @@ classdef OUT_all < matlab.mixin.Copyable
                 while ~isequal(CURRENT, BOTTOM)
                     if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
                         res=copy(CURRENT.CHILD);
-                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_NEXT=[];  res.PARENT = []; %cut all dependencies
+                        res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
                         result=[result; {res}];
                     end
                     res = copy(CURRENT);
@@ -171,12 +172,33 @@ classdef OUT_all < matlab.mixin.Copyable
             end
         end
 
+        %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
 
-        function xls_out = write_excel(out)
-            % XLS_OUT  Is a cell array corresponding to the class-specific content of the parameter excel file (refer to function write_controlsheet).
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+           
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+
+            out.PARA.default_value.save_date = {'01.09.'};
+            out.PARA.comment.save_date = {'date (dd.mm.) when output file is written'};
             
-            xls_out = {'OUT','index',NaN,NaN;'OUT_all',1,NaN,NaN;'output_timestep',0.250000000000000,'[days]',NaN;'save_date','01.09.','provide in format dd.mm.',NaN;'save_interval',1,'[y]','if left empty, the entire output will be written out at the end';'OUT_END',NaN,NaN,NaN};
+            out.PARA.default_value.save_interval = {1};
+            out.PARA.comment.save_interval = {'interval of output files [years]'};
+            
+            out.PARA.default_value.tag = {''};
+            out.PARA.comment.tag = {'additional tag added to file name'};
         end
+        
+        
+%         function xls_out = write_excel(out)
+%             % XLS_OUT  Is a cell array corresponding to the class-specific content of the parameter excel file (refer to function write_controlsheet).
+%             
+%             xls_out = {'OUT','index',NaN,NaN;'OUT_all',1,NaN,NaN;'output_timestep',0.250000000000000,'[days]',NaN;'save_date','01.09.','provide in format dd.mm.',NaN;'save_interval',1,'[y]','if left empty, the entire output will be written out at the end';'OUT_END',NaN,NaN,NaN};
+%         end
         
     end
 end

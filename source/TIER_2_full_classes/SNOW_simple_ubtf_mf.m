@@ -1,6 +1,6 @@
 %========================================================================
 % CryoGrid GROUND class SNOW_simple_ubtf_mf
-% Simple snow scheme with upper boundary temperature forcing (dirichlet
+% Simple snow scheme with upper boundary temperature forcing (Dirichlet
 % boundary condition) and snow melt based on melt factors.
 % See TIER1 class SNOW_MELTFACTOR for description of snow melt scheme.
 %
@@ -8,7 +8,8 @@
 %========================================================================
 
 
-classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW & SNOW_MELTFACTOR & INITIALIZE & REGRID
+classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW & SNOW_MELTFACTOR & REGRID
+
 
     properties
         PARENT
@@ -71,8 +72,8 @@ classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW &
         
         
         function snow = finalize_init(snow, tile) 
-            snow.PARA.heatFlux_lb = tile.PARA.heatFlux_lb;
-            snow.PARA.airT_height = tile.PARA.airT_height;
+            snow.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
+            snow.PARA.airT_height = tile.FORCING.PARA.airT_height;
             snow.PARA.latitude = tile.PARA.latitude;
             
             snow = initialize_zero_snow_BASE(snow); 
@@ -93,7 +94,7 @@ classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW &
             snow = get_boundary_condition_SNOW_u(snow, forcing); % inherited from SNOW
             
             % calculate snowmelt from air temperature forcing
-            snow = get_boundary_condition_SNOW_meltFactor(snow, tile, forcing); % inherited from SNOW
+            snow = get_boundary_condition_SNOW_meltFactor(snow, tile); % inherited from SNOW
         end
         
         
@@ -106,7 +107,7 @@ classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW &
             snow = get_boundary_condition_allSNOW_rain_u(snow, forcing); %add full snow, but rain only for snow-covered part
             
             % calculate snowmelt from air temperature forcing
-            snow = get_boundary_condition_SNOW_meltFactor(snow, forcing); % inherited from SNOW
+            snow = get_boundary_condition_SNOW_meltFactor(snow, tile); % inherited from SNOW
         end
         
         
@@ -317,6 +318,34 @@ classdef SNOW_simple_ubtf_mf < HEAT_CONDUCTION & UB_TEMPERATURE_FORCING & SNOW &
         end
         %-----------------------------
 
+        
+        
+        
+        
+        %-------------param file generation-----
+        function ground = param_file_info(ground)
+            ground = param_file_info@BASE(ground);
+            
+            ground.PARA.class_category = 'SNOW';
+            
+            ground.PARA.STATVAR = {''};
+            
+            ground.PARA.default_value.density = {350};
+            ground.PARA.comment.density = {'(initial) snow density [kg/m3]'};
+            
+            ground.PARA.default_value.swe_per_cell = {0.02};
+            ground.PARA.comment.swe_per_cell = {'target SWE per grid cell [m]'};
+            
+            ground.PARA.default_value.melt_threshold = {0.5};
+            ground.PARA.comment.melt_threshold = {'threshold air temperature for snow melt to occur [degC]'};
+            
+            ground.PARA.default_value.dt_max = {3600};
+            ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
+            
+            ground.PARA.default_value.dE_max = {50000};
+            ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
+        end
+        
     end
     
 end

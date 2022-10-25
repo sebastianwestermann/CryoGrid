@@ -21,8 +21,8 @@ classdef LAT3D_SNOW_CROCUS < BASE_LATERAL
             lateral.PARA.N_drift = []; %5;
             lateral.PARA.drift_loss_fraction = []; %0; %fraction of drifting snow that is lost from the system
             lateral.PARA.ia_time_increment = []; %0.05; %must be a multiple of the time increment of the main lateral class
-            lateral.PARA.ia_time_increment_min = []; %0.05;
-            lateral.PARA.ia_time_increment_max = []; %0.25;            
+%             lateral.PARA.ia_time_increment_min = []; %0.05;
+%             lateral.PARA.ia_time_increment_max = []; %0.25;            
             %lateral.PARA.ia_time_next = [];
         end
         
@@ -103,6 +103,8 @@ classdef LAT3D_SNOW_CROCUS < BASE_LATERAL
                         lateral.STATVAR.ds.s = 0;
                         lateral.STATVAR.ds.gs = 0;
                         lateral.STATVAR.ds.time_snowfall = 0;
+                        lateral.STATVAR.ds.top_snow_date = 0;
+                        lateral.STATVAR.ds.bottom_snow_date = 0;
                         volume=0;
                         for j=1:size(lateral.PARENT.ENSEMBLE,1)
                             
@@ -118,6 +120,9 @@ classdef LAT3D_SNOW_CROCUS < BASE_LATERAL
                                     lateral.STATVAR.ds.gs = lateral.STATVAR.ds.gs - exposure(j+1,1).* lateral.PARENT.ENSEMBLE{j,1}.ds_waterIce .* lateral.PARENT.ENSEMBLE{j,1}.ds_gs;
                                     lateral.STATVAR.ds.time_snowfall = lateral.STATVAR.ds.time_snowfall - exposure(j+1,1).* lateral.PARENT.ENSEMBLE{j,1}.ds_waterIce .* lateral.PARENT.ENSEMBLE{j,1}.ds_time_snowfall;
                                     
+                                    lateral.STATVAR.ds.top_snow_date = lateral.STATVAR.ds.top_snow_date - exposure(j+1,1).* lateral.PARENT.ENSEMBLE{j,1}.ds_waterIce .* lateral.PARENT.ENSEMBLE{j,1}.ds_top_snow_date;
+                                    lateral.STATVAR.ds.bottom_snow_date = lateral.STATVAR.ds.bottom_snow_date - exposure(j+1,1).* lateral.PARENT.ENSEMBLE{j,1}.ds_waterIce .* lateral.PARENT.ENSEMBLE{j,1}.ds_bottom_snow_date;
+                                    
                                 elseif lateral.PARENT.ENSEMBLE{j,1}.snow_drift >0 && exposure(j+1,1) > 0  %all the gaining cells ->
                                     area_acc = area_acc + area(j+1,1) .* exposure(j+1,1);
                                 end
@@ -131,6 +136,11 @@ classdef LAT3D_SNOW_CROCUS < BASE_LATERAL
                         lateral.STATVAR.ds.gs(isnan(lateral.STATVAR.ds.gs)) = 0;
                         lateral.STATVAR.ds.time_snowfall = lateral.STATVAR.ds.time_snowfall ./ lateral.STATVAR.ds.waterIce;
                         lateral.STATVAR.ds.time_snowfall(isnan(lateral.STATVAR.ds.time_snowfall)) = 0;
+                        
+                        lateral.STATVAR.ds.top_snow_date = lateral.STATVAR.ds.top_snow_date./ lateral.STATVAR.ds.waterIce;
+                        lateral.STATVAR.ds.top_snow_date(isnan(lateral.STATVAR.ds.top_snow_date)) = 0;
+                        lateral.STATVAR.ds.bottom_snow_date = lateral.STATVAR.ds.bottom_snow_date./ lateral.STATVAR.ds.waterIce;
+                        lateral.STATVAR.ds.bottom_snow_date(isnan(lateral.STATVAR.ds.bottom_snow_date)) = 0;
                         
                         gain_fraction = area(1,1) .* exposure(1,1) ./ area_acc;
                         volume = volume .* gain_fraction .* (1-lateral.PARA.drift_loss_fraction);
@@ -168,6 +178,26 @@ classdef LAT3D_SNOW_CROCUS < BASE_LATERAL
         
         function lateral = set_ia_time(lateral, t)
             lateral.PARA.ia_time_next = t;
+        end
+        
+        
+        %-------------param file generation-----
+        function ground = param_file_info(ground)
+            ground = param_file_info@BASE_LATERAL(ground);
+            
+            ground.PARA.class_category = 'LATERAL_IA';
+            
+            ground.PARA.options = [];
+            ground.PARA.STATVAR = [];
+
+            ground.PARA.default_value.N_drift = {5};
+            ground.PARA.comment.N_drift ={'factor translating CROCUS driftability index to snow removed per unit time'};
+            
+            ground.PARA.default_value.drift_loss_fraction = {0};
+            ground.PARA.comment.drift_loss_fraction ={'fraction of drifting snow that is lost from the system'};
+            
+            ground.PARA.default_value.ia_time_increment = {0.25};
+            ground.PARA.comment.ia_time_increment ={'time step [days], must be multiple of of LATERAL class timestep'};
         end
     end
     
