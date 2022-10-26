@@ -80,6 +80,7 @@ classdef GROUND_freeW_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             
             ground.CONST.rho_w = []; % water density
             ground.CONST.rho_i = []; %ice density
+            ground.CONST.Tmfw = []; % freezing point of water
         end
 
         function ground = convert_units(ground, tile)

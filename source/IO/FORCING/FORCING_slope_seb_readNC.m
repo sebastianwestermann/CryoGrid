@@ -51,9 +51,9 @@ classdef FORCING_slope_seb_readNC < FORCING_base & READ_FORCING_NC
             forcing = reduce_precip_slope(forcing, tile);
             
             forcing = split_Sin(forcing); % split Sin in dir and dif
-            forcing = terrain_corr_Sin_dif(forcing);
+            forcing = terrain_corr_Sin_dif(forcing, tile);
             forcing = reproject_Sin_dir(forcing, tile);
-            forcing = terrain_corr_Lin(forcing);
+            forcing = terrain_corr_Lin(forcing, tile);
         end
         
         function forcing = interpolate_forcing(forcing, tile)

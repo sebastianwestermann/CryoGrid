@@ -238,6 +238,9 @@ classdef SNOW < BASE
                 snow.TEMP.newSnow.STATVAR.s = min(max(0.08.*windspeed + 0.38,0.5),0.9);
                 snow.TEMP.newSnow.STATVAR.gs = 0.1e-3+(1-snow.TEMP.newSnow.STATVAR.d).*(0.3e-3-0.1e-3.*snow.TEMP.newSnow.STATVAR.s);
                 snow.TEMP.newSnow.STATVAR.time_snowfall = forcing.TEMP.t;
+                
+                snow.TEMP.newSnow.STATVAR.top_snow_date = forcing.TEMP.t;
+                snow.TEMP.newSnow.STATVAR.bottom_snow_date = forcing.TEMP.t; % a few minites earluer
             end
         end
         
@@ -397,7 +400,7 @@ classdef SNOW < BASE
                 ground.IA_CHILD.NEXT = ground;
                 ground.IA_CHILD.PREVIOUS = snow;
                 
-                if ~isempty(snow.PREVIOUS.IA_NEXT) % Class above snow is a "real" stratigraphy class
+                if isfield(snow.PREVIOUS,'IA_NEXT') % Class above snow is a "real" stratigraphy class
                     ia_class = get_IA_class(class(snow.PREVIOUS),class(ground));
                     ground.IA_PREVIOUS = ia_class();
                     ground.PREVIOUS.IA_NEXT = ia_class();

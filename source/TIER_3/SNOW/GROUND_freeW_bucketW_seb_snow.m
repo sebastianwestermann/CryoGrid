@@ -32,7 +32,8 @@ classdef GROUND_freeW_bucketW_seb_snow < GROUND_freeW_bucketW_seb
        function ground = finalize_init(ground, tile)
            ground = finalize_init@GROUND_freeW_bucketW_seb(ground, tile);
            ground.CHILD = 0; % no snow
-           ground.IA_CHILD = 0;
+           ground.IA_CHILD = 0; 
+           ground.TEMP.SW_split = 0;
        end
 
        
@@ -102,7 +103,18 @@ classdef GROUND_freeW_bucketW_seb_snow < GROUND_freeW_bucketW_seb
         end
         
         function [ground, S_up] = penetrate_SW(ground, S_down)  %mandatory function when used with class that features SW penetration
-            [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down);
+            
+            if ground.CHILD ~= 0 && ground.TEMP.SW_split == 0
+                snow_fraction = ground.CHILD.STATVAR.area(1)/ground.STATVAR.area(1);
+                ground_fraction = 1 - snow_fraction;
+                [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down.*ground_fraction);
+                ground.TEMP.SW_split = 1; % To circumnavigate CHILD when penetrat_SW(ground) is called below snow
+                [ground.CHILD, S_up2] = penetrate_SW(ground.CHILD, S_down.*snow_fraction);
+                S_up = S_up + sum(S_up2); % snow_crocus splits SW into spectral bands
+            else
+                [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down);
+            end
+            
         end
         
         function ground = get_boundary_condition_l(ground, tile)

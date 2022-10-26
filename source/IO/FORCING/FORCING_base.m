@@ -139,7 +139,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             
         end
         
-        function forcing = terrain_corr_Sin_dif(forcing)
+        function forcing = terrain_corr_Sin_dif(forcing, tile)
             % include effect of terrain on diffuse by removin the fraction
             % of the hemisphere covered by the horizon, and adding
             % reflected Sin from surrounding terrain
@@ -154,8 +154,8 @@ classdef FORCING_base < matlab.mixin.Copyable
         
         function forcing = reproject_Sin_dir(forcing, tile)
             Sin_dir = forcing.DATA.Sin_dir;
-            aspect = forcing.PARA.aspect;
-            slope = forcing.PARA.slope_angle;
+            aspect = tile.TERRAIN.PARA.aspect;
+            slope = tile.TERRAIN.PARA.slope_angle;
             
             surf_norm_vec = repmat([0.0,0.0,1.0], size(forcing.DATA.Sin,1), 1); %Unit vector on the horizontal
             
@@ -179,13 +179,13 @@ classdef FORCING_base < matlab.mixin.Copyable
             forcing.DATA.Sin_dir = Sin_face_direction;
         end
         
-        function forcing = terrain_corr_Lin(forcing)
+        function forcing = terrain_corr_Lin(forcing, tile)
             % Reduce Lin from atmosphere to sky view fraction, add Lin from
             % surroundings assuming Tair everywhere
             sigma = forcing.CONST.sigma; %Stefan-Boltzman constant
             Lin = forcing.DATA.Lin;
             Tair = forcing.DATA.Tair;
-            svf = forcing.PARA.sky_view_factor;
+            svf = tile.TERRAIN.PARA.skyview_factor;
             Tmfw = forcing.CONST.Tmfw;
             
             forcing.DATA.Lin = svf.*Lin + (1-svf).*sigma.*(Tair+Tmfw).^4;

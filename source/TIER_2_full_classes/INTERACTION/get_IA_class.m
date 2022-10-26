@@ -389,6 +389,20 @@ elseif strcmp(above_class, 'GLACIER_freeW_seb_snow') %modify if more interaction
         ia_class = IA_HEAT11_SALT01();
     end
     
+    % ---------- VEGETATION -----------
+    
+elseif strcmp(above_class, 'VEGETATION_CLM5_seb')
+    if strcmp(below_class, 'SNOW_crocus_bucketW_seb') || strcmp(below_class, 'SNOW_simple_bucketW_seb')
+        ia_class = IA_SEB_vegetation_CLM5_SNOW();
+        
+    elseif strcmp(below_class, 'GROUND_freezeC_RichardsEqW_Xice_seb') || strcmp(below_class, 'GROUND_freezeC_RichardsEqW_seb')
+        ia_class = IA_SEB_vegetation_CLM5();
+        
+    elseif strcmp(below_class, 'GROUND_freezeC_RichardsEqW_Xice_seb_snow') || strcmp(below_class, 'GROUND_freezeC_RichardsEqW_seb_snow')
+        ia_class = IA_SEB_vegetation_CLM5_GROUND_snow();
+        
+    end
+    
     %--------MULTI-TILE----
     
 elseif strcmp(above_class, 'GROUND_multi_tile2') || strcmp(above_class, 'GROUND_multi_tile2_Cas')
