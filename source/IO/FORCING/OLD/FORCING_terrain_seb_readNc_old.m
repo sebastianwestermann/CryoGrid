@@ -5,7 +5,7 @@
 % R. B. Zweigel, September 2022
 %========================================================================
 
-classdef FORCING_terrain_seb_readNc < FORCING_base
+classdef FORCING_terrain_seb_readNc_old < FORCING_base
     
     properties
         

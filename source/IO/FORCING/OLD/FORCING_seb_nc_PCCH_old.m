@@ -3,7 +3,7 @@
 %reads single nc-file produced by Python version of TopoScale
 %========================================================================
 
-classdef FORCING_seb_nc_PCCH < matlab.mixin.Copyable
+classdef FORCING_seb_nc_PCCH_old < matlab.mixin.Copyable
     
     properties
         forcing_index

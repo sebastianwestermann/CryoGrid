@@ -42,10 +42,10 @@ classdef FORCING_slope_seb_readNC < FORCING_base & READ_FORCING_NC
             % Read forcing data
             forcing = read_NC_ERA5(forcing, tile); % Read files and populate forcing.DATA
             
-            forcing = checkAndCorrect(forcing); % Remove known errors
+            forcing = check_and_correct(forcing); % Remove known errors
             forcing = initialize_TEMP(forcing);
             forcing = initialize_TEMP_slope(forcing);
-            forcing = get_time_forcing(forcing); % assign start/end time
+            forcing = set_start_and_end_time(forcing); % assign start/end time
             
             forcing = split_precip_Tair(forcing); % distinguish snow-/rainfall
             forcing = reduce_precip_slope(forcing, tile);

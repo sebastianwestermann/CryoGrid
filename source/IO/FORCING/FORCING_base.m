@@ -8,6 +8,7 @@
 classdef FORCING_base < matlab.mixin.Copyable
     
     properties
+        forcing_index
         PARA
         CONST
         TEMP
@@ -57,6 +58,13 @@ classdef FORCING_base < matlab.mixin.Copyable
         function forcing = initialize_terrain(forcing)
             % load parameters required for terrain shielding
             % All angles in degrees and clockwise from N (maybe change)
+
+            % Added by THIN, 2022-10-26
+            error('Error. Terrain parameters should be requested from TERRAIN class!')
+            % This funciton should not be called.
+            % Terrain parameters should instead be obtained from the 
+            % TERRAIN class which can be accessed at tile.TERRAIN.
+
             i = forcing.PARA.tp_number;
             path = forcing.PARA.forcing_path;
             tp_file = forcing.PARA.terrain_file;
@@ -71,21 +79,28 @@ classdef FORCING_base < matlab.mixin.Copyable
             
         end
         
-        function forcing = checkAndCorrect(forcing) % corrects typical forcing data errors
+        function forcing = check_and_correct(forcing) % corrects typical forcing data errors
             
             % Check for consistent timesteps
             if std(forcing.DATA.timeForcing(2:end,1)-forcing.DATA.timeForcing(1:end-1,1))~=0
                 disp('timestamp of forcing data is not in regular intervals -> check, fix and restart')
+                forcing.STATUS=0;
                 return
+            else
+                forcing.STATUS=1;
             end
             
             % Correct known isues
-            forcing.DATA.wind(forcing.DATA.wind<0.5)=0.5; %set min wind speed to 0.5 m/sec to avoid breakdown of turbulence
-            forcing.DATA.Lin(find(forcing.DATA.Lin==0)) = 5.67e-8 .* (forcing.DATA.Tair(find(forcing.DATA.Lin==0))+273.15).^4;
-            
+            if isfield(forcing.DATA, 'wind')
+                forcing.DATA.wind(forcing.DATA.wind<0.5)=0.5; %set min wind speed to 0.5 m/sec to avoid breakdown of turbulence
+            end
+
+            if isfield(forcing.DATA, 'Lin') && isfield(forcing.DATA, 'Tair')
+                forcing.DATA.Lin(find(forcing.DATA.Lin==0)) = 5.67e-8 .* (forcing.DATA.Tair(find(forcing.DATA.Lin==0))+273.15).^4;
+            end
         end
         
-        function forcing = get_time_forcing(forcing)
+        function forcing = set_start_and_end_time(forcing)
             % Assign forcing start and end times for current run
             % -> if not specified in params file, use forcing data length
             
@@ -200,12 +215,13 @@ classdef FORCING_base < matlab.mixin.Copyable
             t_weight = (t-forcing.DATA.timeForcing(posit,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)); % current distance from last timestep (0,1)
             
             for i = 1:length(variables)
-                if ~strcmp(variables{i},'t')
+                if ~strcmp(variables{i},'t') && isfield(forcing.DATA, variables{i})
                     forcing.TEMP.(variables{i}) = forcing.DATA.(variables{i})(posit,1)+(forcing.DATA.(variables{i})(posit+1,1)-forcing.DATA.(variables{i})(posit,1)).*t_weight;
                 end
             end
             forcing.TEMP.t = t;
         end
+
         
         function forcing = terrain_shade(forcing)
             az = forcing.TEMP.azimuth;
@@ -253,7 +269,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             %for i = 1 : i_end(1,1)
             
             %compute JD from UTC
-            [year month day hour min sec] = datevec(UTC); %datevec(UTC(i,:));
+            [year, month, day, hour, min, sec] = datevec(UTC); %datevec(UTC(i,:));
             idx = (month <= 2);
             year(idx) = year(idx)-1;
             month(idx) = month(idx)+12;
@@ -330,4 +346,5 @@ classdef FORCING_base < matlab.mixin.Copyable
         end
         
     end
+
 end
