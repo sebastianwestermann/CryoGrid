@@ -1,10 +1,10 @@
 %========================================================================
-% TERRAIN class for simple and predescribed terrain information.
+% TERRAIN class for cases where there is no local terrain (flat surface).
 %
-% Thomas Ingeman-Nielsen, October 2022
+% Robin B. Zweigel, October 2022
 %========================================================================
 
-classdef TERRAIN_simple < TERRAIN_base
+classdef TERRAIN_none < TERRAIN_base
     
     methods
         
@@ -27,7 +27,12 @@ classdef TERRAIN_simple < TERRAIN_base
         end
         
         function terrain = finalize_init(terrain, tile)
-            % All angles in degrees and clockwise from N (maybe change)            
+            % All angles in degrees and clockwise from N (maybe change) 
+            terrain.PARA.altitude = tile.PARA.altitude;     %
+            terrain.PARA.slope_angle = 0;     %
+            terrain.PARA.aspect = 0;     %
+            terrain.PARA.skyview_factor = 1;     %
+            terrain.PARA.horizon_angles = 0;     %
         end
         
     end
