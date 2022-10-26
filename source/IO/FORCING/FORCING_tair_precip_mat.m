@@ -67,7 +67,7 @@ classdef FORCING_tair_precip_mat < FORCING_base & READ_FORCING_mat
             %   all) data validity.
             
             variables = {'Tair'; 'rainfall'; 'snowfall'};
-            data, times = read_mat([forcing.PARA.forcing_path forcing.PARA.filename], variables);
+            [data, times] = read_mat([forcing.PARA.forcing_path forcing.PARA.filename], variables);
             
             for i=1:size(variables,1)
                 if isfield(data, variables{i,1})
