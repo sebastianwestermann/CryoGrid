@@ -117,7 +117,7 @@ classdef FORCING_base < matlab.mixin.Copyable
         end
         
         function forcing = reduce_precip_slope(forcing, tile)
-            slope = get_slope(tile.TERRAIN);
+            slope = tile.TERRAIN.PARA.slope_angle;
             % scale precip due to local slope and user definer factor
             forcing.DATA.rainfall = forcing.DATA.rainfall .* forcing.PARA.rain_fraction.*cosd(slope);
             forcing.DATA.snowfall = forcing.DATA.snowfall .* forcing.PARA.snow_fraction.*cosd(slope);
@@ -147,7 +147,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             Sin = forcing.DATA.Sin; % Total Sin (horizontal)
             Sin_dif = forcing.DATA.Sin_dif;% Diffuse Sin (horizontal)
             alpha = forcing.PARA.albedo_surrounding_terrain; %Albedo at the foot of the slope
-            svf = get_svf(tile.TERRAIN); % hemispheric fraction of sky not occluded by terrain
+            svf = tile.TERRAIN.PARA.skyview_factor; % hemispheric fraction of sky not occluded by terrain
             
             forcing.DATA.Sin_dif = Sin_dif.*svf + Sin.*alpha.*(1-svf);
         end

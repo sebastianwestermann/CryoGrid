@@ -24,11 +24,7 @@ classdef FORCING_slope_seb_readNC < FORCING_base & READ_FORCING_NC
             forcing.PARA.snow_fraction = [];  %snowfall fraction assumed in sumulations (snowfall from the forcing data file is multiplied by this parameter)
             forcing.PARA.all_rain_T = [];
             forcing.PARA.all_snow_T = [];
-%             forcing.PARA.slope_angle = []; %slope angle in degrees
-%             forcing.PARA.aspect = []; %aspect of the slope in degrees
             forcing.PARA.albedo_surrounding_terrain = [];
-%             forcing.PARA.sky_view_factor = []; %sky view factor (0.5 for vertical rock walls)
-            %forcing.PARA.albedo = []; %Albedo of the slope
             forcing.PARA.heatFlux_lb = [];  % heat flux at the lower boundary [W/m2] - positive values correspond to energy gain
             forcing.PARA.airT_height = [];  % height above ground at which air temperature (and wind speed!) from the forcing data are applied.
         end
@@ -43,7 +39,7 @@ classdef FORCING_slope_seb_readNC < FORCING_base & READ_FORCING_NC
         end
         
         function forcing = finalize_init(forcing, tile)
-            forcing = get_terrain(tile.TERRAIN); % Make TERRAIN calculate the topographical parameters
+            % Read forcing data
             forcing = read_NC_ERA5(forcing, tile); % Read files and populate forcing.DATA
             
             forcing = checkAndCorrect(forcing); % Remove known errors

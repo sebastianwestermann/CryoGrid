@@ -21,6 +21,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
         PARA
         RUN_INFO
         FORCING
+        TERRAIN
         CONST
         GRID
         OUT        
@@ -55,6 +56,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.PARA.domain_depth = [];
             tile.PARA.area = [];
             
+            tile.PARA.terrain_class = [];
+            tile.PARA.terrain_class_index = [];
             tile.PARA.forcing_class = [];
             tile.PARA.forcing_class_index = [];
             tile.PARA.grid_class = [];
@@ -139,7 +142,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
                 
                 %set fluxes between classes in the stratigrapht
                 CURRENT = TOP.NEXT;
-                while ~isequal(CURRENT.NEXT, BOTTOM)
+                while ~isequal(CURRENT.NEXT, tile.BOTTOM)
                     get_boundary_condition_m(CURRENT.IA_NEXT, tile); %call interaction class function
                     CURRENT = CURRENT.NEXT;
                 end
@@ -242,6 +245,14 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             
             tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
             tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            
+            if isempty(tile.PARA.terrain_class)
+                tile.PARA.terrain_class = 'TERRAIN_none';
+                tile.PARA.terrain_class_index = 1;
+                tile.RUN_INFO.PPROVIDER.CLASSES.TERRAIN_none = {TERRAIN_none()};
+            end
+            tile.TERRAIN = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.terrain_class){tile.PARA.terrain_class_index,1});    
+            tile.TERRAIN = finalize_init(tile.TERRAIN, tile);
             
             %1. forcing
             %tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.FUNCTIONAL_CLASSES.FORCING{tile.PARA.forcing_index,1});
