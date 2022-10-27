@@ -4,7 +4,7 @@
 % S. Westermann, November 2020
 %========================================================================
 
-classdef FORCING_read_out < matlab.mixin.Copyable
+classdef FORCING_read_out_old < matlab.mixin.Copyable
     
     properties
         forcing_index

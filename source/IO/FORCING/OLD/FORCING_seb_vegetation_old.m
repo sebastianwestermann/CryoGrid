@@ -1,7 +1,7 @@
 % forcing data
 
 
-classdef FORCING_seb_vegetation < matlab.mixin.Copyable
+classdef FORCING_seb_vegetation_old < matlab.mixin.Copyable
     properties
         forcing_index
         DATA            % forcing data time series

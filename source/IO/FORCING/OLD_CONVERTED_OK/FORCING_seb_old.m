@@ -19,7 +19,7 @@
 % S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
 %========================================================================
 
-classdef FORCING_seb < matlab.mixin.Copyable
+classdef FORCING_seb_old < matlab.mixin.Copyable
     
     properties
         forcing_index

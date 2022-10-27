@@ -8,7 +8,7 @@
 % S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
 %========================================================================
 
-classdef FORCING_do_nothing < matlab.mixin.Copyable
+classdef FORCING_do_nothing_old < matlab.mixin.Copyable
     
     properties
         forcing_index
@@ -22,22 +22,20 @@ classdef FORCING_do_nothing < matlab.mixin.Copyable
     
     methods
         
-        
         function forcing = provide_PARA(forcing)         
             forcing.PARA.start_time = []; % start time of the simulations (must be within the range of data in forcing file)
             forcing.PARA.end_time = [];   % end time of the simulations (must be within the range of data in forcing file)
         end
         
-        
-        
+
         function forcing = provide_CONST(forcing)
             
         end
         
+        
         function forcing = provide_STATVAR(forcing)
 
         end
-        
         
         
         function forcing = finalize_init(forcing, tile)
@@ -45,8 +43,9 @@ classdef FORCING_do_nothing < matlab.mixin.Copyable
             forcing.PARA.start_time = datenum(forcing.PARA.start_time(1,1), forcing.PARA.start_time(2,1), forcing.PARA.start_time(3,1));
             forcing.PARA.end_time = datenum(forcing.PARA.end_time(1,1), forcing.PARA.end_time(2,1),forcing.PARA.end_time(3,1));
 
-         end
+        end
         
+
         function forcing = interpolate_forcing(forcing, tile)
             t = tile.t;
             
