@@ -666,7 +666,7 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
         end
         
         function z0 = get_z0_surface(snow)
-            z0 = get_z0_surface@SNOW(snow);
+            z0 = get_z0_surface(snow);
         end
         
         function albedo = get_albedo(snow)

@@ -9,6 +9,7 @@ classdef FORCING_base < matlab.mixin.Copyable
     
     properties
         forcing_index
+        STATUS
         PARA
         CONST
         TEMP
@@ -53,6 +54,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             forcing.TEMP.Sin_dif = 0;
             forcing.TEMP.Sin_dir = 0;
             forcing.TEMP.sunElevation = 0;
+            forcing.TEMP.azimuth = 0;
         end
         
         function forcing = initialize_terrain(forcing)
@@ -223,11 +225,11 @@ classdef FORCING_base < matlab.mixin.Copyable
         end
 
         
-        function forcing = terrain_shade(forcing)
+        function forcing = terrain_shade(forcing, tile)
             az = forcing.TEMP.azimuth;
             el = forcing.TEMP.sunElevation;
-            hbins = forcing.PARA.hbins;
-            h = forcing.PARA.h;
+            hbins = tile.TERRAIN.PARA.hbins;
+            h = tile.TERRAIN.PARA.h;
             
             I = knnsearch(hbins,az); % hbin containing current solar azimuth
             forcing.TEMP.Sin_dir(h(I)>el) = 0; % remove direct Sin if sun is below horizon

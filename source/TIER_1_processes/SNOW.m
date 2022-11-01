@@ -380,10 +380,6 @@ classdef SNOW < BASE
             snow.TEMP.newSnow.STATVAR.volume = timestep .* snow.TEMP.snowfall ./ (snow.TEMP.newSnow.STATVAR.density ./1000);
             snow.TEMP.newSnow.STATVAR.energy = timestep .* snow.TEMP.snow_energy;
         end
-                
-        function z0 = get_z0_surface(snow)
-            z0 = snow.PARA.z0;
-        end
         
         %-------triggers-----------------
         %make SNOW a CHILD again

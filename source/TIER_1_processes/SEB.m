@@ -571,7 +571,7 @@ classdef SEB < BASE
             ypsilon = seb.CONST.ypsilon; % kinematic viscosity of air
             Cs_dense = seb.PARA.Cs_dense; %  dense canopy turbulent transfer coefficient
             z = forcing.PARA.airT_height + sum(seb.STATVAR.layerThick); % height above ground for measurements
-            z0v = seb.STATVAR.z0; % roughness length of vegetation
+            z0v = seb.STATVAR.z0; % roughness length of vegetation ---------------- consider makeing a get_z0_surface_vegetation function!
             z0g = get_z0_surface(seb.NEXT); % Roughness lenght of ground
             d = seb.STATVAR.d; % displacement heigh
             k_s = seb.PARA.k_shelter; % canopy sheltering coefficient
