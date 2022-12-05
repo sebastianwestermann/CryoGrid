@@ -266,6 +266,22 @@ classdef GROUND_freezeC_RichardsEqW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_K
             ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.STATVAR.evap_energy.* ground.STATVAR.area(1,1);
 
         end
+        function ground = surface_energy_balance2(ground, forcing)
+            ground.STATVAR.Lout = (1-ground.PARA.epsilon) .* forcing.TEMP.Lin + ground.PARA.epsilon .* ground.CONST.sigma .* (ground.STATVAR.T(1)+ 273.15).^4;
+            ground.STATVAR.Sout = ground.PARA.albedo .*  forcing.TEMP.Sin;
+            ground.STATVAR.Qh = Q_h(ground, forcing);
+            ground = Q_evap_CLM4_5(ground, forcing);
+            
+            ground.TEMP.F_ub = (forcing.TEMP.Sin + forcing.TEMP.Lin - ground.STATVAR.Lout - ground.STATVAR.Sout - ground.STATVAR.Qh - ground.STATVAR.Qe) .* ground.STATVAR.area(1);
+            ground.TEMP.d_energy(1) = ground.TEMP.d_energy(1) + ground.TEMP.F_ub;
+            ground.STATVAR.Sin = forcing.TEMP.Sin;
+            ground.STATVAR.Lin = forcing.TEMP.Lin;
+            
+            %water -> evaporation
+            ground.TEMP.d_water_ET(1,1) = ground.TEMP.d_water_ET(1,1) -  ground.STATVAR.evap.* ground.STATVAR.area(1,1); %in m3 water per sec, put everything in uppermost grid cell
+            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.STATVAR.evap_energy.* ground.STATVAR.area(1,1);
+
+        end
         
         function ground = conductivity(ground)
             conductivity_function = str2func(ground.PARA.conductivity_function);

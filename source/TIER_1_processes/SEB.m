@@ -65,7 +65,7 @@ classdef SEB < BASE
             
             u_star = real(uz.*kappa./(log(z./z0)- psi_M_CLM5(seb, z./Lstar, z0./Lstar)));
             L_star = real(-rho.*cp.*Tz./kappa./g.*u_star.^3./(Qh + 0.61.*cp./L.*Tz.*Qe));
-            L_star=(abs(L_star)<1e-7).*L_star./abs(L_star).*1e-7 + (abs(L_star)>=1e-7).*L_star;  %limits Lstar
+            L_star=(abs(L_star)<1e-3).*L_star./abs(L_star).*1e-3 + (abs(L_star)>=1e-3).*L_star;  %limits Lstar
             
             L_star(Qh == 0 && Qe == 0) = 1e10; % avoid L_star = NaN for zero turbulent fluxes
             
@@ -236,7 +236,7 @@ classdef SEB < BASE
                 seb.STATVAR.evap = - Qe_evap ./(seb.CONST.rho_w .* L_w) .* seb.STATVAR.area(1);
                 seb.TEMP.evap_energy = seb.STATVAR.evap .* seb.STATVAR.T(1) .* seb.CONST.c_w;
                 
-                Q_e = evap_fraction .* Qe_evap + sublim_fraction .* Qe_sublim;
+                Q_e = evap_fraction .* Qe_evap + sublim_fraction .* Qe_sublim; % RBZ do we need to multiply by fractions here??
             end
         end
 
@@ -436,22 +436,22 @@ classdef SEB < BASE
             ice_fraction(seb.STATVAR.waterIce == 0) = double(Tv<0);
             
             if q_s - qs_Tv < 0 % evaporation/transpiration in m3 water /(m2*s), not kg/(m2*s) as in CLM5
-                seb.TEMP.evap = -rho_atm.*(q_s - qs_Tv).* f_wet.*water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.sublim = -rho_atm.*(q_s - qs_Tv).* f_wet.*ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w; % Is this correct? or use f_snow?
-                seb.TEMP.transp = -rho_atm.*(q_s - qs_Tv).* f_dry.*(L+S) ./ (r_b + r_canopy) ./ seb.CONST.rho_w;
+                seb.STATVAR.evap = -rho_atm.*(q_s - qs_Tv).* f_wet.*water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.sublim = -rho_atm.*(q_s - qs_Tv).* f_wet.*ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w; % Is this correct? or use f_snow?
+                seb.STATVAR.transp = -rho_atm.*(q_s - qs_Tv).* f_dry.*(L+S) ./ (r_b + r_canopy) ./ seb.CONST.rho_w;
             else % condensation/deposition
-                seb.TEMP.evap = -rho_atm.*(q_s - qs_Tv).* water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.sublim = -rho_atm.*(q_s - qs_Tv).* ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.transp = 0;
+                seb.STATVAR.evap = -rho_atm.*(q_s - qs_Tv).* water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.sublim = -rho_atm.*(q_s - qs_Tv).* ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.transp = 0;
             end
             
-            seb.TEMP.Qe_evap = latent_heat_evaporation(seb, Tv+Tmfw).*seb.TEMP.evap.*seb.CONST.rho_w + latent_heat_sublimation(seb, Tv+Tmfw).*seb.TEMP.sublim.*seb.CONST.rho_w;
-            seb.TEMP.Qe_transp = latent_heat_evaporation(seb, Tv+Tmfw).*seb.TEMP.transp.*seb.CONST.rho_w;
+            seb.TEMP.Qe_evap = latent_heat_evaporation(seb, Tv+Tmfw).*seb.STATVAR.evap.*seb.CONST.rho_w + latent_heat_sublimation(seb, Tv+Tmfw).*seb.STATVAR.sublim.*seb.CONST.rho_w;
+            seb.TEMP.Qe_transp = latent_heat_evaporation(seb, Tv+Tmfw).*seb.STATVAR.transp.*seb.CONST.rho_w;
             
             seb.STATVAR.Qe = seb.TEMP.Qe_evap + seb.TEMP.Qe_transp;
-            seb.TEMP.evap_energy = seb.TEMP.evap.*( double(Tv>=0).*seb.CONST.c_w.*Tv + double(Tv<0).*seb.CONST.c_i.*Tv);
-            seb.TEMP.sublim_energy = seb.TEMP.sublim .* (seb.CONST.c_i.*Tv - seb.CONST.L_f);
-            seb.TEMP.transp_energy = seb.TEMP.transp.*seb.CONST.c_w.*Tv; 
+            seb.STATVAR.evap_energy = seb.STATVAR.evap.*( double(Tv>=0).*seb.CONST.c_w.*Tv + double(Tv<0).*seb.CONST.c_i.*Tv);
+            seb.STATVAR.sublim_energy = seb.STATVAR.sublim .* (seb.CONST.c_i.*Tv - seb.CONST.L_f);
+            seb.STATVAR.transp_energy = seb.STATVAR.transp.*seb.CONST.c_w.*Tv; 
         end
         
 % -------------- Sensible heat fluxes ------------------------------------        

@@ -61,6 +61,8 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
             out.STATVAR.sublim          = [];
             out.STATVAR.surface_runoff  = [];
             out.STATVAR.subsurface_runoff = [];
+            out.STATVAR.d_snow          = [];
+            out.STATVAR.swe             = [];
             % Layer statvars
             out.STATVAR.T       = [];
             out.STATVAR.energy  = [];
@@ -110,6 +112,10 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
             out.TEMP.sublim          = zeros(size(out.PARA.classes));
             out.TEMP.surface_runoff  = 0;
             out.TEMP.subsurface_runoff = 0;
+            out.TEMP.d_snow         = 0;
+            out.TEMP.swe            = 0;
+            out.TEMP.rainfall       = 0;
+            out.TEMP.snowfall       = 0;
             
             heights = [];
             CURRENT = tile.TOP.NEXT;
@@ -152,27 +158,33 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
             out.TEMP.count = out.TEMP.count + 1;
             out.TEMP.time = out.TEMP.time + tile.timestep;
             
-            % ACCUMULATE VARIABLES
-            % From forcing (but are downscaled???)
-            
             CURRENT =TOP.NEXT;
+            % ACCUMULATE VARIABLES
+            out.TEMP.rainfall = out.TEMP.rainfall + forcing.TEMP.rainfall./ 1000 ./ 24 ./3600 .* CURRENT.STATVAR.area(1).*tile.timestep;
+            out.TEMP.snowfall = out.TEMP.snowfall + forcing.TEMP.snowfall./ 1000 ./ 24 ./3600 .* CURRENT.STATVAR.area(1).*tile.timestep;
+            
             while ~isequal(CURRENT,BOTTOM)
                 className = class(CURRENT);
                 for i = 1:length(out.PARA.classes)
                     if strcmp(className(1:10),'VEGETATION') % Some vars only exist for vegetation
-                        out.TEMP.transp = out.TEMP.transp + CURRENT.TEMP.transp .*tile.timestep;
+                        out.TEMP.transp = out.TEMP.transp + CURRENT.STATVAR.transp .*tile.timestep;
                     end
                     if strcmp(className,out.PARA.classes(i))
                         % SEB
-                        out.TEMP.Sin(i)  = out.TEMP.Sin(i) + CURRENT.STATVAR.Sin.*tile.timestep;
-                        out.TEMP.Lin(i)  = out.TEMP.Lin(i) + CURRENT.STATVAR.Lin.*tile.timestep;
+%                         out.TEMP.Sin(i)  = out.TEMP.Sin(i) + CURRENT.STATVAR.Sin.*tile.timestep;
+%                         out.TEMP.Lin(i)  = out.TEMP.Lin(i) + CURRENT.STATVAR.Lin.*tile.timestep;
                         out.TEMP.Sout(i) = out.TEMP.Sout(i) + CURRENT.STATVAR.Sout.*tile.timestep;
                         out.TEMP.Lout(i) = out.TEMP.Lout(i) + CURRENT.STATVAR.Lout.*tile.timestep;
                         out.TEMP.Qe(i)   = out.TEMP.Qe(i) + CURRENT.STATVAR.Qe.*tile.timestep;
                         out.TEMP.Qh(i)   = out.TEMP.Qh(i) + CURRENT.STATVAR.Qh.*tile.timestep;
                         % Water
-                        out.TEMP.evap(i)   = out.TEMP.evap(i) + CURRENT.TEMP.evap.*tile.timestep;
-                        out.TEMP.sublim(i) = out.TEMP.sublim(i) + CURRENT.TEMP.sublim.*tile.timestep;
+                        if strcmp(className(1:4),'SNOW') % Snow naming and sign convention is different
+                            out.TEMP.evap(i)   = out.TEMP.evap(i) - CURRENT.STATVAR.evap.*tile.timestep;
+                            out.TEMP.sublim(i) = out.TEMP.sublim(i) - CURRENT.STATVAR.sublimation.*tile.timestep;
+                        else
+                            out.TEMP.evap(i)   = out.TEMP.evap(i) + CURRENT.STATVAR.evap.*tile.timestep;
+                            out.TEMP.sublim(i) = out.TEMP.sublim(i) + CURRENT.STATVAR.sublim.*tile.timestep;
+                        end
                     end
                 end
                 CURRENT = CURRENT.NEXT;
@@ -205,17 +217,38 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
                         className = class(CURRENT);
                         if strcmp(className,out.PARA.classes(i))
                             depths = [0; cumsum(CURRENT.STATVAR.layerThick)];
+                            volume = CURRENT.STATVAR.layerThick.*CURRENT.STATVAR.area; % for extensive vars
                             midpoints = CURRENT.STATVAR.upperPos - (depths(2:end)+depths(1:end-1))./2;
                             out.TEMP.midpoints = [out.TEMP.midpoints; midpoints; midpoints(end)-1e-4]; % add break (NaN) to separate classes
                             out.TEMP.T = [out.TEMP.T; CURRENT.STATVAR.T; NaN];
-                            out.TEMP.waterIce = [out.TEMP.waterIce; CURRENT.STATVAR.waterIce; NaN];
+                            out.TEMP.waterIce = [out.TEMP.waterIce; CURRENT.STATVAR.waterIce./volume; NaN];
                             out.TEMP.energy = [out.TEMP.energy; CURRENT.STATVAR.energy; NaN];
-                            out.TEMP.water = [out.TEMP.water; CURRENT.STATVAR.water; NaN];
-                            out.TEMP.ice = [out.TEMP.ice; CURRENT.STATVAR.ice; NaN];
+                            out.TEMP.water = [out.TEMP.water; CURRENT.STATVAR.water./volume; NaN];
+                            out.TEMP.ice = [out.TEMP.ice; CURRENT.STATVAR.ice./volume; NaN];
+                            if strcmp(className(1:4),'SNOW')
+                                out.TEMP.d_snow = out.TEMP.d_snow + sum(CURRENT.STATVAR.layerThick);
+                                out.TEMP.swe = out.TEMP.swe + sum(CURRENT.STATVAR.waterIce);
+                            elseif isprop(CURRENT,'CHILD') % Find smoother way to check for snow child1
+                                if CURRENT.CHILD ~= 0
+                                    out.TEMP.d_snow = out.TEMP.d_snow + sum(CURRENT.CHILD.STATVAR.layerThick).*CURRENT.CHILD.STATVAR.area; % average snow height
+                                    out.TEMP.swe = out.TEMP.swe + sum(CURRENT.CHILD.STATVAR.waterIce);
+                                end
+                            end
                         end
                     end
                     CURRENT = CURRENT.NEXT;
                 end
+                
+                for i = 1:length(tile.LATERAL.IA_CLASSES)
+                    className = class(tile.LATERAL.IA_CLASSES{i});
+                    if strcmp(className(1:20),'LAT_REMOVE_SURFACE_W')
+                        out.TEMP.surface_runoff = tile.LATERAL.IA_CLASSES{i}.STATVAR.surface_run_off;
+                    end
+                    if strcmp(className(1:16),'LAT_SEEPAGE_FACE')
+                        out.TEMP.subsurface_runoff = tile.LATERAL.IA_CLASSES{i}.STATVAR.subsurface_run_off;
+                    end
+                end
+                        
                 
                 % Energy
                 out.STATVAR.Sin     = [out.STATVAR.Sin out.TEMP.Sin];
@@ -225,9 +258,15 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
                 out.STATVAR.Qe      = [out.STATVAR.Qe out.TEMP.Qe];
                 out.STATVAR.Qh      = [out.STATVAR.Qh out.TEMP.Qh];
                 % Water cycle
-                out.STATVAR.transp  = [out.STATVAR.transp out.TEMP.transp];
-                out.STATVAR.evap    = [out.STATVAR.evap out.TEMP.evap];
-                out.STATVAR.sublim  = [out.STATVAR.sublim out.TEMP.sublim];
+                out.STATVAR.rainfall    = [out.STATVAR.rainfall out.TEMP.rainfall];
+                out.STATVAR.snowfall    = [out.STATVAR.snowfall out.TEMP.snowfall];
+                out.STATVAR.transp      = [out.STATVAR.transp out.TEMP.transp];
+                out.STATVAR.evap        = [out.STATVAR.evap out.TEMP.evap];
+                out.STATVAR.sublim      = [out.STATVAR.sublim out.TEMP.sublim];
+                out.STATVAR.surface_runoff = [out.STATVAR.surface_runoff out.TEMP.surface_runoff];
+                out.STATVAR.subsurface_runoff = [out.STATVAR.subsurface_runoff out.TEMP.subsurface_runoff]; 
+                out.STATVAR.d_snow      = [out.STATVAR.d_snow out.TEMP.d_snow];
+                out.STATVAR.swe         = [out.STATVAR.swe out.TEMP.swe];
                 % Layer statvars
                 out.STATVAR.T       = [out.STATVAR.T interp1(out.TEMP.midpoints,out.TEMP.T,out.HEIGHTS)];
                 out.STATVAR.waterIce= [out.STATVAR.waterIce interp1(out.TEMP.midpoints,out.TEMP.waterIce,out.HEIGHTS)];
@@ -244,7 +283,13 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
                 out.TEMP.transp = out.TEMP.transp.*0;
                 out.TEMP.evap   = out.TEMP.evap.*0;
                 out.TEMP.sublim = out.TEMP.sublim.*0;
-                
+                out.TEMP.surface_runoff = 0;
+                out.TEMP.subsurface_runoff = 0;
+                out.TEMP.d_snow = 0;
+                out.TEMP.swe = 0;
+                out.TEMP.rainfall = 0;
+                out.TEMP.snowfall = 0;
+                 
                 % Set the next OUTPUT_TIME
                 out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
                 

@@ -8,9 +8,10 @@ classdef IA_SEB_vegetation_CLM5_SNOW < IA_SEB & IA_WATER % Throughfall of water
     
     methods
         function  ia_seb_water = get_boundary_condition_m(ia_seb_water, tile) 
-            forcing = tile.FORCING;
             % SEB of snow below canopy
+            forcing = tile.FORCING;
             snow = ia_seb_water.NEXT;
+            
             % 1. get snowfall
             snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* snow.STATVAR.area(1,1); %snowfall is in mm/day -> [m3/sec]
             snow.TEMP.snow_energy = snow.TEMP.snowfall .* (min(0, forcing.TEMP.Tair) .* snow.CONST.c_i - snow.CONST.L_f);  %[J/sec]
@@ -19,7 +20,7 @@ classdef IA_SEB_vegetation_CLM5_SNOW < IA_SEB & IA_WATER % Throughfall of water
             % 3. turbulent fluxes
             ia_seb_water = get_boundary_condition_Qh_CLM5_m(ia_seb_water, tile);
             ia_seb_water = get_boundary_condition_Qe_CLM5_SNOW_m(ia_seb_water, tile);
-            % 4. add fluxes to uppermost cell (ratiative fluxes are added by penetration)
+            % 4. add fluxes to uppermost cell (radiative fluxes are added by penetration)
             snow.TEMP.d_energy(1) = snow.TEMP.d_energy(1) + (-snow.STATVAR.Qh - snow.STATVAR.Qe) .* snow.STATVAR.area(1);
             % 5. make new snow
             snow_property_function = str2func(snow.PARA.snow_property_function);

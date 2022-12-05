@@ -167,7 +167,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         
         function ground = get_boundary_condition_u(ground, tile)
             forcing = tile.FORCING;
-            ground = surface_energy_balance(ground, forcing);
+            ground = surface_energy_balance2(ground, forcing);
             ground = get_boundary_condition_u_water_RichardsEq_Xice2(ground, forcing); %checked that this flux can be taken up!!
         end
         
@@ -317,6 +317,22 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.STATVAR.evap_energy.* ground.STATVAR.area(1,1);
         end
         
+        function ground = surface_energy_balance2(ground, forcing) % Also stores incoming radiaton RBZ
+            ground.STATVAR.Lout = (1-ground.PARA.epsilon) .* forcing.TEMP.Lin + ground.PARA.epsilon .* ground.CONST.sigma .* (ground.STATVAR.T(1)+ 273.15).^4;
+            ground.STATVAR.Sout = ground.PARA.albedo .*  forcing.TEMP.Sin;
+            ground.STATVAR.Qh = Q_h(ground, forcing);
+            ground = Q_evap_CLM4_5_Xice(ground, forcing);
+            
+            ground.TEMP.F_ub = (forcing.TEMP.Sin + forcing.TEMP.Lin - ground.STATVAR.Lout - ground.STATVAR.Sout - ground.STATVAR.Qh - ground.STATVAR.Qe) .* ground.STATVAR.area(1);
+            ground.TEMP.d_energy(1) = ground.TEMP.d_energy(1) + ground.TEMP.F_ub;
+            ground.STATVAR.Lin = forcing.TEMP.Lin;
+            ground.STATVAR.Sin = forcing.TEMP.Sin;
+            
+            %water -> evaporation
+            ground.TEMP.d_water_ET(1,1) = ground.TEMP.d_water_ET(1,1) -  ground.STATVAR.evap.* ground.STATVAR.area(1,1); %in m3 water per sec, put everything in uppermost grid cell
+            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.STATVAR.evap_energy.* ground.STATVAR.area(1,1);
+        end
+        
         function ground = conductivity(ground)
             conductivity_function = str2func(ground.PARA.conductivity_function);
             ground = conductivity_function(ground);
@@ -358,10 +374,6 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground = lateral_push_water_overland_flow_XICE(ground, lateral);
         end
         
-        %---LAT_OVERLAND_FLOW----------
-        function ground = lateral_push_remove_water_overland_flow(ground, lateral)
-            ground = lateral_push_water_overland_flow_XICE(ground, lateral);
-        end
         %----LAT3D_WATER_UNCONFINED_AQUIFER------------
         function ground = lateral3D_pull_water_unconfined_aquifer(ground, lateral)
             ground = lateral3D_pull_water_unconfined_aquifer_Xice(ground, lateral);

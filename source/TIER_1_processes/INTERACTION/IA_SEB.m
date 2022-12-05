@@ -20,16 +20,16 @@ classdef IA_SEB < IA_BASE
             uz = forcing.TEMP.wind;
             z =  stratigraphy2.PARA.airT_height;
             z0 = stratigraphy2.PARA.z0;
-            Tz = forcing.TEMP.Tair;
-            TForcing = stratigraphy2.STATVAR.T(1);
+            Tair = forcing.TEMP.Tair;
+            Tsurf = stratigraphy2.STATVAR.T(1);
             Lstar = stratigraphy2.STATVAR.Lstar;
             p = forcing.TEMP.p;
             
-            Tz=Tz+forcing.CONST.Tmfw;
-            TForcing=TForcing+forcing.CONST.Tmfw;
-            rho = rho_air(stratigraphy2,p, Tz);
+            Tair=Tair+forcing.CONST.Tmfw;
+            Tsurf=Tsurf+forcing.CONST.Tmfw;
+            rho = rho_air(stratigraphy2,p, Tair);
             
-            Q_h  = -rho.*cp.*kappa.* uz.*kappa./(log(z./z0)- psi_M(stratigraphy2, z./Lstar, z0./Lstar)) .* (Tz-TForcing)./(log(z./z0)- psi_H(stratigraphy2, z./Lstar, z0./Lstar));
+            Q_h  = -rho.*cp.*kappa.* uz.*kappa./(log(z./z0)- psi_M(stratigraphy2, z./Lstar, z0./Lstar)) .* (Tair-Tsurf)./(log(z./z0)- psi_H(stratigraphy2, z./Lstar, z0./Lstar));
             stratigraphy2.STATVAR.Qh = Q_h;
         end
         
@@ -44,6 +44,7 @@ classdef IA_SEB < IA_BASE
             stratigraphy2.TEMP.d_water_ET_energy(1,1) = stratigraphy2.TEMP.d_water_ET_energy(1,1) -  stratigraphy2.STATVAR.evap_energy.* stratigraphy2.STATVAR.area(1,1);
         end
         
+                
         function ia_seb_water = get_boundary_condition_Qh_CLM5_m(ia_seb_water, tile)
             % ground sensible heat flux as described in CLM5
             stratigraphy1 = ia_seb_water.PREVIOUS; % vegetation
@@ -75,42 +76,83 @@ classdef IA_SEB < IA_BASE
             
             stratigraphy2.STATVAR.Qe = -rho_atm.*latent_heat.*(q_s-q_g)./(r_aw_prime+r_soil);
             
-            stratigraphy2.TEMP.evap = water_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
-            stratigraphy2.TEMP.sublim = ice_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
-            stratigraphy2.TEMP.evap_energy =  stratigraphy2.TEMP.evap.*  (double(Tg>=0) .* stratigraphy2.CONST.c_w .* Tg + ...
+            stratigraphy2.STATVAR.evap = water_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
+            stratigraphy2.STATVAR.sublim = ice_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
+            stratigraphy2.TEMP.evap_energy =  stratigraphy2.STATVAR.evap.*  (double(Tg>=0) .* stratigraphy2.CONST.c_w .* Tg + ...
                 double(Tg<0) .* stratigraphy2.CONST.c_i .* Tg);
             stratigraphy2.TEMP.sublim_energy =  stratigraphy2.TEMP.sublim .* (stratigraphy2.CONST.c_i .* stratigraphy2.STATVAR.T(1,1) - stratigraphy2.CONST.L_f);
             
-            stratigraphy2.TEMP.d_water_ET(1) = stratigraphy2.TEMP.d_water_ET(1) - (stratigraphy2.TEMP.evap + stratigraphy2.TEMP.sublim).*stratigraphy2.STATVAR.area(1);
-            stratigraphy2.TEMP.d_water_ET_energy(1) = stratigraphy2.TEMP.d_water_ET_energy(1) - (stratigraphy2.TEMP.evap_energy + stratigraphy2.TEMP.sublim_energy).*stratigraphy2.STATVAR.area(1);
+            stratigraphy2.TEMP.d_water_ET(1) = stratigraphy2.TEMP.d_water_ET(1) - stratigraphy2.STATVAR.evap.*stratigraphy2.STATVAR.area(1);
+            stratigraphy2.TEMP.d_water_ET_energy(1) = stratigraphy2.TEMP.d_water_ET_energy(1) - stratigraphy2.TEMP.evap_energy.*stratigraphy2.STATVAR.area(1);
                         
         end
         
-        function ia_seb_water = get_boundary_condition_Qe_CLM5_SNOW_m(ia_seb_water, tile)
-            % ground sensible heat flux as described in CLM5
+        function ia_seb_water = get_boundary_condition_Qe_CLM5_m_Xice(ia_seb_water, tile)
+                        % ground sensible heat flux as described in CLM5
             stratigraphy1 = ia_seb_water.PREVIOUS; % vegetation
-            stratigraphy2 = ia_seb_water.NEXT; % snow
-            q_g = stratigraphy2.STATVAR.q_g; % snow specific humidity
+            stratigraphy2 = ia_seb_water.NEXT; % ground
+            q_g = stratigraphy2.STATVAR.q_g; % ground specific humidity
             q_s = stratigraphy1.STATVAR.q_s; % canopy air specific humidity
             Tg = stratigraphy2.STATVAR.T(1);
             Tmfw = tile.FORCING.CONST.Tmfw;
             r_aw_prime = stratigraphy1.TEMP.r_a_prime;
+            r_soil = stratigraphy1.TEMP.r_soil;
             rho_atm = stratigraphy1.TEMP.rho_atm; % moist air density
             
-            water_fraction = stratigraphy2.STATVAR.water(1) ./ stratigraphy2.STATVAR.waterIce(1);
-            ice_fraction = stratigraphy2.STATVAR.ice(1) ./ stratigraphy2.STATVAR.waterIce(1);
+            water_fraction = (stratigraphy2.STATVAR.water(1,1)+stratigraphy2.STATVAR.Xwater(1,1) ) ./ (stratigraphy2.STATVAR.waterIce(1,1) + stratigraphy2.STATVAR.XwaterIce(1,1));
+            ice_fraction = (stratigraphy2.STATVAR.ice(1,1) + stratigraphy2.STATVAR.Xice(1,1)) ./ (stratigraphy2.STATVAR.waterIce(1,1) + stratigraphy2.STATVAR.XwaterIce(1,1));
+            water_fraction(stratigraphy2.STATVAR.waterIce == 0) = double(Tg>=0);
+            ice_fraction(stratigraphy2.STATVAR.waterIce == 0) = double(Tg<0);
             latent_heat = water_fraction.*latent_heat_evaporation(stratigraphy2, Tg+Tmfw) + ice_fraction.*latent_heat_sublimation(stratigraphy2, Tg+Tmfw);
             
-            stratigraphy2.STATVAR.Qe = -rho_atm.*latent_heat.*(q_s-q_g)./r_aw_prime;
+            stratigraphy2.STATVAR.Qe = -rho_atm.*latent_heat.*(q_s-q_g)./(r_aw_prime+r_soil);
             
-            stratigraphy2.TEMP.evap = water_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
-            stratigraphy2.TEMP.sublim = ice_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
-            stratigraphy2.TEMP.evap_energy =  stratigraphy2.TEMP.evap.*  (double(Tg>=0) .* stratigraphy2.CONST.c_w .* Tg + ...
+            stratigraphy2.STATVAR.evap = water_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
+            stratigraphy2.STATVAR.sublim = ice_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w);
+            stratigraphy2.TEMP.evap_energy =  stratigraphy2.STATVAR.evap.*  (double(Tg>=0) .* stratigraphy2.CONST.c_w .* Tg + ...
                 double(Tg<0) .* stratigraphy2.CONST.c_i .* Tg);
-            stratigraphy2.TEMP.sublim_energy =  stratigraphy2.TEMP.sublim .* (stratigraphy2.CONST.c_i .* stratigraphy2.STATVAR.T(1,1) - stratigraphy2.CONST.L_f);
+            stratigraphy2.TEMP.sublim_energy =  stratigraphy2.STATVAR.sublim .* (stratigraphy2.CONST.c_i .* Tg - stratigraphy2.CONST.L_f);
             
-%             stratigraphy2.TEMP.d_water_ET(1) = stratigraphy2.TEMP.d_water_ET(1) - (stratigraphy2.TEMP.evap + stratigraphy2.TEMP.sublim).*stratigraphy2.STATVAR.area(1);
-%             stratigraphy2.TEMP.d_water_ET_energy(1) = stratigraphy2.TEMP.d_water_ET_energy(1) - (stratigraphy2.TEMP.evap_energy + stratigraphy2.TEMP.sublim_energy).*stratigraphy2.STATVAR.area(1);
+            stratigraphy2.TEMP.d_water_ET(1) = stratigraphy2.TEMP.d_water_ET(1) - stratigraphy2.STATVAR.evap.*stratigraphy2.STATVAR.area(1);
+            stratigraphy2.TEMP.d_water_ET_energy(1) = stratigraphy2.TEMP.d_water_ET_energy(1) - stratigraphy2.TEMP.evap_energy.*stratigraphy2.STATVAR.area(1);
+        end
+        
+        function ia_seb_water = get_boundary_condition_Qe_CLM5_SNOW_m(ia_seb_water, tile)
+            % equivalent to Q_eq_potET_snow, but for snow below canopy
+            stratigraphy1 = ia_seb_water.PREVIOUS; % vegetation
+            stratigraphy2 = ia_seb_water.NEXT; % snow
+            q_g = stratigraphy2.STATVAR.q_g; % snow specific humidity
+            q_s = stratigraphy1.STATVAR.q_s; % canopy air specific humidity
+            Tsurf = stratigraphy2.STATVAR.T(1);
+            Tmfw = tile.FORCING.CONST.Tmfw;
+            r_aw_prime = stratigraphy1.TEMP.r_a_prime;
+            rho_atm = stratigraphy1.TEMP.rho_atm; % moist air density
+            
+%             water_fraction = stratigraphy2.STATVAR.water(1) ./ stratigraphy2.STATVAR.waterIce(1);
+%             ice_fraction = stratigraphy2.STATVAR.ice(1) ./ stratigraphy2.STATVAR.waterIce(1);
+            saturation = stratigraphy2.STATVAR.water(1)./(stratigraphy2.STATVAR.layerThick(1).*stratigraphy2.STATVAR.area(1) - stratigraphy2.STATVAR.ice(1));
+            L_w = latent_heat_evaporation(stratigraphy2, Tsurf+Tmfw); 
+            L_i = latent_heat_sublimation(stratigraphy2, Tsurf+Tmfw);
+            
+            if Tsurf < 0 || saturation <= 0 % All sublimation
+                stratigraphy2.STATVAR.Qe = -rho_atm.*L_i.*(q_s-q_g)./r_aw_prime;
+                stratigraphy2.STATVAR.sublimation = - stratigraphy2.STATVAR.Qe ./ (L_i .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.sublimation_energy =  stratigraphy2.STATVAR.sublimation .* (stratigraphy2.CONST.c_i .* stratigraphy2.STATVAR.T(1,1) - stratigraphy2.CONST.L_f);
+                stratigraphy2.STATVAR.evap = 0;
+                stratigraphy2.STATVAR.evap_energy = 0;
+            else
+                evap_fraction = max(0, min(saturation./(2.*stratigraphy2.PARA.field_capacity),1)); % all evap when saturation is more than twice of field capacity (in fraction of porespace)
+                sublim_fraction = 1 - evap_fraction;
+                Qe_sublim = -sublim_fraction.*rho_atm.*L_i.*(q_s-q_g)./r_aw_prime;
+                Qe_evap = -evap_fraction.*rho_atm.*L_w.*(q_s-q_g)./r_aw_prime;
+                stratigraphy2.STATVAR.sublimation = - Qe_sublim ./(stratigraphy2.CONST.rho_w .* L_i) .* stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.sublimation_energy = stratigraphy2.STATVAR.sublimation .* (Tsurf .* stratigraphy2.CONST.c_i - stratigraphy2.CONST.L_f);
+                stratigraphy2.STATVAR.evap = - Qe_evap ./(stratigraphy2.CONST.rho_w .* L_w) .* stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.evap_energy = stratigraphy2.STATVAR.evap .* stratigraphy2.CONST.c_w;
+                
+                stratigraphy2.STATVAR.Qe = Qe_evap + Qe_sublim; % Note this is not like in Q_eq_potET_snow! RBZ
+            end
+            % Note: no d_water_ET for SNOW, evap/sublimation is added to water fluxes in advance_prognostics(..)
         end
         
         function ia_seb_water = get_boundary_condition_m_CHILD(ia_seb_water, tile)
@@ -148,25 +190,35 @@ classdef IA_SEB < IA_BASE
             stratigraphy2 = ia_seb_water.NEXT.CHILD; % snow CHILD
             q_g = stratigraphy2.STATVAR.q_g; % ground specific humidity
             q_s = stratigraphy1.STATVAR.q_s; % canopy air specific humidity
-            Tg = stratigraphy2.STATVAR.T(1);
+            Tsurf = stratigraphy2.STATVAR.T(1);
             Tmfw = tile.FORCING.CONST.Tmfw;
             r_aw_prime = stratigraphy1.TEMP.r_a_prime;
             rho_atm = stratigraphy1.TEMP.rho_atm; % moist air density
             
-            water_fraction = stratigraphy2.STATVAR.water(1) ./ stratigraphy2.STATVAR.waterIce(1);
-            ice_fraction = stratigraphy2.STATVAR.ice(1) ./ stratigraphy2.STATVAR.waterIce(1);
-            latent_heat = water_fraction.*latent_heat_evaporation(stratigraphy2, Tg+Tmfw) + ice_fraction.*latent_heat_sublimation(stratigraphy2, Tg+Tmfw);
+            porespace = stratigraphy2.STATVAR.layerThick(1).*stratigraphy2.STATVAR.area(1) - stratigraphy2.STATVAR.ice(1);
+            saturation = stratigraphy2.STATVAR.water(1)./porespace;
+            saturation(porespace == 0) = 0;
+            L_w = latent_heat_evaporation(stratigraphy2, Tsurf+Tmfw); 
+            L_i = latent_heat_sublimation(stratigraphy2, Tsurf+Tmfw);
             
-            stratigraphy2.STATVAR.Qe = -rho_atm.*latent_heat.*(q_s-q_g)./r_aw_prime;
-            
-            stratigraphy2.TEMP.evap = water_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
-            stratigraphy2.TEMP.sublim = ice_fraction .* stratigraphy2.STATVAR.Qe ./ (latent_heat .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
-            stratigraphy2.TEMP.evap_energy =  stratigraphy2.TEMP.evap.*  (double(Tg>=0) .* stratigraphy2.CONST.c_w .* Tg + ...
-                double(Tg<0) .* stratigraphy2.CONST.c_i .* Tg);
-            stratigraphy2.TEMP.sublim_energy =  stratigraphy2.TEMP.sublim .* (stratigraphy2.CONST.c_i .* stratigraphy2.STATVAR.T(1,1) - stratigraphy2.CONST.L_f);
-            
-%             stratigraphy2.TEMP.d_water_ET(1) = stratigraphy2.TEMP.d_water_ET(1) - (stratigraphy2.TEMP.evap + stratigraphy2.TEMP.sublim).*stratigraphy2.STATVAR.area(1);
-%             stratigraphy2.TEMP.d_water_ET_energy(1) = stratigraphy2.TEMP.d_water_ET_energy(1) - (stratigraphy2.TEMP.evap_energy + stratigraphy2.TEMP.sublim_energy).*stratigraphy2.STATVAR.area(1);      
+            if Tsurf < 0 || saturation <= 0 % All sublimation
+                stratigraphy2.STATVAR.Qe = -rho_atm.*L_i.*(q_s-q_g)./r_aw_prime;
+                stratigraphy2.STATVAR.sublimation = - stratigraphy2.STATVAR.Qe ./ (L_i .* stratigraphy2.CONST.rho_w) .*stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.sublimation_energy =  stratigraphy2.STATVAR.sublimation .* (stratigraphy2.CONST.c_i .* stratigraphy2.STATVAR.T(1,1) - stratigraphy2.CONST.L_f);
+                stratigraphy2.STATVAR.evap = 0;
+                stratigraphy2.STATVAR.evap_energy = 0;
+            else
+                evap_fraction = max(0, min(saturation./(2.*stratigraphy2.PARA.field_capacity),1)); % all evap when saturation is more than twice of field capacity (in fraction of porespace)
+                sublim_fraction = 1 - evap_fraction;
+                Qe_sublim = -sublim_fraction.*rho_atm.*L_i.*(q_s-q_g)./r_aw_prime;
+                Qe_evap = -evap_fraction.*rho_atm.*L_w.*(q_s-q_g)./r_aw_prime;
+                stratigraphy2.STATVAR.sublimation = - Qe_sublim ./(stratigraphy2.CONST.rho_w .* L_i) .* stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.sublimation_energy = stratigraphy2.STATVAR.sublimation .* (Tsurf .* stratigraphy2.CONST.c_i - stratigraphy2.CONST.L_f);
+                stratigraphy2.STATVAR.evap = - Qe_evap ./(stratigraphy2.CONST.rho_w .* L_w) .* stratigraphy2.STATVAR.area(1);
+                stratigraphy2.STATVAR.evap_energy = stratigraphy2.STATVAR.evap .* stratigraphy2.CONST.c_w;
+                
+                stratigraphy2.STATVAR.Qe = Qe_evap + Qe_sublim; % Note this is not like in Q_eq_potET_snow! RBZ
+            end
         end
         
         function q_g = get_humidity_surface_GROUND(ia_seb_water, tile)
@@ -210,7 +262,7 @@ classdef IA_SEB < IA_BASE
             Tmfw = snow.CONST.Tmfw;
             T_surf = snow.STATVAR.T(1);
             
-            e = double(T_surf>=0).*satPresWater(snow,T_surf+Tmfw) + double(T_surf<0).*satPresIce(snow,T_surf+Tmfw); % saturation water pressure of snow
+            e = double(T_surf>=Tmfw).*satPresWater(snow,T_surf+Tmfw) + double(T_surf<Tmfw).*satPresIce(snow,T_surf+Tmfw); % saturation water pressure of snow
             q_g = .622.*e./p; % saturation water vapor specific humidity at snow temperature
             snow.STATVAR.q_g = q_g;
         end

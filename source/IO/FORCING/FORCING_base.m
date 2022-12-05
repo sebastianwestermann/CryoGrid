@@ -126,11 +126,10 @@ classdef FORCING_base < matlab.mixin.Copyable
             T_all_rain = forcing.PARA.all_rain_T;
             T_all_snow = forcing.PARA.all_snow_T;
             
-            forcing.DATA.snowfall = forcing.DATA.precip .*24.*1000 .* (double(Tair <= T_all_snow)  + ...
-                double(Tair > T_all_snow & Tair <= T_all_rain) .* (Tair - T_all_snow) ./ max(1e-12, (T_all_rain - T_all_snow)));
-            forcing.DATA.rainfall = forcing.DATA.precip .*24.*1000 .* (double(Tair >= T_all_rain)  + ...
-                double(Tair > T_all_snow & Tair < T_all_rain) .* (1 - (Tair - T_all_snow) ./ max(1e-12, (T_all_rain - T_all_snow))));
-            
+            snow_fraction = double(Tair <= T_all_snow) +  double(Tair > T_all_snow & Tair <= T_all_rain) .* -(T_all_snow + Tair) ./ max(1e-12, (T_all_rain - T_all_snow));
+            forcing.DATA.snowfall = forcing.DATA.precip .*24.*1000 .* snow_fraction;
+            forcing.DATA.rainfall = forcing.DATA.precip .*24.*1000 .* (1-snow_fraction);
+ 
         end
         
         function forcing = reduce_precip_slope(forcing, tile)
