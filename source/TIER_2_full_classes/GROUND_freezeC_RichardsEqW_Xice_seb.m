@@ -18,12 +18,8 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground.PARA.epsilon = [];  % surface emissivity [-]
             ground.PARA.z0 = [];      %roughness length [m]
             
-            ground.PARA.rootDepth = [];  %e-folding constant of transpiration reduction with depth [1/m]
-            ground.PARA.evaporationDepth = []; %e-folding constant of evaporation reduction reduction with depth [1/m]
-            ground.PARA.ratioET = []; %fraction of transpiration of total evapotranspiration [-]
-            %ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
             ground.PARA.conductivity_function =[];
-            
+
             ground.PARA.dt_max = []; %maximum possible timestep [sec]
             ground.PARA.dE_max = []; %maximum possible energy change per timestep [J/m3]
             ground.PARA.dWater_max = []; %%maximum possible volumteric water content change per timestep [-]
@@ -54,7 +50,8 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground.STATVAR.organic = []; % total volume of organics [m3]
             ground.STATVAR.energy = [];   % total internal energy [J]
             ground.STATVAR.soil_type = [];  % integer code for soil_type; 1: sand; 2: silt: 3: clay: 4: peat; 5: water (i.e. approximation of free water, very large-pore ground material).
-            %             ground.STATVAR.satHydraulicConductivity = [];
+
+%             ground.STATVAR.satHydraulicConductivity = [];            
             
             ground.STATVAR.T = [];  % temperature [degree C]
             ground.STATVAR.water = [];  % total volume of water [m3]
@@ -98,6 +95,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             
             ground.CONST.cp = [];  %specific heat capacity at constant pressure of air
             ground.CONST.g = [];   % gravitational acceleration Earth surface
+
             ground.CONST.R = [];    % Universal gas constant
             ground.CONST.molar_mass_w = [];
             
@@ -134,9 +132,6 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         end
         
         function ground = finalize_init(ground, tile)
-            %             ground.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
-            %             ground.PARA.airT_height = tile.FORCING.PARA.airT_height;
-            %             ground.STATVAR.area = tile.PARA.area + ground.STATVAR.T .* 0;
             
             if isempty(ground.PARA.conductivity_function) || sum(isnan(ground.PARA.conductivity_function))>0
                 ground.PARA.conductivity_function = 'thermalConductivity_CLM4_5_Xice';
@@ -165,8 +160,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             
             ground = get_E_freezeC_Xice(ground);
             ground = conductivity(ground);
-            ground = calculate_hydraulicConductivity_RichardsEq_Xice(ground);
-            
+            ground = calculate_hydraulicConductivity_RichardsEq_Xice2(ground);
         end
         
         %---time integration------
@@ -198,13 +192,14 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground = get_derivative_Xwater(ground); %upward flow of Xwater
         end
         
-        function timestep = get_timestep(ground, tile)
-            timestep = get_timestep_heat_coduction(ground);
-            timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground));
-            timestep = min(timestep, ground.PARA.dt_max);
+        function timestep = get_timestep(ground, tile)  
+           timestep = get_timestep_heat_coduction(ground);
+           timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground)); 
+           timestep = min(timestep, ground.PARA.dt_max);
         end
         
-        function ground = advance_prognostic(ground, tile)
+        function ground = advance_prognostic(ground, tile) 
+
             timestep = tile.timestep;
             %energy
             ground.STATVAR.energy = ground.STATVAR.energy + timestep .* ground.TEMP.d_energy;
@@ -217,7 +212,30 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground.STATVAR.Xwater(ground.STATVAR.Xwater<0) = 0; %remove rounding errors
             
             ground.STATVAR.layerThick = ground.STATVAR.layerThick + timestep .* ground.TEMP.d_Xwater ./ ground.STATVAR.area;
-            ground.STATVAR.layerThick = max(ground.STATVAR.layerThick, (ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.XwaterIce)./ ground.STATVAR.area);
+            ground.STATVAR.layerThick = max(ground.STATVAR.layerThick, (ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.XwaterIce)./ ground.STATVAR.area);    
+            ground.STATVAR.layerThick = max(ground.STATVAR.layerThick, ground.STATVAR.layerThick_wo_Xice);
+            
+            
+%             timestep = tile.timestep;
+%             %energy
+%             ground.STATVAR.energy = ground.STATVAR.energy + timestep .* ground.TEMP.d_energy;
+%             ground.STATVAR.energy = ground.STATVAR.energy + timestep .* ground.TEMP.d_water_energy; %add energy from water advection
+%             %water
+%             pore_space_left = ground.STATVAR.layerThick.* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic - ground.STATVAR.waterIce - ground.STATVAR.XwaterIce;
+%             pore_space_left = max(0, pore_space_left);
+%             
+%             d_waterIce_gain = timestep .* ground.TEMP.d_water.*double(ground.TEMP.d_water>0);
+%             d_XwaterIce_gain = max(0, d_waterIce_gain - pore_space_left);
+%             d_waterIce_gain = min(d_waterIce_gain, pore_space_left);
+%             
+%             d_waterIce_loss = -timestep .* ground.TEMP.d_water.*double(ground.TEMP.d_water<0); %positive
+%             d_XwaterIce_loss = min(d_waterIce_loss, ground.STATVAR.Xwater);
+%             d_waterIce_loss = max(0, d_waterIce_loss - d_XwaterIce_loss);
+%             
+%             ground.STATVAR.waterIce = ground.STATVAR.waterIce + d_waterIce_gain - d_waterIce_loss;
+%             ground.STATVAR.XwaterIce = ground.STATVAR.XwaterIce + d_XwaterIce_gain - d_XwaterIce_loss;
+%             ground.STATVAR.layerThick = ground.STATVAR.layerThick + (d_XwaterIce_gain - d_XwaterIce_loss) ./ ground.STATVAR.area;
+%             ground.STATVAR.XwaterIce(ground.STATVAR.XwaterIce<0) = 0; %remove rounding errors
         end
         
         function ground = compute_diagnostic_first_cell(ground, tile)
@@ -256,8 +274,8 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             trigger_yes_no = 0;
             %water overtopping first cell
             if isequal(class(ground.PREVIOUS), 'Top') && ground.STATVAR.Xwater(1) > ground.PARA.threshold_Xwater .* ground.STATVAR.area(1) % no snow cover and too much Xwater
-                
-                if isempty(ground.PARA.threshold_Xwater_class) || sum(isnan(ground.PARA.threshold_Xwater_class))>0   %default, remove water from first cell, otherwise the Q_e calculation crashes
+                    
+                if isempty(ground.PARA.threshold_Xwater_class) || sum(isnan(ground.PARA.threshold_Xwater_class))>0  %default, remove water from first cell, otherwise the Q_e calculation crashes
                     remove_first_cell = max(0, ground.STATVAR.Xwater(1) - ground.PARA.threshold_Xwater .* ground.STATVAR.area(1));
                     ground.STATVAR.XwaterIce(1) = ground.STATVAR.XwaterIce(1) - remove_first_cell;
                     ground.STATVAR.layerThick(1) = ground.STATVAR.layerThick(1) - remove_first_cell ./ ground.STATVAR.area(1);
@@ -302,6 +320,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         function ground = conductivity(ground)
             conductivity_function = str2func(ground.PARA.conductivity_function);
             ground = conductivity_function(ground);
+           % ground = conductivity_mixing_squares_Xice(ground);
         end
         
         function albedo = get_albedo(ground)
@@ -331,7 +350,12 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         
         %----LAT_WATER_RESERVOIR------------
         function ground = lateral_push_water_reservoir(ground, lateral)
-            ground = lateral_push_water_reservoir_RichardsEq_Xice(ground, lateral);
+            ground = lateral_push_water_reservoir_RichardsEq_Xice2(ground, lateral);
+        end
+        
+        %---LAT_OVERLAND_FLOW----------
+        function ground = lateral_push_remove_water_overland_flow(ground, lateral)
+            ground = lateral_push_water_overland_flow_XICE(ground, lateral);
         end
         
         %---LAT_OVERLAND_FLOW----------
@@ -418,62 +442,62 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         end
         
         
-        
-        %-------------param file generation-----
-        function ground = param_file_info(ground)
-            ground = param_file_info@BASE(ground);
-            
-            ground.PARA.class_category = 'GROUND';
-            
-            ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'Xice' 'soil_type' 'field_capacity' 'permeability' 'T'};
-            
-            ground.PARA.default_value.albedo = {0.2};
-            ground.PARA.comment.albedo = {'surface albedo [-]'};
-            
-            ground.PARA.default_value.epsilon = {0.99};
-            ground.PARA.comment.epsilon = {'surface emissivity [-]'};
-            
-            ground.PARA.default_value.z0 = {0.01};
-            ground.PARA.comment.z0 = {'roughness length [m]'};
-            ground.PARA.default_value.conductivity_function = {''};
-            ground.PARA.comment.conductivity_function = {'function employed to calculate thermal conductivity, leave empty for default'};
-            
-            ground.PARA.default_value.dt_max = {3600};
-            ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
-            
-            ground.PARA.default_value.dE_max = {50000};
-            ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
-            
-            ground.PARA.default_value.dWater_max = {0.005};
-            ground.PARA.comment.dWater_max = {'maximum possible volumteric water content change per timestep [-]'};
-            
-            ground.PARA.default_value.LUT_size_waterIce = {1000};
-            ground.PARA.comment.LUT_size_waterIce = {'size of lookup table for the waterIce variable [-]'};
-            
-            ground.PARA.default_value.LUT_size_T = {1000};
-            ground.PARA.comment.LUT_size_T = {'size of lookup table for the (temperature) T variable [-]'};
-            
-            ground.PARA.default_value.min_T = {-50};
-            ground.PARA.comment.min_T = {'minimum temperature for which the LUT is calculated (modeled temperatures must be above this value) [degree C]'};
-            
-            ground.PARA.default_value.min_waterIce = {0.05};
-            ground.PARA.comment.min_waterIce = {'minimum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be above this value) [-]'};
-            
-            ground.PARA.default_value.max_waterIce = {0.97};
-            ground.PARA.comment.max_waterIce = {'maximum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be below this value) [-]'};
-            
-            ground.PARA.default_value.min_mineral_organic = {0.03};
-            ground.PARA.comment.min_mineral_organic = {'maximum mineral plus organic content in volumetric fraction for which the LUT is calculated (mineral plus organic content must be below this value) [-]'};
-            
-            ground.PARA.default_value.threshold_Xwater = {0.1};
-            ground.PARA.comment.threshold_Xwater = {'excess water height in first grid cell for which a LAKE is triggered, or for which water is moved to the variable excessWater'};
-            
-            ground.PARA.default_value.threshold_Xwater_class = {''};
-            ground.PARA.comment.threshold_Xwater_class = {'LAKE class that is added by trigger, no LAKE triggered if empty. Must correspond to a sleeping class in the initialization!'};
-            
-            ground.PARA.default_value.threshold_Xwater_index = {''};
-            ground.PARA.comment.threshold_Xwater_index = {'index of LAKE class that is added by trigger'};
-        end
+                %-------------param file generation-----
+         function ground = param_file_info(ground)
+             ground = param_file_info@BASE(ground);
+             
+             ground.PARA.class_category = 'GROUND';
+             
+             ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'Xice' 'soil_type' 'field_capacity' 'permeability' 'T'};
+             
+             ground.PARA.default_value.albedo = {0.2};
+             ground.PARA.comment.albedo = {'surface albedo [-]'};
+             
+             ground.PARA.default_value.epsilon = {0.99};
+             ground.PARA.comment.epsilon = {'surface emissivity [-]'};
+             
+             ground.PARA.default_value.z0 = {0.01};
+             ground.PARA.comment.z0 = {'roughness length [m]'};
+             
+             ground.PARA.default_value.conductivity_function = {''};
+             ground.PARA.comment.conductivity_function = {'function employed to calculate thermal conductivity, leave empty for default'};
+             
+             ground.PARA.default_value.dt_max = {3600};
+             ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
+             
+             ground.PARA.default_value.dE_max = {50000};
+             ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
+             
+             ground.PARA.default_value.dWater_max = {0.005};
+             ground.PARA.comment.dWater_max = {'maximum possible volumteric water content change per timestep [-]'};
+             
+             ground.PARA.default_value.LUT_size_waterIce = {1000};
+             ground.PARA.comment.LUT_size_waterIce = {'size of lookup table for the waterIce variable [-]'};
+             
+             ground.PARA.default_value.LUT_size_T = {1000};
+             ground.PARA.comment.LUT_size_T = {'size of lookup table for the (temperature) T variable [-]'};
+                 
+             ground.PARA.default_value.min_T = {-50};
+             ground.PARA.comment.min_T = {'minimum temperature for which the LUT is calculated (modeled temperatures must be above this value) [degree C]'};
+             
+             ground.PARA.default_value.min_waterIce = {0.05};
+             ground.PARA.comment.min_waterIce = {'minimum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be above this value) [-]'};
+             
+             ground.PARA.default_value.max_waterIce = {0.97};
+             ground.PARA.comment.max_waterIce = {'maximum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be below this value) [-]'};
+             
+             ground.PARA.default_value.min_mineral_organic = {0.03};
+             ground.PARA.comment.min_mineral_organic = {'maximum mineral plus organic content in volumetric fraction for which the LUT is calculated (mineral plus organic content must be below this value) [-]'};
+             
+             ground.PARA.default_value.threshold_Xwater = {0.1};
+             ground.PARA.comment.threshold_Xwater = {'excess water height in first grid cell for which a LAKE is triggered, or for which water is moved to the variable excessWater'};
+             
+             ground.PARA.default_value.threshold_Xwater_class = {''};
+             ground.PARA.comment.threshold_Xwater_class = {'LAKE class that is added by trigger, no LAKE triggered if empty. Must correspond to a sleeping class in the initialization!'};
+             
+             ground.PARA.default_value.threshold_Xwater_index = {''};
+             ground.PARA.comment.threshold_Xwater_index = {'index of LAKE class that is added by trigger'};
+         end
         
     end
 end

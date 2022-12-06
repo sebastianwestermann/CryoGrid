@@ -1,5 +1,6 @@
 %========================================================================
-% CryoGrid STRATIGRAPHY class STRAT_linear defines the initial stratigraphy
+% CryoGrid STRATIGRAPHY_STATVAR class STRAT_linear 
+% STRAT_linear defines the initial stratigraphy of model
 % state variables by linearly interpolating between values at depths
 % provided. Depths must be given as depth below the ground surface, and the
 % final depth value must extend below the depth of the model domain.
@@ -55,7 +56,18 @@ classdef STRAT_linear < matlab.mixin.Copyable
             end           
 		end
         
-
+         %-------------param file generation-----
+         function stratigraphy = param_file_info(stratigraphy)
+             stratigraphy = provide_PARA(stratigraphy);
+             %default
+             stratigraphy.PARA.default_value = [];
+             stratigraphy.PARA.STATVAR = [];
+             stratigraphy.PARA.comment = [];
+             stratigraphy.PARA.class_category = 'STRATIGRAPHY_STATVAR';
+             stratigraphy.PARA.options.points.name = 'STRAT_MATRIX';
+             stratigraphy.PARA.options.points.entries_y = {0; 10; 5000};
+             stratigraphy.PARA.options.points.is_statvar_matrix = 1; %fill with STATVAR that are identified for initialization in GROUND classes
+         end
 
 % 		
 % 		function self = populate_variables(self, pprovider)

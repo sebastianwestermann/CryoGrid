@@ -1,11 +1,7 @@
 %========================================================================
-% CryoGrid OUT class defining storage format of the output 
-% OUT_all stores identical copies of all GROUND classses (including STATVAR, TEMP, PARA) in the
-% stratigraphy for each output timestep, while lateral classes are not stored.
-% The user can specify the save date and the save interval (e.g. yearly
-% files), as well as the output timestep (e.g. 6 hourly). The output files
-% are in Matlab (".mat") format.
-% S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
+% CryoGrid OUT class OUT_do_nothing
+% does not store any output, generally used during model spin-up
+% S. Westermann, Jan 2021
 %========================================================================
 
 
@@ -29,12 +25,6 @@ classdef OUT_do_nothing < matlab.mixin.Copyable
     
     methods
 		
-        %initialization
-        
-%         function out = initialize_excel(out)
-%             
-%         end
-        
         
         function out = provide_PARA(out)         
             out.PARA.display_timestep = [];
@@ -70,11 +60,24 @@ classdef OUT_do_nothing < matlab.mixin.Copyable
             
         end
 
-        function xls_out = write_excel(out)
-			% XLS_OUT  Is a cell array corresponding to the class-specific content of the parameter excel file (refer to function write_controlsheet).
-			
-            xls_out = {'OUT','index',NaN,NaN;'OUT_all',1,NaN,NaN;'output_timestep',0.250000000000000,'[days]',NaN;'save_date','01.09.','provide in format dd.mm.',NaN;'save_interval',1,'[y]','if left empty, the entire output will be written out at the end';'OUT_END',NaN,NaN,NaN};
+                %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+           
+            out.PARA.default_value.display_timestep = {5};
+            out.PARA.comment.display_timestep = {'timestep that model progress is displayed [days]'};
+
         end
+        
+%         function xls_out = write_excel(out)
+%             XLS_OUT  Is a cell array corresponding to the class-specific content of the parameter excel file (refer to function write_controlsheet).
+%             
+%             xls_out = {'OUT','index',NaN,NaN;'OUT_all',1,NaN,NaN;'output_timestep',0.250000000000000,'[days]',NaN;'save_date','01.09.','provide in format dd.mm.',NaN;'save_interval',1,'[y]','if left empty, the entire output will be written out at the end';'OUT_END',NaN,NaN,NaN};
+%         end
          
 
         

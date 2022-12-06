@@ -1,11 +1,11 @@
 %========================================================================
 % CryoGrid LATERAL_IA class LAT_WATER_RESERVOIR 
-% simulates lateral water flow between a static water reservoir at defined
-% elevation (absolute elevation, not relative to the surface!), 
+% LAT_WATER_RESERVOIR simulates lateral water flow between a static water
+% reservoir at defined  elevation (absolute elevation, not relative to the surface!), 
 % as well as contact lengths (i.e. width) and distance from the GROUND column.
 % Water temperatures of the reservoir can have a defined constant
 % temperature (only relevant for inflow), otherwise inflow at grid cell temperature is assumed. 
-% NOTE: THIS CLASS IS KNOWN TO CRASH IN SOME CASES, USE WITH CARE! 
+
 % S. Westermann, Oct 2020
 %========================================================================
 
@@ -61,6 +61,33 @@ classdef LAT_WATER_RESERVOIR < BASE_LATERAL
         
         function lateral = pull(lateral, tile)
             
+        end
+        
+        
+        
+        %-------------param file generation-----
+        function ground = param_file_info(ground)
+            ground = param_file_info@BASE_LATERAL(ground);
+            
+            ground.PARA.class_category = 'LATERAL_IA';
+            
+            ground.PARA.options = [];
+            ground.PARA.STATVAR = [];
+            
+            ground.PARA.default_value.reservoir_temperature = {''};
+            ground.PARA.comment.reservoir_temperature = {'temperature water in reservoir [degreeC], only active for Xice classes - if empty, water added at the temperature of the respective grid cell'};
+            
+            ground.PARA.default_value.reservoir_elevation = {19};
+            ground.PARA.comment.reservoir_elevation = {'elevation of water reservoir [meter a.s.l.]'};
+            
+            ground.PARA.default_value.hardBottom_cutoff = {0.03};
+            ground.PARA.comment.hardBottom_cutoff = {'hard bottom  = no water flow if saturated and water content below [vol. water content, -]'};
+
+            ground.PARA.default_value.distance_reservoir = {10};
+            ground.PARA.comment.distance_reservoir ={'distance to water reservoir [m]'};
+            
+            ground.PARA.default_value.reservoir_contact_length = {1};
+            ground.PARA.comment.reservoir_contact_length = {'lateral contact length to water reservoir [m]'};
         end
     end
     

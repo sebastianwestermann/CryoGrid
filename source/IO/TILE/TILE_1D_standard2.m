@@ -1,14 +1,19 @@
-% base class to build a model tile
-% TILE_1D_standard2 requires an array of OUT classes instead of a single
-% one for TILE_1D_standard2. It can be used to save model output with OUT_all_... and the
-% final state with OUT_last_timestep so that simulations can be restarted from the final point.
+%========================================================================
+% CryoGrid TILE class TILE_1D_standard2
+% identical to TILE_1D_standard, but TILE_1D_standard2 allows providing an 
+% array of OUT classes instead of a single one as in TILE_1D_standard. 
+% It can be used to save model output with any OUT_all_... class, and the
+% final state with OUT_last_timestep so that simulations can be restarted 
+% from the final point.
+
+% S. Westermann, July 2021
+%========================================================================
 
 classdef TILE_1D_standard2 < matlab.mixin.Copyable
     
     properties
         
-%         RUN_NUMBER
-%         RESULT_PATH
+
         BUILDER
         PARA
         RUN_INFO
@@ -17,6 +22,7 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
         GRID
         OUT
         STORE
+        TEMP
         
         t        
         timestep
@@ -217,8 +223,11 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
                     'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'T_first_cell'; 'start_depth_steady_state'};
             elseif strcmp(tile.PARA.builder, 'update_forcing_out')
                 parameters = { 'forcing_class'; 'forcing_class_index';  'out_class'; 'out_class_index'};
-            elseif strcmp(tile.PARA.builder, 'update_forcing_out')
+            elseif strcmp(tile.PARA.builder, 'restart_OUT_last_timestep')
                 parameters = {'restart_file_path'; 'restart_file_name'};
+            elseif strcmp(tile.PARA.builder, 'restart_from_OUT_update_classes')
+                parameters = {'forcing_class'; 'forcing_class_index';  'out_class'; 'out_class_index'; ...
+                    'lateral_class';  'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'restart_file_path'; 'restart_file_name'};
             else
                 parameters = fieldnames(tile.PARA);
             end
@@ -541,7 +550,7 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
             PARA_new = tile.PARA;
             tile.PARA = tile.RUN_INFO.TILE.PARA;
             fn = fieldnames(PARA_new);
-            for i=1:size(fn,2)
+            for i=1:size(fn,1)
                 tile.PARA.(fn{i,1}) = PARA_new.(fn{i,1});
             end
 
@@ -553,6 +562,7 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
             %tile.OUT = finalize_init(tile.OUT, tile);   
         
             %10. assign time, etc.
+            tile.TEMP.time_difference = tile.RUN_INFO.TILE.t - tile.FORCING.PARA.start_time; %Used to correct time variables in subsurface classes
             tile.t = tile.FORCING.PARA.start_time;
             
             %reset IA time
@@ -561,7 +571,7 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
             %reset time for BGC class (do mothing if no BGC class exists)
             CURRENT = tile.TOP.NEXT;
             while ~isequal(CURRENT.NEXT, tile.BOTTOM)
-                CURRENT = reset_time_BGC(CURRENT, tile);
+                CURRENT = reset_timestamps(CURRENT, tile);
                 CURRENT = CURRENT.NEXT;
             end
             
@@ -589,7 +599,210 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
             %tile.LATERAL.IA_TIME = tile.FORCING.PARA.end_time;
         end
         
+        function tile = build_tile_restart_OUT_update_classes(tile)
+            %use old PARA, but overwrite all newly set values
+            PARA_new = tile.PARA;
+            
+            %load from file
+            temp=load([tile.PARA.restart_file_path tile.PARA.restart_file_name]);
+            variables = fieldnames(temp.out.STRATIGRAPHY);
+            for i=1:size(variables,1)
+                if ~strcmp(variables{i,1}, 'RUN_INFO')
+                    tile.(variables{i,1}) = temp.out.STRATIGRAPHY.(variables{i,1});
+                end
+            end
+
+            %overwrite new fields in PARA
+            fn = fieldnames(PARA_new);
+            for i=1:size(fn,1)
+                if ~isempty(PARA_new.(fn{i,1}))
+                    tile.PARA.(fn{i,1}) = PARA_new.(fn{i,1});
+                end
+            end
+            
+            %update forcing, out and lateral 
+            %2. forcing -> special forcing class required
+            tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
+
+            %12. assign OUT classes
+            for i=1:size(tile.PARA.out_class,1)
+                tile.OUT{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.out_class{i,1}){tile.PARA.out_class_index(i,1),1});
+            end  
+            
+
+            tile.FORCING = finalize_init(tile.FORCING, tile); 
+
+            for i=1:size(tile.PARA.out_class,1)
+                tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
+            end
         
+            %10. assign time, etc.
+            tile.TEMP.time_difference = tile.RUN_INFO.TILE.t-tile.FORCING.PARA.start_time; %Used to correct time variables in subsurface classes
+            tile.t = tile.FORCING.PARA.start_time;
+            
+            %reset IA time
+            tile.LATERAL.IA_TIME = tile.t + tile.LATERAL.IA_TIME_INCREMENT;
+            
+            %reset time for BGC class (do mothing if no BGC class exists)
+            CURRENT = tile.TOP.NEXT;
+            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+                CURRENT = reset_timestamps(CURRENT, tile);
+                CURRENT = CURRENT.NEXT;
+            end
+            
+            tile.LATERAL = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.lateral_class){tile.PARA.lateral_class_index,1});
+            tile.LATERAL = finalize_init(tile.LATERAL, tile);
+            
+            CURRENT = tile.TOP.NEXT;
+            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+                CURRENT = finalize_init2(CURRENT, tile);
+                CURRENT = CURRENT.NEXT;
+            end
+            
+            tile.RUN_INFO.TILE = tile;
+
+            tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            
+        end
+        
+        
+        
+        %-------------param file generation-----
+       function tile = param_file_info(varargin)
+
+            if nargin==2
+                tile = varargin{1};
+                option = varargin{2};
+            else
+                tile = varargin{1};
+                option = 0;
+            end
+            tile.PARA.STATVAR = [];
+            tile.PARA.class_category = 'TILE';
+            tile.PARA.default_value=[];
+            tile.PARA.options=[];
+            tile.PARA.comment=[];
+            
+            if strcmp(option, 'new_init')
+                parameters = {'latitude'; 'longitude'; 'altitude'; 'domain_depth'; 'area'; 'forcing_class'; 'forcing_class_index'; 'grid_class'; 'grid_class_index'; 'out_class'; ...
+                    'out_class_index'; 'strat_classes_class'; 'strat_classes_class_index'; 'strat_statvar_class'; 'strat_statvar_class_index'; 'lateral_class'; ...
+                    'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'};
+                
+                for i=1:size(parameters,1)
+                    tile.PARA.(parameters{i,1})=[];
+                end
+                
+                tile.PARA.comment.latitude = {'geographic coordinate, e.g. 70.956'};
+                tile.PARA.comment.longitude = {'geographic coordinate, e.g. -158.123'};
+                tile.PARA.comment.altitude = {'altitude [m]'};
+                tile.PARA.default_value.domain_depth = {100};
+                tile.PARA.comment.domain_depth = {'vertical depth of the model domain [m]'};
+                tile.PARA.default_value.area = {1};
+                tile.PARA.comment.area = {'area of the model domain [m2]'};
+                tile.PARA.default_value.forcing_class = {'FORCING_seb'};
+                tile.PARA.default_value.forcing_class_index = {1};
+                tile.PARA.default_value.grid_class = {'GRID_user_defined'};
+                tile.PARA.default_value.grid_class_index = {1};
+                
+                tile.PARA.options.out_class.name =  'H_LIST'; 
+                tile.PARA.options.out_class.entries_x = {'OUT_all_lateral'};
+                tile.PARA.options.out_class_index.name = 'H_LIST'; 
+                tile.PARA.options.out_class_index.entries_x = {1};
+
+                tile.PARA.default_value.out_class = {'OUT_all_lateral'};
+                tile.PARA.default_value.out_class_index = {1};
+                tile.PARA.default_value.strat_classes_class = {'STRAT_classes'};
+                tile.PARA.default_value.strat_classes_class_index = {1};
+                
+                tile.PARA.comment.strat_statvar_class = {'list of STRATIGRAPHY_STATVAR classes that provide initial state of state variables'};
+                tile.PARA.options.strat_statvar_class.name =  'H_LIST'; %
+                tile.PARA.options.strat_statvar_class.entries_x = {'STRAT_layers' 'STRAT_linear'};
+                tile.PARA.options.strat_statvar_class_index.name =  'H_LIST'; 
+                tile.PARA.options.strat_statvar_class_index.entries_x = {1 1};
+                
+                tile.PARA.comment.lateral_class = {'lateral class, e.g. LATERAL1D or LATERAL3D'};
+                tile.PARA.default_value.lateral_class = {'LATERAL_1D'};
+                tile.PARA.default_value.lateral_class_index = {1};
+                
+                tile.PARA.comment.lateral_IA_classes = {'list of lateral interaction classes'};
+                tile.PARA.options.lateral_IA_classes.name =  'H_LIST'; %
+                tile.PARA.options.lateral_IA_classes_index.name =  'H_LIST';
+                
+            elseif strcmp(option, 'new_init_steady_state')
+                parameters = {'latitude'; 'longitude'; 'altitude'; 'domain_depth'; 'area'; 'forcing_class'; 'forcing_class_index'; 'grid_class'; 'grid_class_index'; 'out_class'; ...
+                    'out_class_index'; 'strat_classes_class'; 'strat_classes_class_index'; 'strat_statvar_class'; 'strat_statvar_class_index'; 'lateral_class'; ...
+                    'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'init_steady_state_class'; 'init_steady_state_class_index';...
+                    'T_first_cell'; 'start_depth_steady_state'};
+                for i=1:size(parameters,1)
+                    tile.PARA.(parameters{i,1})=[];
+                end
+                
+                tile.PARA.comment.latitude = {'geographic coordinate, e.g. 70.956'};
+                tile.PARA.comment.longitude = {'geographic coordinate, e.g. -158.123'};
+                tile.PARA.comment.altitude = {'altitude [m]'};
+                tile.PARA.default_value.domain_depth = {100};
+                tile.PARA.comment.domain_depth = {'vertical depth of the model domain [m]'};
+                tile.PARA.default_value.area = {1};
+                tile.PARA.comment.area = {'area of the model domain [m2]'};
+                tile.PARA.default_value.forcing_class = {'FORCING_seb'};
+                tile.PARA.default_value.forcing_class_index = {1};
+                tile.PARA.default_value.grid_class = {'GRID_user_defined'};
+                tile.PARA.default_value.grid_class_index = {1};
+                
+                tile.PARA.options.out_class.name =  'H_LIST'; 
+                tile.PARA.options.out_class.entries_x = {'OUT_all_lateral'};
+                tile.PARA.options.out_class_index.name = 'H_LIST'; 
+                tile.PARA.options.out_class_index.entries_x = {1};
+                
+                tile.PARA.default_value.strat_classes_class = {'STRAT_classes'};
+                tile.PARA.default_value.strat_classes_class_index = {1};
+                
+                tile.PARA.comment.strat_statvar_class = {'list of STRATIGRAPHY_STATVAR classes that provide initial state of state variables'};
+                tile.PARA.options.strat_statvar_class.name =  'H_LIST'; %
+                tile.PARA.options.strat_statvar_class.entries_x = {'STRAT_layers'};
+                tile.PARA.options.strat_statvar_class_index.name =  'H_LIST'; 
+                tile.PARA.options.strat_statvar_class_index.entries_x = {1};
+                
+                tile.PARA.comment.lateral_class = {'lateral class, e.g. LATERAL1D or LATERAL3D'};
+                tile.PARA.default_value.lateral_class = {'LATERAL_1D'};
+                tile.PARA.default_value.lateral_class_index = {1};
+                
+                tile.PARA.comment.lateral_IA_classes = {'list of lateral interaction classes'};
+                tile.PARA.options.lateral_IA_classes.name =  'H_LIST'; %
+                tile.PARA.options.lateral_IA_classes_index.name =  'H_LIST';
+                
+                tile.PARA.comment.init_steady_state_class = {'init_steady_state class to compute temperature of first grid cell, leave empty when using T_first_grid_cell'};
+                tile.PARA.comment.T_first_cell = {'temperature of first grid cell used to compute the temperature gradient, leave empty when using init_steady_state class'};
+                tile.PARA.comment.start_depth_steady_state = {'depth [m] where temperature gradient starts, constant above, leave empty when using init_steady_state class'};
+                
+            elseif strcmp(option, 'update_forcing_out')
+                parameters = { 'forcing_class'; 'forcing_class_index';  'out_class'; 'out_class_index'};
+                
+                for i=1:size(parameters,1)
+                    tile.PARA.(parameters{i,1})=[];
+                end
+                
+                tile.PARA.default_value.forcing_class = {'FORCING_seb'};
+                tile.PARA.default_value.forcing_class_index = {1};
+
+                tile.PARA.options.out_class.name =  'H_LIST';
+                tile.PARA.options.out_class.entries_x = {'OUT_all_lateral'};
+                tile.PARA.options.out_class_index.name = 'H_LIST'; 
+                tile.PARA.options.out_class_index.entries_x = {1};
+                
+            elseif strcmp(option, 'restart_OUT_last_timestep')
+                parameters = {'restart_file_path'; 'restart_file_name'};
+                for i=1:size(parameters,1)
+                    tile.PARA.(parameters{i,1})=[];
+                end
+                
+                tile.PARA.comment.restart_file_path = {'path and filename of restart file'};
+            else
+                tile = provide_PARA(tile);
+            end
+
+        end
 
     end
 end

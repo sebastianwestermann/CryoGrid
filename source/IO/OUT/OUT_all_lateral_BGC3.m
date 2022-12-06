@@ -107,7 +107,7 @@ classdef OUT_all_lateral_BGC3 < matlab.mixin.Copyable
                     while ~isequal(CURRENT, BOTTOM)
                         if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
                             res=copy(CURRENT.CHILD);
-                            res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_NEXT=[];  res.PARENT = []; %cut all dependencies
+                            res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
                             result=[result; {res}];
                         end
                         res = copy(CURRENT);
@@ -192,7 +192,26 @@ classdef OUT_all_lateral_BGC3 < matlab.mixin.Copyable
             end
         end
         
-        
+                %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+           
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+
+            out.PARA.default_value.save_date = {'01.09.'};
+            out.PARA.comment.save_date = {'date (dd.mm.) when output file is written'};
+            
+            out.PARA.default_value.save_interval = {1};
+            out.PARA.comment.save_interval = {'interval of output files [years]'};
+            
+%             out.PARA.default_value.tag = {''};
+%             out.PARA.comment.tag = {'additional tag added to file name'};
+        end
         
     end
 end

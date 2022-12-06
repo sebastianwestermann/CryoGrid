@@ -1,6 +1,7 @@
 %========================================================================
 % CryoGrid GROUND class GROUND_freezeC_seb forced by surface temperature
-% heat conduction, constant water+ice, freeze curve 
+% boundary condition, constant water+ice water balance, Painter and Karra (2014) 
+% freeze curve
 % S. Westermann, October 2020
 %========================================================================
 
@@ -186,6 +187,44 @@ classdef GROUND_freezeC_ubT < SEB & HEAT_CONDUCTION & FREEZE_CURVE_KarraPainter 
             conductivity_function = str2func(ground.PARA.conductivity_function);
             ground = conductivity_function(ground);
             %ground = conductivity_mixing_squares(ground);
+        end
+        
+        
+        %-------------param file generation-----
+         function ground = param_file_info(ground)
+             ground = param_file_info@BASE(ground);
+             
+             ground.PARA.class_category = 'GROUND';
+             
+             ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'soil_type' 'T'};
+             
+             ground.PARA.default_value.conductivity_function = {'conductivity_mixing_squares'};
+             ground.PARA.comment.conductivity_function = {'function employed to calculate thermal conductivity, leave empty for default'};
+             
+             ground.PARA.default_value.dt_max = {3600};
+             ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
+             
+             ground.PARA.default_value.dE_max = {50000};
+             ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
+             
+             ground.PARA.default_value.LUT_size_waterIce = {1000};
+             ground.PARA.comment.LUT_size_waterIce = {'size of lookup table for the waterIce variable [-]'};
+             
+             ground.PARA.default_value.LUT_size_T = {1000};
+             ground.PARA.comment.LUT_size_T = {'size of lookup table for the (temperature) T variable [-]'};
+                 
+             ground.PARA.default_value.min_T = {-50};
+             ground.PARA.comment.min_T = {'minimum temperature for which the LUT is calculated (modeled temperatures must be above this value) [degree C]'};
+             
+             ground.PARA.default_value.min_waterIce = {0.05};
+             ground.PARA.comment.min_waterIce = {'minimum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be above this value) [-]'};
+             
+             ground.PARA.default_value.max_waterIce = {0.97};
+             ground.PARA.comment.max_waterIce = {'maximum waterIce value in volumetric fraction for which the LUT is calculated (modeled waterIce must be below this value) [-]'};
+             
+             ground.PARA.default_value.min_mineral_organic = {0.03};
+             ground.PARA.comment.min_mineral_organic = {'maximum mineral plus organic content in volumetric fraction for which the LUT is calculated (mineral plus organic content must be below this value) [-]'};
+             
         end
         
         

@@ -6,7 +6,7 @@
 %========================================================================
 
 
-classdef GROUND_freeW_ubtf < HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & UB_TEMPERATURE_FORCING
+classdef GROUND_freeW_ubtf < HEAT_CONDUCTION &  UB_TEMPERATURE_FORCING
 
     
     methods
@@ -88,6 +88,12 @@ classdef GROUND_freeW_ubtf < HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & UB_TEMPERAT
             ground.TEMP.d_energy = ground.STATVAR.energy.*0;
             
         end
+        
+        function ground = finalize_init2(ground, tile)
+            
+            ground = get_E_freeW(ground);
+            
+        end
                 
         %---time integration------
         
@@ -149,6 +155,23 @@ classdef GROUND_freeW_ubtf < HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & UB_TEMPERAT
         
         function ground = lateral3D_push_heat(ground, lateral)
             ground = lateral3D_push_heat_simple(ground, lateral);
+        end
+        
+        
+        
+        %-------------param file generation-----
+         function ground = param_file_info(ground)
+             ground = param_file_info@BASE(ground);
+             
+             ground.PARA.class_category = 'GROUND';
+             
+             ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'T'};
+             
+             ground.PARA.default_value.dt_max = {3600};
+             ground.PARA.comment.dt_max = {'maximum possible timestep [sec]'};
+             
+             ground.PARA.default_value.dE_max = {50000};
+             ground.PARA.comment.dE_max = {'maximum possible energy change per timestep [J/m3]'};
         end
 
     end
