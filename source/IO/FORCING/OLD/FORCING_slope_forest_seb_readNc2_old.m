@@ -28,7 +28,7 @@
 %       seaIce: 0 = time steps without sea ice; 1 = time steps with sea ice
 %========================================================================
 
-classdef FORCING_slope_forest_seb_readNc < FORCING_slope_seb_readNc %matlab.mixin.Copyable
+classdef FORCING_slope_forest_seb_readNc2_old < FORCING_slope_seb_readNc %matlab.mixin.Copyable
     
     properties
       
@@ -81,25 +81,44 @@ classdef FORCING_slope_forest_seb_readNc < FORCING_slope_seb_readNc %matlab.mixi
              % e.g. remote sensing data. Call this field "fc" (between 0 and 1).
              % Also requires canopy transmissivity "tauc", canopy height "hc", and a
              % canopy extinction coefficient "muc". Example values are provided below.
-             % See Link & Marks (1999), Garen & Marks (2005), and Bair et al. (2016)
+             % See Link & Marks (1999), Garren & Marks (2005), and Bair et al. (2016)
              % for more on these parametrizations.
              
              % Canopy parameters (may have to read these in from external data). These
              % are applicable to Mammoth lakes.
              
-             forcing.DATA.Lin = forcing.PARA.fractional_canopy_covered_area.*(forcing.PARA.canopy_transmissivity .* forcing.DATA.Lin + ...
+             Lin_summer = forcing.PARA.fractional_canopy_covered_area.*(forcing.PARA.canopy_transmissivity .* forcing.DATA.Lin + ...
                  (1 - forcing.PARA.canopy_transmissivity) .* forcing.PARA.emissivity_canopy .* forcing.CONST.sigma .* (forcing.DATA.Tair+forcing.CONST.Tmfw).^4) ...
                  + (1 - forcing.PARA.fractional_canopy_covered_area) .* forcing.DATA.Lin;
              
              sun_angle = forcing.DATA.sunElevation .* double(forcing.DATA.sunElevation > 0);
-             forcing.DATA.Sin_dir = forcing.PARA.fractional_canopy_covered_area .* (forcing.DATA.Sin_dir .* ...
+             Sin_dir_summer = forcing.PARA.fractional_canopy_covered_area .* (forcing.DATA.Sin_dir .* ...
                  exp(-forcing.PARA.canopy_extinction_coefficient .* forcing.PARA.canopy_height ./ max(1e-12, sind(sun_angle)))) ...
                  + (1-forcing.PARA.fractional_canopy_covered_area) .* forcing.DATA.Sin_dir;
 
-             forcing.DATA.Sin_dif = forcing.PARA.fractional_canopy_covered_area.*(forcing.DATA.Sin_dif.*forcing.PARA.canopy_transmissivity) + ...
+             Sin_dif_summer = forcing.PARA.fractional_canopy_covered_area.*(forcing.DATA.Sin_dif.*forcing.PARA.canopy_transmissivity) + ...
                  (1 - forcing.PARA.fractional_canopy_covered_area).*forcing.DATA.Sin_dif;
-             forcing.DATA.Sin = forcing.DATA.Sin_dif + forcing.DATA.Sin_dir;
+             Sin_summer = Sin_dir_summer + Sin_dif_summer;
              
+             
+            forcing.PARA.canopy_transmissivity = 0.95;
+            forcing.PARA.canopy_extinction_coefficient = 0.0033;
+            Lin_winter = forcing.PARA.fractional_canopy_covered_area.*(forcing.PARA.canopy_transmissivity .* forcing.DATA.Lin + ...
+                 (1 - forcing.PARA.canopy_transmissivity) .* forcing.PARA.emissivity_canopy .* forcing.CONST.sigma .* (forcing.DATA.Tair+forcing.CONST.Tmfw).^4) ...
+                 + (1 - forcing.PARA.fractional_canopy_covered_area) .* forcing.DATA.Lin;
+             Sin_dir_winter = forcing.PARA.fractional_canopy_covered_area .* (forcing.DATA.Sin_dir .* ...
+                 exp(-forcing.PARA.canopy_extinction_coefficient .* forcing.PARA.canopy_height ./ max(1e-12, sind(sun_angle)))) ...
+                 + (1-forcing.PARA.fractional_canopy_covered_area) .* forcing.DATA.Sin_dir;
+             
+             Sin_dif_winter = forcing.PARA.fractional_canopy_covered_area.*(forcing.DATA.Sin_dif.*forcing.PARA.canopy_transmissivity) + ...
+                 (1 - forcing.PARA.fractional_canopy_covered_area).*forcing.DATA.Sin_dif;
+             Sin_winter = Sin_dir_winter + Sin_dif_winter;
+             
+             summer = str2num(datestr(forcing.DATA.timeForcing,'mm')) >= 6 & str2num(datestr(forcing.DATA.timeForcing,'mm')) <= 9;
+             forcing.DATA.Lin = double(summer).* Lin_summer + double(~summer) .* Lin_winter;
+             forcing.DATA.Sin = double(summer).* Sin_summer + double(~summer) .* Sin_winter;
+             forcing.DATA.Sin_dir = double(summer).* Sin_dir_summer + double(~summer) .* Sin_dir_winter;
+             forcing.DATA.Sin_dif = double(summer).* Sin_dif_summer + double(~summer) .* Sin_dif_winter;
         end
             
 
@@ -168,5 +187,5 @@ classdef FORCING_slope_forest_seb_readNc < FORCING_slope_seb_readNc %matlab.mixi
         end
 
                 
-        end
+    end
 end

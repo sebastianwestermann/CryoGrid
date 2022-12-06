@@ -111,6 +111,10 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
                 snow.PARA.conductivity_function = 'conductivity_snow_Yen';
             end
             
+            if isempty(snow.PARA.snow_property_function) || sum(isnan(snow.PARA.snow_property_function))>0
+                snow.PARA.snow_property_function = 'get_snow_properties_crocus';
+            end
+            
             if ~isempty(snow.PARA.crocus_version) || sum(isnan(snow.PARA.crocus_version))==0
                 if strcmp(snow.PARA.crocus_version, 'normal')
                     snow.PARA.conductivity_function = 'conductivity_snow_Yen';
@@ -131,7 +135,7 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
             
             snow.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
             snow.PARA.airT_height = tile.FORCING.PARA.airT_height;
-            snow.PARA.slope = tile.FORCING.PARA.slope_angle;
+            snow.PARA.slope = tile.TERRAIN.PARA.slope_angle;
             
             snow = initialize_zero_snow_BASE(snow);  %initialize all values to be zero
             snow.PARA.spectral_ranges = [snow.PARA.SW_spectral_range1 snow.PARA.SW_spectral_range2 1 - snow.PARA.SW_spectral_range1 - snow.PARA.SW_spectral_range2];
@@ -323,14 +327,14 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
             snow.STATVAR.layerThick = min(snow.STATVAR.layerThick, max(snow.STATVAR.ice ./ snow.STATVAR.area, snow.STATVAR.layerThick + timestep .*(snow.TEMP.compact_d_D + snow.TEMP.wind_d_D)));
             %energy
             snow.STATVAR.energy = snow.STATVAR.energy + timestep .* (snow.TEMP.d_energy + snow.TEMP.d_water_energy);
-            snow.STATVAR.energy(1) = snow.STATVAR.energy(1) + timestep .* snow.TEMP.sublim_energy;  %snowfall energy added below, when new snow layer is merged
+            snow.STATVAR.energy(1) = snow.STATVAR.energy(1) + timestep .* snow.TEMP.sublimation_energy;  %snowfall energy added below, when new snow layer is merged
             %mass
             snow.STATVAR.waterIce = snow.STATVAR.waterIce + timestep .* snow.TEMP.d_water;
-            snow.STATVAR.waterIce(1) = snow.STATVAR.waterIce(1) + timestep .* snow.TEMP.sublim;
+            snow.STATVAR.waterIce(1) = snow.STATVAR.waterIce(1) + timestep .* snow.STATVAR.sublimation;
             %snow.STATVAR.ice(1) = snow.STATVAR.ice(1) + timestep .* snow.STATVAR.sublim;
-            snow.STATVAR.layerThick(1) = snow.STATVAR.layerThick(1) + timestep .* snow.TEMP.sublim ./snow.STATVAR.area(1,1) ./ (snow.STATVAR.ice(1) ./ snow.STATVAR.layerThick(1) ./snow.STATVAR.area(1));
+            snow.STATVAR.layerThick(1) = snow.STATVAR.layerThick(1) + timestep .* snow.STATVAR.sublimation ./snow.STATVAR.area(1,1) ./ (snow.STATVAR.ice(1) ./ snow.STATVAR.layerThick(1) ./snow.STATVAR.area(1));
             
-            snow.STATVAR.ice(1) = snow.STATVAR.ice(1) + timestep .* snow.TEMP.sublim;
+            snow.STATVAR.ice(1) = snow.STATVAR.ice(1) + timestep .* snow.STATVAR.sublimation;
             %microphysics
             snow.STATVAR.d = max(snow.STATVAR.d.*0, snow.STATVAR.d + timestep .*(snow.TEMP.metam_d_d + snow.TEMP.wind_d_d));
             snow.STATVAR.s = max(snow.STATVAR.s.*0, min(snow.STATVAR.s.*0+1, snow.STATVAR.s + timestep .*(snow.TEMP.metam_d_s + snow.TEMP.wind_d_s)));
@@ -365,20 +369,20 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
         function snow = advance_prognostic_CHILD(snow, tile)
             timestep = tile.timestep;
             %energy
-            snow.STATVAR.energy = snow.STATVAR.energy + timestep .* (snow.TEMP.d_energy  + snow.TEMP.d_water_energy + snow.TEMP.sublim_energy);
+            snow.STATVAR.energy = snow.STATVAR.energy + timestep .* (snow.TEMP.d_energy  + snow.TEMP.d_water_energy + snow.TEMP.sublimation_energy);
             %mass
-            snow.STATVAR.waterIce = snow.STATVAR.waterIce + timestep .* (snow.TEMP.d_water + snow.TEMP.sublim);
+            snow.STATVAR.waterIce = snow.STATVAR.waterIce + timestep .* (snow.TEMP.d_water + snow.STATVAR.sublimation);
             %snow.STATVAR.ice = snow.STATVAR.ice + timestep .* snow.STATVAR.sublim;
             snow.STATVAR.volume = snow.STATVAR.layerThick .* snow.STATVAR.area;
             snow.STATVAR.volume = min(snow.STATVAR.volume, max(snow.STATVAR.ice, snow.STATVAR.volume + timestep .* snow.STATVAR.area .* (snow.TEMP.compact_d_D + snow.TEMP.wind_d_D))); %mass is conserved, reduce layerthick
             %snow.STATVAR.volume = snow.STATVAR.volume + timestep .* snow.STATVAR.sublim ./ max(50, snow.STATVAR.ice ./ snow.STATVAR.layerThick); 
             
             %snow.STATVAR.volume = snow.STATVAR.volume + timestep .* snow.STATVAR.sublim ./ (snow.STATVAR.ice ./ snow.STATVAR.layerThick./snow.STATVAR.area); 
-            snow.STATVAR.volume = snow.STATVAR.volume + timestep .* snow.TEMP.sublim ./ (snow.STATVAR.ice ./ snow.STATVAR.volume); 
+            snow.STATVAR.volume = snow.STATVAR.volume + timestep .* snow.STATVAR.sublimation ./ (snow.STATVAR.ice ./ snow.STATVAR.volume); 
 %                         disp('Hallo2')
 %             disp(snow.STATVAR.volume)
             
-            snow.STATVAR.ice = snow.STATVAR.ice + timestep .* snow.TEMP.sublim;
+            snow.STATVAR.ice = snow.STATVAR.ice + timestep .* snow.STATVAR.sublimation;
             
             %microphysics
             snow.STATVAR.d = max(snow.STATVAR.d.*0, snow.STATVAR.d + timestep .*(snow.TEMP.metam_d_d + snow.TEMP.wind_d_d));
@@ -557,11 +561,6 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
         
         %LAT3D_WATER_RESERVOIR and LAT3D_WATER_SEEPAGE_FACE do not require specific functions
         
-        %----LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ------------
-        function snow = lateral3D_pull_water_unconfined_aquifer_RichardsEq(snow, lateral)
-            snow = lateral3D_pull_water_unconfined_aquifer_RichardsEq_snow(snow, lateral);
-        end
-        
         %----LAT3D_HEAT------------
         function snow = lateral3D_pull_heat(snow, lateral)
             snow = lateral3D_pull_heat_simple(snow, lateral);
@@ -667,7 +666,7 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
         end
         
         function z0 = get_z0_surface(snow)
-            z0 = get_z0_surface@SNOW(snow);
+            z0 = get_z0_surface@SEB(snow);
         end
         
         function albedo = get_albedo(snow)

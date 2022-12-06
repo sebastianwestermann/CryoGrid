@@ -5,7 +5,7 @@
 % R. B. Zweigel, September 2022
 %========================================================================
 
-classdef FORCING_base < matlab.mixin.Copyable
+classdef FORCING_base_old < matlab.mixin.Copyable
     
     properties
         PARA

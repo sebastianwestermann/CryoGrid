@@ -8,6 +8,8 @@
 classdef FORCING_base < matlab.mixin.Copyable
     
     properties
+        forcing_index
+        STATUS
         PARA
         CONST
         TEMP
@@ -52,11 +54,19 @@ classdef FORCING_base < matlab.mixin.Copyable
             forcing.TEMP.Sin_dif = 0;
             forcing.TEMP.Sin_dir = 0;
             forcing.TEMP.sunElevation = 0;
+            forcing.TEMP.azimuth = 0;
         end
         
         function forcing = initialize_terrain(forcing)
             % load parameters required for terrain shielding
             % All angles in degrees and clockwise from N (maybe change)
+
+            % Added by THIN, 2022-10-26
+            error('Error. Terrain parameters should be requested from TERRAIN class!')
+            % This funciton should not be called.
+            % Terrain parameters should instead be obtained from the 
+            % TERRAIN class which can be accessed at tile.TERRAIN.
+
             i = forcing.PARA.tp_number;
             path = forcing.PARA.forcing_path;
             tp_file = forcing.PARA.terrain_file;
@@ -71,21 +81,28 @@ classdef FORCING_base < matlab.mixin.Copyable
             
         end
         
-        function forcing = checkAndCorrect(forcing) % corrects typical forcing data errors
+        function forcing = check_and_correct(forcing) % corrects typical forcing data errors
             
             % Check for consistent timesteps
             if std(forcing.DATA.timeForcing(2:end,1)-forcing.DATA.timeForcing(1:end-1,1))~=0
                 disp('timestamp of forcing data is not in regular intervals -> check, fix and restart')
+                forcing.STATUS=0;
                 return
+            else
+                forcing.STATUS=1;
             end
             
             % Correct known isues
-            forcing.DATA.wind(forcing.DATA.wind<0.5)=0.5; %set min wind speed to 0.5 m/sec to avoid breakdown of turbulence
-            forcing.DATA.Lin(find(forcing.DATA.Lin==0)) = 5.67e-8 .* (forcing.DATA.Tair(find(forcing.DATA.Lin==0))+273.15).^4;
-            
+            if isfield(forcing.DATA, 'wind')
+                forcing.DATA.wind(forcing.DATA.wind<0.5)=0.5; %set min wind speed to 0.5 m/sec to avoid breakdown of turbulence
+            end
+
+            if isfield(forcing.DATA, 'Lin') && isfield(forcing.DATA, 'Tair')
+                forcing.DATA.Lin(find(forcing.DATA.Lin==0)) = 5.67e-8 .* (forcing.DATA.Tair(find(forcing.DATA.Lin==0))+273.15).^4;
+            end
         end
         
-        function forcing = get_time_forcing(forcing)
+        function forcing = set_start_and_end_time(forcing)
             % Assign forcing start and end times for current run
             % -> if not specified in params file, use forcing data length
             
@@ -109,17 +126,17 @@ classdef FORCING_base < matlab.mixin.Copyable
             T_all_rain = forcing.PARA.all_rain_T;
             T_all_snow = forcing.PARA.all_snow_T;
             
-            forcing.DATA.snowfall = forcing.DATA.precip .*24.*1000 .* (double(Tair <= T_all_snow)  + ...
-                double(Tair > T_all_snow & Tair <= T_all_rain) .* (Tair - T_all_snow) ./ max(1e-12, (T_all_rain - T_all_snow)));
-            forcing.DATA.rainfall = forcing.DATA.precip .*24.*1000 .* (double(Tair >= T_all_rain)  + ...
-                double(Tair > T_all_snow & Tair < T_all_rain) .* (1 - (Tair - T_all_snow) ./ max(1e-12, (T_all_rain - T_all_snow))));
-            
+            snow_fraction = double(Tair <= T_all_snow) +  double(Tair > T_all_snow & Tair <= T_all_rain) .* -(T_all_snow + Tair) ./ max(1e-12, (T_all_rain - T_all_snow));
+            forcing.DATA.snowfall = forcing.DATA.precip .*24.*1000 .* snow_fraction;
+            forcing.DATA.rainfall = forcing.DATA.precip .*24.*1000 .* (1-snow_fraction);
+ 
         end
         
-        function forcing = reduce_precip_slope(forcing)
+        function forcing = reduce_precip_slope(forcing, tile)
+            slope = tile.TERRAIN.PARA.slope_angle;
             % scale precip due to local slope and user definer factor
-            forcing.DATA.rainfall = forcing.DATA.rainfall .* forcing.PARA.rain_fraction.*cosd(forcing.PARA.slope_angle);
-            forcing.DATA.snowfall = forcing.DATA.snowfall .* forcing.PARA.snow_fraction.*cosd(forcing.PARA.slope_angle);
+            forcing.DATA.rainfall = forcing.DATA.rainfall .* forcing.PARA.rain_fraction.*cosd(slope);
+            forcing.DATA.snowfall = forcing.DATA.snowfall .* forcing.PARA.snow_fraction.*cosd(slope);
         end
         
         function forcing = split_Sin(forcing) % Consider making different functions for different parameterizations
@@ -138,7 +155,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             
         end
         
-        function forcing = terrain_corr_Sin_dif(forcing)
+        function forcing = terrain_corr_Sin_dif(forcing, tile)
             % include effect of terrain on diffuse by removin the fraction
             % of the hemisphere covered by the horizon, and adding
             % reflected Sin from surrounding terrain
@@ -146,15 +163,15 @@ classdef FORCING_base < matlab.mixin.Copyable
             Sin = forcing.DATA.Sin; % Total Sin (horizontal)
             Sin_dif = forcing.DATA.Sin_dif;% Diffuse Sin (horizontal)
             alpha = forcing.PARA.albedo_surrounding_terrain; %Albedo at the foot of the slope
-            svf = forcing.PARA.sky_view_factor; % hemispheric fraction of sky not occluded by terrain
+            svf = tile.TERRAIN.PARA.skyview_factor; % hemispheric fraction of sky not occluded by terrain
             
             forcing.DATA.Sin_dif = Sin_dif.*svf + Sin.*alpha.*(1-svf);
         end
         
         function forcing = reproject_Sin_dir(forcing, tile)
             Sin_dir = forcing.DATA.Sin_dir;
-            aspect = forcing.PARA.aspect;
-            slope = forcing.PARA.slope_angle;
+            aspect = tile.TERRAIN.PARA.aspect;
+            slope = tile.TERRAIN.PARA.slope_angle;
             
             surf_norm_vec = repmat([0.0,0.0,1.0], size(forcing.DATA.Sin,1), 1); %Unit vector on the horizontal
             
@@ -178,13 +195,13 @@ classdef FORCING_base < matlab.mixin.Copyable
             forcing.DATA.Sin_dir = Sin_face_direction;
         end
         
-        function forcing = terrain_corr_Lin(forcing)
+        function forcing = terrain_corr_Lin(forcing, tile)
             % Reduce Lin from atmosphere to sky view fraction, add Lin from
             % surroundings assuming Tair everywhere
             sigma = forcing.CONST.sigma; %Stefan-Boltzman constant
             Lin = forcing.DATA.Lin;
             Tair = forcing.DATA.Tair;
-            svf = forcing.PARA.sky_view_factor;
+            svf = tile.TERRAIN.PARA.skyview_factor;
             Tmfw = forcing.CONST.Tmfw;
             
             forcing.DATA.Lin = svf.*Lin + (1-svf).*sigma.*(Tair+Tmfw).^4;
@@ -199,18 +216,19 @@ classdef FORCING_base < matlab.mixin.Copyable
             t_weight = (t-forcing.DATA.timeForcing(posit,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)); % current distance from last timestep (0,1)
             
             for i = 1:length(variables)
-                if ~strcmp(variables{i},'t')
+                if ~strcmp(variables{i},'t') && isfield(forcing.DATA, variables{i})
                     forcing.TEMP.(variables{i}) = forcing.DATA.(variables{i})(posit,1)+(forcing.DATA.(variables{i})(posit+1,1)-forcing.DATA.(variables{i})(posit,1)).*t_weight;
                 end
             end
             forcing.TEMP.t = t;
         end
+
         
-        function forcing = terrain_shade(forcing)
+        function forcing = terrain_shade(forcing, tile)
             az = forcing.TEMP.azimuth;
             el = forcing.TEMP.sunElevation;
-            hbins = forcing.PARA.hbins;
-            h = forcing.PARA.h;
+            hbins = tile.TERRAIN.PARA.hbins;
+            h = tile.TERRAIN.PARA.h;
             
             I = knnsearch(hbins,az); % hbin containing current solar azimuth
             forcing.TEMP.Sin_dir(h(I)>el) = 0; % remove direct Sin if sun is below horizon
@@ -252,7 +270,7 @@ classdef FORCING_base < matlab.mixin.Copyable
             %for i = 1 : i_end(1,1)
             
             %compute JD from UTC
-            [year month day hour min sec] = datevec(UTC); %datevec(UTC(i,:));
+            [year, month, day, hour, min, sec] = datevec(UTC); %datevec(UTC(i,:));
             idx = (month <= 2);
             year(idx) = year(idx)-1;
             month(idx) = month(idx)+12;
@@ -329,4 +347,5 @@ classdef FORCING_base < matlab.mixin.Copyable
         end
         
     end
+
 end

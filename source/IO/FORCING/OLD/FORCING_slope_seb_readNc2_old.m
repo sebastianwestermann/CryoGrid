@@ -4,7 +4,7 @@
 % R. B. Zweigel, August 2021
 %========================================================================
 
-classdef FORCING_slope_seb_readNc2 < SEB %matlab.mixin.Copyable
+classdef FORCING_slope_seb_readNc2_old < SEB %matlab.mixin.Copyable
     
     properties
         DATA            % forcing data time series

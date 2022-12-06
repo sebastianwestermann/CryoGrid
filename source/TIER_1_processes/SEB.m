@@ -65,7 +65,7 @@ classdef SEB < BASE
             
             u_star = real(uz.*kappa./(log(z./z0)- psi_M_CLM5(seb, z./Lstar, z0./Lstar)));
             L_star = real(-rho.*cp.*Tz./kappa./g.*u_star.^3./(Qh + 0.61.*cp./L.*Tz.*Qe));
-            L_star=(abs(L_star)<1e-7).*L_star./abs(L_star).*1e-7 + (abs(L_star)>=1e-7).*L_star;  %limits Lstar
+            L_star=(abs(L_star)<1e-3).*L_star./abs(L_star).*1e-3 + (abs(L_star)>=1e-3).*L_star;  %limits Lstar
             
             L_star(Qh == 0 && Qe == 0) = 1e10; % avoid L_star = NaN for zero turbulent fluxes
             
@@ -236,7 +236,7 @@ classdef SEB < BASE
                 seb.STATVAR.evap = - Qe_evap ./(seb.CONST.rho_w .* L_w) .* seb.STATVAR.area(1);
                 seb.TEMP.evap_energy = seb.STATVAR.evap .* seb.STATVAR.T(1) .* seb.CONST.c_w;
                 
-                Q_e = evap_fraction .* Qe_evap + sublim_fraction .* Qe_sublim;
+                Q_e = evap_fraction .* Qe_evap + sublim_fraction .* Qe_sublim; % RBZ do we need to multiply by fractions here??
             end
         end
 
@@ -324,42 +324,7 @@ classdef SEB < BASE
                 double(seb.STATVAR.T(1,1)<0) .* seb.CONST.c_i .* seb.STATVAR.T(1,1));
             seb.STATVAR.sublim_energy =  seb.STATVAR.sublim .* (seb.CONST.c_i .* seb.STATVAR.T(1,1) - seb.CONST.L_f);
         end
-        
-        function seb = Q_evap_CLM4_5_Xice(seb, forcing)
-            uz = forcing.TEMP.wind;
-            p = forcing.TEMP.p;
-            q = forcing.TEMP.q;
-            Tz = forcing.TEMP.Tair;
-            Lstar = seb.STATVAR.Lstar;
-            
-            z =  seb.PARA.airT_height;
-            z0 = seb.PARA.z0;
-            kappa = seb.CONST.kappa; 
-            
-            water_fraction = (seb.STATVAR.water(1,1)+seb.STATVAR.Xwater(1,1) ) ./ (seb.STATVAR.waterIce(1,1) + seb.STATVAR.XwaterIce(1,1));
-            ice_fraction = (seb.STATVAR.ice(1,1) + seb.STATVAR.Xice(1,1)) ./ (seb.STATVAR.waterIce(1,1) + seb.STATVAR.XwaterIce(1,1));
-            
-            rho = rho_air(seb, p, seb.STATVAR.T(1)+273.15);
-            sat_pressure_first_cell = water_fraction .* satPresWater(seb, seb.STATVAR.T(1)+273.15) + ice_fraction .* satPresWater(seb, seb.STATVAR.T(1)+273.15);
-            latent_heat = water_fraction .* latent_heat_evaporation(seb, seb.STATVAR.T(1)+273.15) + ice_fraction .* latent_heat_sublimation(seb, seb.STATVAR.T(1)+273.15);
-
-            saturation_fraction_air_first_cell = exp(seb.STATVAR.waterPotential(1,1) .* seb.CONST.g ./ ((seb.CONST.R./ seb.CONST.molar_mass_w) .*(seb.STATVAR.T(1)+273.15)));
-            
-%             saturation_fraction_air_first_cell
-            %this might be wrong if the ground is frozen?
-            q_first_cell = sat_pressure_first_cell .* saturation_fraction_air_first_cell ./ p;
-            
-            vol_water_first_cell = seb.STATVAR.water(1,1) ./ (seb.STATVAR.layerThick(1,1) .* seb.STATVAR.area(1,1) - seb.STATVAR.XwaterIce(1,1)); 
-            reduce_yes_no = vol_water_first_cell < seb.STATVAR.field_capacity(1,1) && forcing.TEMP.q < q_first_cell && ~(seb.STATVAR.XwaterIce(1,1) > 1e-5.*seb.STATVAR.area(1,1));
-            betaCLM4_5 = 1 +  double(reduce_yes_no) .* (-1 +  0.25 .* (1-(cos(pi() .* vol_water_first_cell ./ seb.STATVAR.field_capacity(1,1)))).^2);
-
-            seb.STATVAR.Qe = -rho.*latent_heat.*betaCLM4_5.*kappa.*uz.*kappa./(log(z./z0)- psi_M(seb, z./Lstar, z0./Lstar)).*(q - q_first_cell)./(log(z./z0)- psi_H(seb, z./Lstar, z0./Lstar));
-            seb.STATVAR.evap = water_fraction .* seb.STATVAR.Qe ./ (latent_heat .* seb.CONST.rho_w);
-            seb.STATVAR.sublim = ice_fraction .* seb.STATVAR.Qe ./ (latent_heat .* seb.CONST.rho_w);
-            seb.STATVAR.evap_energy =  seb.STATVAR.evap.*  (double(seb.STATVAR.T(1,1)>=0) .* seb.CONST.c_w .* seb.STATVAR.T(1,1) + ...
-                double(seb.STATVAR.T(1,1)<0) .* seb.CONST.c_i .* seb.STATVAR.T(1,1)); 
-            seb.STATVAR.sublim_energy =  seb.STATVAR.sublim .* (seb.CONST.c_i .* seb.STATVAR.T(1,1) - seb.CONST.L_f); 
-        end
+               
         % Latent heat flux from evaporation + transpiration as in CLM5
         function seb = Q_e_CLM5(seb, tile)
             forcing = tile.FORCING;
@@ -471,22 +436,22 @@ classdef SEB < BASE
             ice_fraction(seb.STATVAR.waterIce == 0) = double(Tv<0);
             
             if q_s - qs_Tv < 0 % evaporation/transpiration in m3 water /(m2*s), not kg/(m2*s) as in CLM5
-                seb.TEMP.evap = -rho_atm.*(q_s - qs_Tv).* f_wet.*water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.sublim = -rho_atm.*(q_s - qs_Tv).* f_wet.*ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w; % Is this correct? or use f_snow?
-                seb.TEMP.transp = -rho_atm.*(q_s - qs_Tv).* f_dry.*(L+S) ./ (r_b + r_canopy) ./ seb.CONST.rho_w;
+                seb.STATVAR.evap = -rho_atm.*(q_s - qs_Tv).* f_wet.*water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.sublim = -rho_atm.*(q_s - qs_Tv).* f_wet.*ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w; % Is this correct? or use f_snow?
+                seb.STATVAR.transp = -rho_atm.*(q_s - qs_Tv).* f_dry.*(L+S) ./ (r_b + r_canopy) ./ seb.CONST.rho_w;
             else % condensation/deposition
-                seb.TEMP.evap = -rho_atm.*(q_s - qs_Tv).* water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.sublim = -rho_atm.*(q_s - qs_Tv).* ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
-                seb.TEMP.transp = 0;
+                seb.STATVAR.evap = -rho_atm.*(q_s - qs_Tv).* water_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.sublim = -rho_atm.*(q_s - qs_Tv).* ice_fraction.*(L+S) ./r_b ./seb.CONST.rho_w;
+                seb.STATVAR.transp = 0;
             end
             
-            seb.TEMP.Qe_evap = latent_heat_evaporation(seb, Tv+Tmfw).*seb.TEMP.evap.*seb.CONST.rho_w + latent_heat_sublimation(seb, Tv+Tmfw).*seb.TEMP.sublim.*seb.CONST.rho_w;
-            seb.TEMP.Qe_transp = latent_heat_evaporation(seb, Tv+Tmfw).*seb.TEMP.transp.*seb.CONST.rho_w;
+            seb.TEMP.Qe_evap = latent_heat_evaporation(seb, Tv+Tmfw).*seb.STATVAR.evap.*seb.CONST.rho_w + latent_heat_sublimation(seb, Tv+Tmfw).*seb.STATVAR.sublim.*seb.CONST.rho_w;
+            seb.TEMP.Qe_transp = latent_heat_evaporation(seb, Tv+Tmfw).*seb.STATVAR.transp.*seb.CONST.rho_w;
             
             seb.STATVAR.Qe = seb.TEMP.Qe_evap + seb.TEMP.Qe_transp;
-            seb.TEMP.evap_energy = seb.TEMP.evap.*( double(Tv>=0).*seb.CONST.c_w.*Tv + double(Tv<0).*seb.CONST.c_i.*Tv);
-            seb.TEMP.sublim_energy = seb.TEMP.sublim .* (seb.CONST.c_i.*Tv - seb.CONST.L_f);
-            seb.TEMP.transp_energy = seb.TEMP.transp.*seb.CONST.c_w.*Tv; 
+            seb.STATVAR.evap_energy = seb.STATVAR.evap.*( double(Tv>=0).*seb.CONST.c_w.*Tv + double(Tv<0).*seb.CONST.c_i.*Tv);
+            seb.STATVAR.sublim_energy = seb.STATVAR.sublim .* (seb.CONST.c_i.*Tv - seb.CONST.L_f);
+            seb.STATVAR.transp_energy = seb.STATVAR.transp.*seb.CONST.c_w.*Tv; 
         end
         
 % -------------- Sensible heat fluxes ------------------------------------        
@@ -606,7 +571,7 @@ classdef SEB < BASE
             ypsilon = seb.CONST.ypsilon; % kinematic viscosity of air
             Cs_dense = seb.PARA.Cs_dense; %  dense canopy turbulent transfer coefficient
             z = forcing.PARA.airT_height + sum(seb.STATVAR.layerThick); % height above ground for measurements
-            z0v = seb.STATVAR.z0; % roughness length of vegetation
+            z0v = seb.STATVAR.z0; % roughness length of vegetation ---------------- consider makeing a get_z0_surface_vegetation function!
             z0g = get_z0_surface(seb.NEXT); % Roughness lenght of ground
             d = seb.STATVAR.d; % displacement heigh
             k_s = seb.PARA.k_shelter; % canopy sheltering coefficient

@@ -28,7 +28,7 @@
 %       seaIce: 0 = time steps without sea ice; 1 = time steps with sea ice
 %========================================================================
 
-classdef FORCING_slope_seb < matlab.mixin.Copyable
+classdef FORCING_slope_seb_old < matlab.mixin.Copyable
     
     properties
         forcing_index

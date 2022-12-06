@@ -18,6 +18,16 @@ classdef IA_SEB_vegetation_CLM5 < IA_SEB & IA_WATER % & IA_HEAT
             ia_seb_water.NEXT.TEMP.d_energy(1) = ia_seb_water.NEXT.TEMP.d_energy(1) + ia_seb_water.NEXT.TEMP.F_ub; % cant skip F_ub, it is required for the ground-snow IA_class
         end
         
+        function ia_seb_water = get_boundary_condition_m_Xice(ia_seb_water, tile)
+            ia_seb_water = get_boundary_condition_Qh_CLM5_m(ia_seb_water, tile);
+            ia_seb_water = get_boundary_condition_Qe_CLM5_m_Xice(ia_seb_water, tile);
+            ia_seb_water = get_boundary_condition_water_RichardsEq_Xice_canopy_m(ia_seb_water, tile);
+            
+            % add fluxes to uppermost cell (ratiative fluxes are added by penetration)
+            ia_seb_water.NEXT.TEMP.F_ub = (-ia_seb_water.NEXT.STATVAR.Qh - ia_seb_water.NEXT.STATVAR.Qe) .* ia_seb_water.NEXT.STATVAR.area(1);
+            ia_seb_water.NEXT.TEMP.d_energy(1) = ia_seb_water.NEXT.TEMP.d_energy(1) + ia_seb_water.NEXT.TEMP.F_ub; % cant skip F_ub, it is required for the ground-snow IA_class
+        end
+        
         function q_g = get_humidity_surface(ia_seb_water, tile)
             q_g = get_humidity_surface_GROUND(ia_seb_water, tile);
         end

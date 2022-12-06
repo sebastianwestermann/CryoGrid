@@ -233,8 +233,8 @@ classdef VEGETATION_CLM5_seb < SEB & WATER_FLUXES & VEGETATION
             canopy = Q_e_CLM5_Stewart(canopy, tile);
             
             canopy.TEMP.d_energy = canopy.TEMP.d_energy - (canopy.STATVAR.Qh + canopy.STATVAR.Qe).*canopy.STATVAR.area;
-            canopy.TEMP.d_water_ET = canopy.TEMP.d_water_ET - (canopy.TEMP.evap + canopy.TEMP.sublim).*canopy.STATVAR.area; % transpired water is removed from soil, not canopy
-            canopy.TEMP.d_water_ET_energy = canopy.TEMP.d_water_ET_energy - (canopy.TEMP.evap_energy + canopy.TEMP.sublim_energy).*canopy.STATVAR.area;
+            canopy.TEMP.d_water_ET = canopy.TEMP.d_water_ET - (canopy.STATVAR.evap + canopy.STATVAR.sublim).*canopy.STATVAR.area; % transpired water is removed from soil, not canopy
+            canopy.TEMP.d_water_ET_energy = canopy.TEMP.d_water_ET_energy - (canopy.STATVAR.evap_energy + canopy.STATVAR.sublim_energy).*canopy.STATVAR.area;
         end
         
         function canopy = canopy_water_balance(canopy,tile)
