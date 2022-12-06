@@ -5,7 +5,7 @@ classdef READ_FORCING_mat < READ_FORCING_base
     end
     
     methods
-        function [data, times] = read_mat(full_file, variables)    %, start_date, end_date)
+        function data = read_mat(full_file, variables)    %[data, times] = , start_date, end_date)
             
             temp = load(full_file, 'FORCING');
    
@@ -18,7 +18,7 @@ classdef READ_FORCING_mat < READ_FORCING_base
                 end
             end
 
-            times = data.t_span;
+%             times = data.t_span;
         end
 
     end    

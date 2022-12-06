@@ -171,8 +171,8 @@ classdef OUT_accumulate_SEB_water_vegetation < matlab.mixin.Copyable
                     end
                     if strcmp(className,out.PARA.classes(i))
                         % SEB
-%                         out.TEMP.Sin(i)  = out.TEMP.Sin(i) + CURRENT.STATVAR.Sin.*tile.timestep;
-%                         out.TEMP.Lin(i)  = out.TEMP.Lin(i) + CURRENT.STATVAR.Lin.*tile.timestep;
+                        out.TEMP.Sin(i)  = out.TEMP.Sin(i) + CURRENT.STATVAR.Sin.*tile.timestep;
+                        out.TEMP.Lin(i)  = out.TEMP.Lin(i) + CURRENT.STATVAR.Lin.*tile.timestep;
                         out.TEMP.Sout(i) = out.TEMP.Sout(i) + CURRENT.STATVAR.Sout.*tile.timestep;
                         out.TEMP.Lout(i) = out.TEMP.Lout(i) + CURRENT.STATVAR.Lout.*tile.timestep;
                         out.TEMP.Qe(i)   = out.TEMP.Qe(i) + CURRENT.STATVAR.Qe.*tile.timestep;
