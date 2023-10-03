@@ -22,7 +22,7 @@ classdef SNOW < BASE
             snow.TEMP.d_energy = snow.STATVAR.energy.*0;
         end
         
-%-----------boundary conditions----------------
+        %----boundary conditions----------------
         function snow = get_boundary_condition_SNOW_u(snow, forcing) %snow and rain from entire grid cell area
             snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* snow.STATVAR.area(1,1); %snowfall is in mm/day -> [m3/sec]
             snow.TEMP.rainfall = forcing.TEMP.rainfall ./1000 ./(24.*3600) .* snow.STATVAR.area(1,1);
@@ -38,14 +38,6 @@ classdef SNOW < BASE
             snow.TEMP.rain_energy = snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
         end
         
-        function snow = get_boundary_condition_allSNOW_rain_canopy_m(snow, tile) %snow from entire area (PARENT+CHILD), rain only from snow-covered part (CHILD)
-            forcing = tile.FORCING;
-            snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* (snow.PARENT.STATVAR.area(1,1) + snow.STATVAR.area); %snowfall is in mm/day -> [m3/sec]
-            snow.TEMP.rainfall = snow.PARENT.PREVIOUS.TEMP.rain_thru .* snow.STATVAR.area;
-            snow.TEMP.snow_energy = snow.TEMP.snowfall .* (min(0, forcing.TEMP.Tair) .* snow.CONST.c_i - snow.CONST.L_f);  %[J/sec]
-            snow.TEMP.rain_energy = snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
-        end
-        
         %when creating CHILD
         function snow = get_boundary_condition_allSNOW_u(snow, forcing) %only snow from entire area, i.e. from PARENT
             snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* snow.PARENT.STATVAR.area(1,1); %snowfall is in mm/day -> [m3/sec]
@@ -53,74 +45,70 @@ classdef SNOW < BASE
         end
         
         function snow = get_sublimation(snow, forcing)
-            'get_sublimation@SNOW(..) uses a naming and sign convention inconsistent with other snow classes'
-            snow.TEMP.sublim = -snow.STATVAR.Qe ./(snow.CONST.rho_w .* snow.CONST.L_s) .* snow.STATVAR.area(1);
-            snow.TEMP.sublim_energy = snow.TEMP.sublim .* (snow.STATVAR.T(1) .* snow.CONST.c_i - snow.CONST.L_f);
+            snow.STATVAR.sublimation = -snow.STATVAR.Qe ./(snow.CONST.rho_w .* snow.CONST.L_s) .* snow.STATVAR.area(1);
+            snow.TEMP.sublimation_energy = snow.STATVAR.sublimation .* (snow.STATVAR.T(1) .* snow.CONST.c_i - snow.CONST.L_f);
         end
         
-%--------timesteps----
+        %---timesteps----
         function timestep = get_timestep_SNOW_mass_balance(snow) %at maximum timestep the entire cell is melted
             timestep = min((-snow.STATVAR.energy ./ snow.TEMP.d_energy) .*double(snow.TEMP.d_energy>0) + double(snow.TEMP.d_energy<=0).*snow.PARA.dt_max); %when snow is melting, do not melt more than there is in a grid cell
             timestep(isnan(timestep)) = snow.PARA.dt_max;
         end
         
 %         function timestep = get_timestep_SNOW(snow) %at maximum timestep maximum half the cell is melted under melting conditions, otherwise normal heat conduction timestep
-% %             timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
-% %                 double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
+%             %             timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
+%             %                 double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
 %             timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.energy >= - 0.95.* snow.STATVAR.ice.*snow.CONST.L_f) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
 %                 double(snow.TEMP.d_energy<0 & snow.STATVAR.energy >= - 0.95.* snow.STATVAR.ice.*snow.CONST.L_f) .*0.5 .*  ((-snow.STATVAR.ice.*snow.CONST.L_f -snow.STATVAR.energy) ./ snow.TEMP.d_energy) + ...
 %                 double( snow.STATVAR.energy < - 0.95.* snow.STATVAR.ice.*snow.CONST.L_f) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.5 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
-%              
+%             
 %             timestep(isnan(timestep)) = snow.PARA.dt_max;
 %         end
         
         function timestep = get_timestep_SNOW(snow) %at maximum timestep maximum half the cell is melted under melting conditions, otherwise normal heat conduction timestep
-%           Updated with threshold distinguishing melting condition 
-%           depending on field capacity rather than energy. RBZ 23/11/22 
-            field_capacity = max((snow.STATVAR.area.*snow.STATVAR.layerThick - snow.STATVAR.ice).*snow.PARA.field_capacity, snow.STATVAR.area.*snow.STATVAR.layerThick./1e6);
-            timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
-                double(snow.TEMP.d_energy<0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  ((-snow.STATVAR.waterIce.*snow.CONST.L_f -snow.STATVAR.energy) ./ snow.TEMP.d_energy) + ...
-                double( snow.STATVAR.water <= .5.* field_capacity) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.25 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
-             
+            %           Updated with threshold distinguishing melting condition
+            %           depending on field capacity rather than energy. RBZ 23/11/22
+%             field_capacity = max((snow.STATVAR.area.*snow.STATVAR.layerThick - snow.STATVAR.ice).*snow.PARA.field_capacity, snow.STATVAR.area.*snow.STATVAR.layerThick./1e6);
+%             timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
+%                 double(snow.TEMP.d_energy<0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  ((-snow.STATVAR.waterIce.*snow.CONST.L_f -snow.STATVAR.energy) ./ snow.TEMP.d_energy) + ...
+%                 double( snow.STATVAR.water <= .5.* field_capacity) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.25 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
+            
+            melting_conditions = snow.STATVAR.energy > - 0.999.*snow.STATVAR.waterIce .*snow.CONST.L_f;
+            timestep = min(double(snow.TEMP.d_energy>0 & melting_conditions) .* min(-snow.STATVAR.energy ./snow.TEMP.d_energy, 0.2 .* snow.PARA.swe_per_cell .*snow.STATVAR.area.* snow.CONST.L_f ./ snow.TEMP.d_energy) + ...
+                double(snow.TEMP.d_energy<0 & melting_conditions) .* min((-snow.STATVAR.waterIce .*snow.CONST.L_f - snow.STATVAR.energy) ./snow.TEMP.d_energy, -0.2 .* snow.PARA.swe_per_cell .* snow.STATVAR.area .* snow.CONST.L_f  ./ snow.TEMP.d_energy) + ...
+                double(~melting_conditions) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.5 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
+       
             timestep(isnan(timestep)) = snow.PARA.dt_max;
         end
         
-%         function timestep = get_timestep_SNOW_CHILD(snow)
-%             %timestep = (-snow.STATVAR.energy ./ snow.TEMP.d_energy) .* double(snow.TEMP.d_energy>0) + double(snow.TEMP.d_energy<=0).*snow.PARA.dt_max;
-%             
-% %             timestep = double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
-% %                 double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area);
-%             timestep = double(snow.TEMP.d_energy>0 & snow.STATVAR.energy >= - 0.95 .* snow.STATVAR.ice.*snow.CONST.L_f) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
+        function timestep = get_timestep_SNOW_CHILD(snow)
+            %timestep = (-snow.STATVAR.energy ./ snow.TEMP.d_energy) .* double(snow.TEMP.d_energy>0) + double(snow.TEMP.d_energy<=0).*snow.PARA.dt_max;
+            
+%             timestep = double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
+%                 double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area);
+%             timestep = double(snow.TEMP.d_energy>0 & snow.STATVAR.energy >= - 0.95) .* snow.STATVAR.ice.*snow.CONST.L_f .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
 %                 double(snow.TEMP.d_energy<0 & snow.STATVAR.energy >= - 0.95.* snow.STATVAR.ice.*snow.CONST.L_f) .*0.5 .*  ((-snow.STATVAR.ice.*snow.CONST.L_f -snow.STATVAR.energy) ./ snow.TEMP.d_energy) + ...
 %                 double( snow.STATVAR.energy < - 0.95.* snow.STATVAR.ice.*snow.CONST.L_f) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.5 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area);
-%          
-%          %a=double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy);
-%          %b =double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area);
-%          
-%          
-%             timestep(isnan(timestep)) = snow.PARA.dt_max;
-%         end
-        
-        function timestep = get_timestep_SNOW_CHILD(snow)
-%           Updated with threshold distinguishing melting condition 
-%           depending on field capacity rather than energy. RBZ 23/11/22 
-            field_capacity = max((snow.STATVAR.area.*snow.STATVAR.layerThick - snow.STATVAR.ice).*snow.PARA.field_capacity,  snow.STATVAR.area.*snow.STATVAR.layerThick./1e6);
-            timestep = min(double(snow.TEMP.d_energy>0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy) + ...
-                double(snow.TEMP.d_energy<0 & snow.STATVAR.water > .5.* field_capacity) .*0.25 .*  ((-snow.STATVAR.waterIce.*snow.CONST.L_f -snow.STATVAR.energy) ./ snow.TEMP.d_energy) + ...
-                double( snow.STATVAR.water <= .5.* field_capacity) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.25 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
-             
+         
+         %a=double(snow.TEMP.d_energy>0 & snow.STATVAR.T >=0) .*0.5 .*  (-snow.STATVAR.energy ./ snow.TEMP.d_energy);
+         %b =double(snow.TEMP.d_energy<=0 | snow.STATVAR.T < 0) .* snow.PARA.dE_max ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area);
+         melting_conditions = snow.STATVAR.energy > - 0.999 .* snow.STATVAR.waterIce .*snow.CONST.L_f;
+         timestep = min(double(snow.TEMP.d_energy>0 & melting_conditions) .* min(-0.99.*snow.STATVAR.energy ./snow.TEMP.d_energy, 0.5 .* snow.PARA.swe_per_cell .*max(snow.STATVAR.area, snow.NEXT.STATVAR.area(1) .* 1e-4).* snow.CONST.L_f ./ snow.TEMP.d_energy) + ...
+             double(snow.TEMP.d_energy<0 & melting_conditions) .* min((-snow.STATVAR.waterIce .*snow.CONST.L_f - snow.STATVAR.energy) ./snow.TEMP.d_energy, -0.2 .* snow.PARA.swe_per_cell .* snow.STATVAR.area .* snow.CONST.L_f  ./ snow.TEMP.d_energy) + ...
+             double(~melting_conditions) .* snow.CONST.c_i .* (snow.STATVAR.ice./snow.STATVAR.layerThick./ snow.STATVAR.area) .*0.5 ./ (abs(snow.TEMP.d_energy) ./ snow.STATVAR.layerThick./ snow.STATVAR.area));
+         
+         
             timestep(isnan(timestep)) = snow.PARA.dt_max;
         end
         
         function timestep = get_timestep_SNOW_sublimation(snow) 
-            timestep = double(snow.TEMP.sublimation_energy > 0) .*0.25 .*  (-snow.STATVAR.energy(1,1) ./ snow.TEMP.sublimation_energy) +  double(snow.TEMP.sublimation_energy <= 0) .* snow.PARA.dt_max;
+            timestep = double(snow.TEMP.sublimation_energy < 0) .*0.25 .*  (snow.STATVAR.energy(1,1) ./ snow.TEMP.sublimation_energy) +  double(snow.TEMP.sublimation_energy >= 0) .* snow.PARA.dt_max;
              
-                
             timestep(isnan(timestep)) = snow.PARA.dt_max;
         end
         
         
-%--------diagnostic step------------
+        %--diagnostic step------------
         %remove or reroute meltwater in excess of snow matrix - check if
         %subtract_water is redundant
         function snow = subtract_water(snow)
@@ -212,7 +200,7 @@ classdef SNOW < BASE
         end
         
         %properties of new snow CROCUS, Vionnet et al., 2012
-        function snow = get_snow_properties_crocus(snow, forcing)
+        function snow = get_snow_properties_crocus(snow,forcing)
             if snow.TEMP.snowfall >0
                 T_air=min(forcing.TEMP.Tair, 0);
                 windspeed = forcing.TEMP.wind;
@@ -247,7 +235,7 @@ classdef SNOW < BASE
             
             if snow.TEMP.snowfall >0
                 windspeed = forcing.TEMP.wind;
-                T_air = forcing.TEMP.Tair;
+                T_air = min(forcing.TEMP.Tair, 0);
                 
                 T_fus=0;  %degree C
                 rho_Tair = double(T_air > T_fus+2).*( 50 + 1.7*17^(3/2) ) ...
@@ -265,11 +253,6 @@ classdef SNOW < BASE
                 snow.TEMP.newSnow.STATVAR.top_snow_date = forcing.TEMP.t;
                 snow.TEMP.newSnow.STATVAR.bottom_snow_date = forcing.TEMP.t; % a few minites earluer
             end
-        end
-        
-        function snow = get_snow_properties_none(snow, forcing)
-            % Function for snow classes that do not feature any dynamic new
-            % snow properties (density, dendricity etc.)
         end
         
         %crocus snow microphycics, Vionnet et al., 2012
@@ -419,16 +402,15 @@ classdef SNOW < BASE
                 ground.IA_CHILD.NEXT = ground;
                 ground.IA_CHILD.PREVIOUS = snow;
                 
-                above_class = class(snow.PREVIOUS);
-                if ~isequal(above_class(1:3),'Top') % Class above snow is a "real" stratigraphy class
-                    ia_class = get_IA_class(class(snow.PREVIOUS),class(ground));
-                    ground.IA_PREVIOUS = ia_class();
-                    ground.PREVIOUS.IA_NEXT = ia_class();
-                    ground.IA_PREVIOUS.NEXT = ground;
-                    ground.IA_PREVIOUS.PREVIOUS = snow.PREVIOUS;
-                else
-                    ground.IA_PREVIOUS=[]; %change to get_ia_class, if there is a possibility for another class on top of the snow cover
-                end
+                %ground.IA_PREVIOUS=[]; %change to get_ia_class, if there is a possibility for another class on top of the snow cover
+                %added to make compatible with vegetation class,
+                %get_IA_class gives empty array if above_class is Top
+                ia_class = get_IA_class(class(snow.PREVIOUS),class(ground));
+                ground.IA_PREVIOUS = ia_class;
+                ground.PREVIOUS.IA_NEXT = ia_class;
+                ground.IA_PREVIOUS.NEXT = ground;
+                ground.IA_PREVIOUS.PREVIOUS = snow.PREVIOUS;
+%                 finalize_init(ground.IA_PREVIOUS, tile);
                 
                 %snow.NEXT =[];  %cut all dependencies, except for snow.NEXT which keeps being pointed to snow.PARENT, so that SW radiation can be transmitted
                 snow.PREVIOUS =[];
@@ -457,16 +439,14 @@ classdef SNOW < BASE
                 ground.IA_CHILD.NEXT = ground;
                 ground.IA_CHILD.PREVIOUS = snow;
                 
-                above_class = class(snow.PREVIOUS); % Added switch to get IA with above class RBZ oct. 2022
-                if ~isequal(above_class(1:3),'Top') % Class above snow is a "real" stratigraphy class
-                    ia_class = get_IA_class(class(snow.PREVIOUS),class(ground));
-                    ground.IA_PREVIOUS = ia_class();
-                    ground.PREVIOUS.IA_NEXT = ia_class();
-                    ground.IA_PREVIOUS.NEXT = ground;
-                    ground.IA_PREVIOUS.PREVIOUS = snow.PREVIOUS;
-                else
-                    ground.IA_PREVIOUS=[]; %change to get_ia_class, if there is a possibility for another class on top of the snow cover
-                end     
+                %ground.IA_PREVIOUS=[]; %change to get_ia_class, if there is a possibility for another class on top of the snow cover
+                %added to make compatible with vegetation class
+                ia_class = get_IA_class(class(snow.PREVIOUS),class(ground));
+                ground.IA_PREVIOUS = ia_class;
+                ground.PREVIOUS.IA_NEXT = ia_class;
+                ground.IA_PREVIOUS.NEXT = ground;
+                ground.IA_PREVIOUS.PREVIOUS = snow.PREVIOUS;
+                finalize_init(ground.IA_PREVIOUS, tile);
                 
                 %snow.NEXT =[];  %cut all dependencies, except for snow.NEXT which keeps being pointed to snow.PARENT, so that SW radiation can be transmitted
                 snow.PREVIOUS =[];
@@ -532,6 +512,15 @@ classdef SNOW < BASE
 
                 snow = ground; %assign snow pointer to ground to return to regular stratigraphy
             end
+        end
+        
+        %---------Vegetation----------
+        function snow = get_boundary_condition_allSNOW_rain_canopy_m(snow, tile) %snow from entire area (PARENT+CHILD), rain only from snow-covered part (CHILD)
+            forcing = tile.FORCING;
+            snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* (snow.PARENT.STATVAR.area(1,1) + snow.STATVAR.area); %snowfall is in mm/day -> [m3/sec]
+            snow.TEMP.rainfall = snow.PARENT.PREVIOUS.TEMP.rain_thru .* snow.STATVAR.area;
+            snow.TEMP.snow_energy = snow.TEMP.snowfall .* (min(0, forcing.TEMP.Tair) .* snow.CONST.c_i - snow.CONST.L_f);  %[J/sec]
+            snow.TEMP.rain_energy = snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
         end
         
     end

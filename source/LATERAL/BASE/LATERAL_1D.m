@@ -133,16 +133,10 @@ classdef LATERAL_1D < matlab.mixin.Copyable
                     %re-compute elevations of the different classes
                     CURRENT = lateral.BOTTOM.PREVIOUS;
                     elevation = CURRENT.STATVAR.lowerPos;
-                    while ~isequal(CURRENT,tile.TOP)
-                        className = class(CURRENT);
-                        if strcmp(className(1:10),'VEGETATION') % Vegetation comes on top of ground, not snow
-                            CURRENT.STATVAR.lowerPos = CURRENT.GROUND.STATVAR.upperPos;
-                            CURRENT.STATVAR.upperPos = CURRENT.STATVAR.lowerPos + sum(CURRENT.STATVAR.layerThick,1);
-                        else
-                            CURRENT.STATVAR.lowerPos = elevation;
-                            elevation = elevation + sum(CURRENT.STATVAR.layerThick,1);
-                            CURRENT.STATVAR.upperPos = elevation;
-                        end
+                    while ~(strcmp(class(CURRENT), 'Top'))
+                        CURRENT.STATVAR.lowerPos = elevation;
+                        elevation = elevation + sum(CURRENT.STATVAR.layerThick,1);
+                        CURRENT.STATVAR.upperPos = elevation;
                         CURRENT = CURRENT.PREVIOUS;
                     end
                     

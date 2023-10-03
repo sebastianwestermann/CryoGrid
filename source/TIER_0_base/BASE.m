@@ -145,6 +145,24 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+        %default function, overwritten for SNOW classes
+        function gse = get_groundSurfaceElevation(ground)
+           gse = ground.STATVAR.upperPos; 
+        end
+        
+        function yesNo = is_ground_surface(ground)
+            yesNo = 1;
+        end
+            
+        function yesNo = is_surface(ground)
+            yesNo = 1;
+        end
+        
+        %for data assimilation in TILE_1D_DA
+        function ground = adjust_stratigraphy(ground, tile)
+            
+        end
+        
         %-------------param file generation-----
         function ground = param_file_info(ground)
              ground = provide_PARA(ground);
@@ -161,3 +179,4 @@ classdef BASE < matlab.mixin.Copyable
     end
     
 end
+

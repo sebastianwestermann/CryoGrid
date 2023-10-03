@@ -5,7 +5,7 @@
 % S. Westermann, October 2020
 %========================================================================
 
-classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_KarraPainter & WATER_FLUXES & HEAT_FLUXES_LATERAL & WATER_FLUXES_LATERAL 
+classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_KarraPainter & WATER_FLUXES & HEAT_FLUXES_LATERAL & WATER_FLUXES_LATERAL & ADJUST_STRATIGRAPHY
 
     
     methods
@@ -172,6 +172,10 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
         end
         
+        function [ground, S_up] = penetrate_SW_PARENT(ground, S_down)  %mandatory function when used with class that features SW penetration
+            [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
+        end
+        
         function ground = get_boundary_condition_l(ground, tile)
             forcing = tile.FORCING;
             ground.TEMP.F_lb = forcing.PARA.heatFlux_lb .* ground.STATVAR.area(end);
@@ -199,7 +203,7 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             ground.STATVAR.waterIce = ground.STATVAR.waterIce + timestep .* ground.TEMP.d_water; 
             ground.STATVAR.waterIce = min(ground.STATVAR.waterIce, ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic); %prevent small rounding errors 
             ground.STATVAR.excessWater = ground.STATVAR.excessWater + timestep .* ground.TEMP.surface_runoff;
-       end
+        end
         
         function ground = compute_diagnostic_first_cell(ground, tile)
             forcing = tile.FORCING;
@@ -300,55 +304,64 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
         end
         
         
-        %----inherited Tier 1 functions ------------
         
-        function ground = get_derivative_energy(ground)
-           ground = get_derivative_energy@HEAT_CONDUCTION(ground); 
-        end
+        %----ADJUST_STRATIGRAPHY-------------
+        %-------------------------------------
+        %needed to change the stratigraphy during data assimilation
         
-        function ground = conductivity_mixing_squares(ground)
-            ground = conductivity_mixing_squares@HEAT_CONDUCTION(ground);
-        end
-        
-        function flux = Q_h(ground, forcing)
-           flux = Q_h@SEB(ground, forcing);
-        end
-    
-        function flux = Q_eq_potET(ground, forcing)
-            flux = Q_eq_potET@SEB(ground, forcing);
+        function ground = adjust_stratigraphy(ground, tile)
+            ground = adjust_stratigraphy_saturation_fixed(ground, tile);
         end
         
-        function ground = calculateET(ground)
-            ground = calculateET@SEB(ground);
-        end
         
-        function ground = get_boundary_condition_u_water2(ground, forcing)
-           ground = get_boundary_condition_u_water2@WATER_FLUXES(ground, forcing);
-        end
-        
-        function ground = get_derivative_water2(ground)
-            ground = get_derivative_water2@WATER_FLUXES(ground);
-        end
-        
-        function timestep = get_timestep_heat_coduction(ground)
-            timestep = get_timestep_heat_coduction@HEAT_CONDUCTION(ground);
-        end
-        
-        function timestep = get_timestep_water(ground)
-            timestep = get_timestep_water@WATER_FLUXES(ground);
-        end
-        
-        function ground = L_star(ground, forcing)
-           ground = L_star@SEB(ground, forcing); 
-        end
-        
-        function [ground, S_up] = penetrate_SW_no_transmission(ground, S_down)
-            [ground, S_up] = penetrate_SW_no_transmission@SEB(ground, S_down);
-        end
-        
-        function ground = get_T_water_freeW(ground)
-            ground = get_T_water_freeW@HEAT_CONDUCTION(ground);
-        end
+%         %----inherited Tier 1 functions ------------
+%         
+%         function ground = get_derivative_energy(ground)
+%            ground = get_derivative_energy@HEAT_CONDUCTION(ground); 
+%         end
+%         
+%         function ground = conductivity_mixing_squares(ground)
+%             ground = conductivity_mixing_squares@HEAT_CONDUCTION(ground);
+%         end
+%         
+%         function flux = Q_h(ground, forcing)
+%            flux = Q_h@SEB(ground, forcing);
+%         end
+%     
+%         function flux = Q_eq_potET(ground, forcing)
+%             flux = Q_eq_potET@SEB(ground, forcing);
+%         end
+%         
+%         function ground = calculateET(ground)
+%             ground = calculateET@SEB(ground);
+%         end
+%         
+%         function ground = get_boundary_condition_u_water2(ground, forcing)
+%            ground = get_boundary_condition_u_water2@WATER_FLUXES(ground, forcing);
+%         end
+%         function ground = get_derivative_water2(ground)
+%             ground = get_derivative_water2@WATER_FLUXES(ground);
+%         end
+%         
+%         function timestep = get_timestep_heat_coduction(ground)
+%             timestep = get_timestep_heat_coduction@HEAT_CONDUCTION(ground);
+%         end
+%         
+%         function timestep = get_timestep_water(ground)
+%             timestep = get_timestep_water@WATER_FLUXES(ground);
+%         end
+%         
+%         function ground = L_star(ground, forcing)
+%            ground = L_star@SEB(ground, forcing); 
+%         end
+%         
+%         function [ground, S_up] = penetrate_SW_no_transmission(ground, S_down)
+%             [ground, S_up] = penetrate_SW_no_transmission@SEB(ground, S_down);
+%         end
+%         
+%         function ground = get_T_water_freeW(ground)
+%             ground = get_T_water_freeW@HEAT_CONDUCTION(ground);
+%         end
         
         
         %-------------param file generation-----

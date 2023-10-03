@@ -32,8 +32,7 @@ classdef GROUND_freeW_bucketW_seb_snow < GROUND_freeW_bucketW_seb
        function ground = finalize_init(ground, tile)
            ground = finalize_init@GROUND_freeW_bucketW_seb(ground, tile);
            ground.CHILD = 0; % no snow
-           ground.IA_CHILD = 0; 
-           ground.TEMP.SW_split = 0;
+           ground.IA_CHILD = 0;
        end
 
        
@@ -103,18 +102,7 @@ classdef GROUND_freeW_bucketW_seb_snow < GROUND_freeW_bucketW_seb
         end
         
         function [ground, S_up] = penetrate_SW(ground, S_down)  %mandatory function when used with class that features SW penetration
-            
-            if ground.CHILD ~= 0 && ground.TEMP.SW_split == 0
-                snow_fraction = ground.CHILD.STATVAR.area(1)/ground.STATVAR.area(1);
-                ground_fraction = 1 - snow_fraction;
-                [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down.*ground_fraction);
-                ground.TEMP.SW_split = 1; % To circumnavigate CHILD when penetrat_SW(ground) is called below snow
-                [ground.CHILD, S_up2] = penetrate_SW(ground.CHILD, S_down.*snow_fraction);
-                S_up = S_up + sum(S_up2); % snow_crocus splits SW into spectral bands
-            else
-                [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down);
-            end
-            
+            [ground, S_up] = penetrate_SW@GROUND_freeW_bucketW_seb(ground, S_down);
         end
         
         function ground = get_boundary_condition_l(ground, tile)
@@ -181,11 +169,29 @@ classdef GROUND_freeW_bucketW_seb_snow < GROUND_freeW_bucketW_seb
                     ground.CHILD.STATVAR.layerThick = snow_volume ./ ground.CHILD.STATVAR.area;
                     %ground.CHILD = compute_diagnostic(ground.CHILD, forcing); %splits snow in 2 grid cells
                    
+%                     %make snow a real class
+%                     ground.CHILD.PARENT = 0;
+%                     ground.CHILD.PREVIOUS = ground.PREVIOUS;
+%                     ground.CHILD.NEXT = ground;
+%                     ground.PREVIOUS.NEXT = ground.CHILD;
+%                     ground.PREVIOUS = ground.CHILD;
+%                     ground.CHILD = 0;
+%                     ground.IA_PREVIOUS = ground.IA_CHILD; 
+%                     ground.PREVIOUS.IA_NEXT = ground.IA_CHILD;
+%                     ground.IA_CHILD = 0;
+                    
                     %make snow a real class
                     ground.CHILD.PARENT = 0;
                     ground.CHILD.PREVIOUS = ground.PREVIOUS;
                     ground.CHILD.NEXT = ground;
                     ground.PREVIOUS.NEXT = ground.CHILD;
+                    ia_class = get_IA_class(class(ground.PREVIOUS), class(ground.CHILD));
+                    ground.PREVIOUS.IA_NEXT = ia_class;
+                    ground.CHILD.IA_PREVIOUS = ia_class;
+                    ground.CHILD.IA_PREVIOUS.NEXT = ground.CHILD;
+                    ground.CHILD.IA_PREVIOUS.PREVIOUS = ground.PREVIOUS;
+                    finalize_init(ground.CHILD.IA_PREVIOUS, tile);
+                    
                     ground.PREVIOUS = ground.CHILD;
                     ground.CHILD = 0;
                     ground.IA_PREVIOUS = ground.IA_CHILD; 

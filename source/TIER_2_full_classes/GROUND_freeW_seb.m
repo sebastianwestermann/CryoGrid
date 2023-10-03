@@ -5,7 +5,7 @@
 % S. Westermann, October 2020
 %========================================================================
 
-classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL 
+classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & ADJUST_STRATIGRAPHY
     
     methods
         
@@ -114,6 +114,10 @@ classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL
             [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
         end
         
+        function [ground, S_up] = penetrate_SW_PARENT(ground, S_down)  %mandatory function when used with class that features SW penetration
+            [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
+        end
+        
         function ground = get_boundary_condition_l(ground, tile)
             forcing = tile.FORCING;
             ground.TEMP.F_lb = forcing.PARA.heatFlux_lb .* ground.STATVAR.area(end);
@@ -182,6 +186,12 @@ classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL
             ground = lateral3D_push_heat_simple(ground, lateral);
         end
         
+        %----ADJUST_STRATIGRAPHY-------------
+        %needed to change the stratigraphy during data assimilation
+        
+        function ground = adjust_stratigraphy(ground, tile)
+            ground = adjust_stratigraphy_waterIce_fixed(ground, tile);
+        end
         
                  
          %-------------param file generation-----

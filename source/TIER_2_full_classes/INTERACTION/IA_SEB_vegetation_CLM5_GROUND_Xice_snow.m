@@ -25,7 +25,7 @@ classdef IA_SEB_vegetation_CLM5_GROUND_Xice_snow < IA_SEB_vegetation_CLM5
                     ground.IA_CHILD.PREVIOUS = ground.CHILD;
                     ground.IA_CHILD.NEXT = ground; %SNOW CHILD created
                     
-                    ground.CHILD = get_boundary_condition_u_create_CHILD(ground.CHILD, tile);  %initialize with fresh snowfall
+                    ground.CHILD = get_boundary_condition_m_create_CHILD(ia_seb_water, tile);  %initialize with fresh snowfall
                 end
             else % CHILD exists
                 total.area = ground.STATVAR.area;
@@ -85,6 +85,34 @@ classdef IA_SEB_vegetation_CLM5_GROUND_Xice_snow < IA_SEB_vegetation_CLM5
                 q_g = q_g*(1-snow_fraction) + q_snow*snow_fraction;
             end
         end        
+        
+        %NEW SW, Dec 2022, must be separate function for Xice classes,
+        %should also be changed for Snow_crocus2?
+        function ia_seb_water = canopy_drip(ia_seb_water, tile)
+            stratigraphy1 = ia_seb_water.PREVIOUS; %canopy
+            stratigraphy2 = ia_seb_water.NEXT; %ground
+            
+            water_capacity = stratigraphy1.PARA.Wmax*stratigraphy1.STATVAR.area*(stratigraphy1.STATVAR.LAI+stratigraphy1.STATVAR.SAI);
+            if stratigraphy1.STATVAR.waterIce > water_capacity
+                water_fraction = stratigraphy1.STATVAR.water./stratigraphy1.STATVAR.waterIce;
+                ice_fraction = stratigraphy1.STATVAR.ice./stratigraphy1.STATVAR.waterIce;
+                excess_waterIce = max(0,stratigraphy1.STATVAR.waterIce - water_capacity);
+                excess_water = excess_waterIce.*water_fraction;
+                excess_ice = excess_waterIce.*ice_fraction;
+                excess_water_energy = excess_water.*stratigraphy1.CONST.c_w.*stratigraphy1.STATVAR.T(1);
+                excess_ice_energy = excess_ice.*(stratigraphy1.CONST.c_i.*stratigraphy1.STATVAR.T(1)-stratigraphy2.CONST.L_f);
+                
+                stratigraphy1.STATVAR.waterIce = water_capacity;
+                stratigraphy1.STATVAR.energy = stratigraphy1.STATVAR.energy - excess_water_energy - excess_ice_energy;
+                
+                stratigraphy2.STATVAR.XwaterIce(1,1) = stratigraphy2.STATVAR.XwaterIce(1,1) + excess_water + excess_ice;
+                stratigraphy2.STATVAR.layerThick(1,1) = stratigraphy2.STATVAR.layerThick(1,1) + (excess_water + excess_ice)./stratigraphy2.STATVAR.area(1,1);
+                stratigraphy2.STATVAR.energy(1,1) = stratigraphy2.STATVAR.energy(1,1) + excess_water_energy + excess_ice_energy;
+                
+                stratigraphy1 = get_T_water_vegetation(stratigraphy1);
+                stratigraphy2 = compute_diagnostic(stratigraphy2, tile);
+            end
+        end
     
     end 
     

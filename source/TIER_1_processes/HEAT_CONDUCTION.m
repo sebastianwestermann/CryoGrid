@@ -104,7 +104,7 @@ classdef HEAT_CONDUCTION < BASE
         
         function ground = thermalConductivity_CLM4_5(ground)
             
-            k_dry_organic = 0.05; %slightly nonsense...
+            k_dry_organic = 0.05; %after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
                         
             waterIce = ground.STATVAR.waterIce./ground.STATVAR.layerThick ./ ground.STATVAR.area;
             water = ground.STATVAR.water./ground.STATVAR.layerThick ./ ground.STATVAR.area;
@@ -128,9 +128,10 @@ classdef HEAT_CONDUCTION < BASE
             
         end
         
-        function ground = thermalConductivity_CLM4_5_Xice(ground)    
-            k_dry_organic = 0.05; %slightly nonsense...
-
+        function ground = thermalConductivity_CLM4_5_Xice(ground)
+            
+            k_dry_organic = 0.05; % after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
+                        
             waterIce = (ground.STATVAR.waterIce+ground.STATVAR.XwaterIce)./ground.STATVAR.layerThick ./ ground.STATVAR.area;
             water = (ground.STATVAR.water+ground.STATVAR.Xwater)./ground.STATVAR.layerThick ./ ground.STATVAR.area;
             ice = (ground.STATVAR.ice+ground.STATVAR.Xice) ./ ground.STATVAR.layerThick./ ground.STATVAR.area;
@@ -139,10 +140,11 @@ classdef HEAT_CONDUCTION < BASE
             porosity = 1 - mineral - organic;
             organic_fraction = organic ./ (mineral + organic);
             saturation = waterIce./porosity;
-          
+            
             k_solids = organic_fraction .* ground.CONST.k_o + (1- organic_fraction) .* ground.CONST.k_m;
             k_sat = k_solids.^(1-porosity) .* ground.CONST.k_w .^(water./waterIce.* porosity) .* ground.CONST.k_i .^(ice./waterIce.* porosity);
-
+            k_sat(waterIce == 0) = 0;
+            
             bulk_density = 2700 .* (1-porosity);
             k_dry_mineral = (0.135 .* bulk_density + 64.7) ./ (2700 - 0.947 .* bulk_density);
             k_dry = organic_fraction .* k_dry_organic + (1- organic_fraction) .* k_dry_mineral;
@@ -151,6 +153,71 @@ classdef HEAT_CONDUCTION < BASE
             
             ground.STATVAR.thermCond = Kersten_number .* k_sat + (1- Kersten_number) .* k_dry;
         end
+        
+        function ground = thermalConductivity_CLM4_5_Xice_litter(ground)
+            % 1. split surface cell into dry and wet fraction
+            waterIce = ground.STATVAR.waterIce(1);
+            water = ground.STATVAR.water(1);
+            ice = ground.STATVAR.ice(1);
+            ground.STATVAR.area = [ground.STATVAR.area(1); ground.STATVAR.area];
+            ground.STATVAR.T = [ground.STATVAR.T(1); ground.STATVAR.T];
+            ground.STATVAR.layerThick = [ground.STATVAR.layerThick(1); ground.STATVAR.layerThick];
+            ground.STATVAR.layerThick(1:2) = ground.STATVAR.layerThick(1:2).*.5;
+            ground.STATVAR.organic = [ground.STATVAR.organic(1); ground.STATVAR.organic];
+            ground.STATVAR.organic(1:2) = ground.STATVAR.organic(1:2).*.5;
+            ground.STATVAR.mineral = [ground.STATVAR.mineral(1); ground.STATVAR.mineral];
+            ground.STATVAR.mineral(1:2) = ground.STATVAR.mineral(1:2).*.5;
+            ground.STATVAR.XwaterIce = [ground.STATVAR.XwaterIce(1); ground.STATVAR.XwaterIce];
+            ground.STATVAR.XwaterIce(1:2) = ground.STATVAR.XwaterIce(1:2).*.5;
+            ground.STATVAR.Xwater = [ground.STATVAR.Xwater(1); ground.STATVAR.Xwater];
+            ground.STATVAR.Xwater(1:2) = ground.STATVAR.Xwater(1:2).*.5;
+            ground.STATVAR.Xice = [ground.STATVAR.Xice(1); ground.STATVAR.Xice];
+            ground.STATVAR.Xice(1:2) = ground.STATVAR.Xice(1:2).*.5;
+            
+            if waterIce <= ground.STATVAR.layerThick(2)*ground.STATVAR.area(1)-ground.STATVAR.organic(2)-ground.STATVAR.mineral(2)-ground.STATVAR.XwaterIce(2)
+                ground.STATVAR.waterIce = [0; waterIce; ground.STATVAR.waterIce(2:end)];
+                ground.STATVAR.water = [0; water; ground.STATVAR.water(2:end)];
+                ground.STATVAR.ice = [0; ice; ground.STATVAR.ice(2:end)];
+            else
+                ground.STATVAR.waterIce = [ground.STATVAR.waterIce(1); ground.STATVAR.waterIce];
+                ground.STATVAR.waterIce(2) = ground.STATVAR.layerThick(2)*ground.STATVAR.area(1)-ground.STATVAR.organic(2)-ground.STATVAR.mineral(2)-ground.STATVAR.XwaterIce(2);
+                ground.STATVAR.waterIce(1) = waterIce - ground.STATVAR.waterIce(2);
+                ground.STATVAR.water = [ground.STATVAR.water(1); ground.STATVAR.water];
+                ground.STATVAR.water(2) = ground.STATVAR.waterIce(2).*water./waterIce;
+                ground.STATVAR.water(1) = water - ground.STATVAR.water(2);
+                ground.STATVAR.ice = [ground.STATVAR.ice(1); ground.STATVAR.ice];
+                ground.STATVAR.ice(2) = ground.STATVAR.waterIce(2).*ice./waterIce;
+                ground.STATVAR.ice(1) = ice - ground.STATVAR.ice(2);
+            end
+            
+            % 2. Calculate thermCond for "new" stratigraphy
+            ground = thermalConductivity_CLM4_5_Xice(ground);
+            
+            % 3. Merge surface cells again and calculate thermCond in series
+            ground.STATVAR.thermCond(2) = sum(ground.STATVAR.layerThick(1:2))./(ground.STATVAR.layerThick(1)./ground.STATVAR.thermCond(1) + ground.STATVAR.layerThick(2)./ground.STATVAR.thermCond(2));
+            ground.STATVAR.thermCond = ground.STATVAR.thermCond(2:end);
+            ground.STATVAR.layerThick(2) = sum(ground.STATVAR.layerThick(1:2));
+            ground.STATVAR.layerThick = ground.STATVAR.layerThick(2:end);
+            ground.STATVAR.organic(2) = sum(ground.STATVAR.organic(1:2));
+            ground.STATVAR.organic = ground.STATVAR.organic(2:end);
+            ground.STATVAR.mineral(2) = sum(ground.STATVAR.mineral(1:2));
+            ground.STATVAR.mineral = ground.STATVAR.mineral(2:end);
+            ground.STATVAR.XwaterIce(2) = sum(ground.STATVAR.XwaterIce(1:2));
+            ground.STATVAR.XwaterIce = max(0, ground.STATVAR.XwaterIce(2:end));
+            ground.STATVAR.Xwater(2) = sum(ground.STATVAR.Xwater(1:2));
+            ground.STATVAR.Xwater = max(0, ground.STATVAR.Xwater(2:end));
+            ground.STATVAR.Xice(2) = sum(ground.STATVAR.Xice(1:2));
+            ground.STATVAR.Xice = max(0, ground.STATVAR.Xice(2:end));
+            ground.STATVAR.waterIce(2) = sum(ground.STATVAR.waterIce(1:2));
+            ground.STATVAR.waterIce = max(0,ground.STATVAR.waterIce(2:end));
+            ground.STATVAR.water(2) = sum(ground.STATVAR.water(1:2));
+            ground.STATVAR.water = max(0, ground.STATVAR.water(2:end));
+            ground.STATVAR.ice(2) = sum(ground.STATVAR.ice(1:2));
+            ground.STATVAR.ice = max(0, ground.STATVAR.ice(2:end));
+            ground.STATVAR.area = ground.STATVAR.area(2:end);
+            ground.STATVAR.T = ground.STATVAR.T(2:end);
+        end
+        
         
         function snow = conductivity_snow_Yen(snow)
             
@@ -163,7 +230,7 @@ classdef HEAT_CONDUCTION < BASE
             k1 = -0.06023;
             k2 = 2.5425;
             k3 = 289.99-273.15;
-            snow.STATVAR.thermCond = snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
+            snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
             
         end
         
@@ -187,8 +254,10 @@ classdef HEAT_CONDUCTION < BASE
             thermCond_Yen = ki.*(snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area).^1.88;
             
             snow.STATVAR.thermCond = max(thermCond_Sturm, thermCond_Yen);
-        end            
-
+            
+        end
+        
+        
         function snow = conductivity_snow_Jordan(snow)
             % Alternative snow conductivity parameterization, based on
             % "Jordan, R. (1991). A one-dimensional temperature model for a snow cover" 

@@ -28,38 +28,47 @@ classdef IA_SEB_vegetation_CLM5 < IA_SEB & IA_WATER % & IA_HEAT
             ia_seb_water.NEXT.TEMP.d_energy(1) = ia_seb_water.NEXT.TEMP.d_energy(1) + ia_seb_water.NEXT.TEMP.F_ub; % cant skip F_ub, it is required for the ground-snow IA_class
         end
         
+        %THIS DOES NOT USE ANY INFORMATION FROM CANOPY, rewrite so that it
+        %is called for ia_seb_water.NEXT.
         function q_g = get_humidity_surface(ia_seb_water, tile)
             q_g = get_humidity_surface_GROUND(ia_seb_water, tile);
         end
         
         function r_soil = ground_resistance_evap(ia_seb_water, tile)
             % soil resistance to evapotranspiration - based on Dry Surface Layer parameterization in CLM5 / Swenson and Lawrence (2014)
-            forcing = tile.FORCING;
-            canopy = ia_seb_water.PREVIOUS;
+%             forcing = tile.FORCING;
+%             canopy = ia_seb_water.PREVIOUS;
             ground = ia_seb_water.NEXT;
-            Tmfw = forcing.CONST.Tmfw;
-            Dmax = canopy.PARA.Dmax; % maximum thickness of DSL
-            tau = canopy.CONST.tau; %  tortuosity of the vapor flow paths through the soil matrix
-            Tg = ground.STATVAR.T(1) + Tmfw; % Tg in [K]
-            theta_init = ground.STATVAR.field_capacity(1);
-            theta_surf = ground.STATVAR.water(1)./ground.STATVAR.layerThick(1);
+%             Tmfw = forcing.CONST.Tmfw;
+%             Dmax = canopy.PARA.Dmax; % maximum thickness of DSL
+%             tau = canopy.CONST.tau; %  tortuosity of the vapor flow paths through the soil matrix
+%             Tg = ground.STATVAR.T(1) + Tmfw; % Tg in [K]
+%             theta_init = ground.STATVAR.field_capacity(1);
+%             theta_surf = ground.STATVAR.water(1)./ground.STATVAR.layerThick(1)./ground.STATVAR.area(1);
+%             
+%             Dv = 2.12.* 10^(-5).*(Tg./Tmfw)^1.75; % molecular diffusivity of water vapor in air
+%             DSL = double(theta_surf<theta_init).*Dmax.*(theta_init-theta_surf)./theta_init;
+%             r_soil = DSL./(Dv*tau);
+
+            vol_water_first_cell = (ground.STATVAR.XwaterIce(1) + ground.STATVAR.waterIce(1,1)) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1)); 
+            reduce_yes_no = vol_water_first_cell < ground.STATVAR.field_capacity(1,1);
+            betaCLM4_5 = 1 +  double(reduce_yes_no) .* (-1 +  0.25 .* (1-(cos(pi() .* vol_water_first_cell ./ ground.STATVAR.field_capacity(1,1)))).^2);
             
-            Dv = 2.12.* 10^(-5).*(Tg./Tmfw)^1.75; % molecular diffusivity of water vapor in air
-            DSL = double(theta_surf<theta_init).*Dmax.*(theta_init-theta_surf)./theta_init;
-            r_soil = DSL./(Dv*tau);
+            r_soil = min(1e10, 250.*((1./betaCLM4_5).^0.5 -1));
         end
         
-        function beta_t = get_soil_water_stress(ia_seb_water)
-            % adopted from section 8.4 in CLM4.5!
-            stratigraphy2 = ia_seb_water.NEXT; % ground
-            r = stratigraphy2.STATVAR.f_root; % layer root fraction
-            
-            w = double(stratigraphy2.STATVAR.water>0).*double(stratigraphy2.STATVAR.T>-2); % Plant wilting factor
-            
-            beta_t = sum(r.*w);
-            
-            stratigraphy2.TEMP.w = w;
-        end
+%         %NOT USED
+%         function beta_t = get_soil_water_stress(ia_seb_water)
+%             % adopted from section 8.4 in CLM4.5!
+%             stratigraphy2 = ia_seb_water.NEXT; % ground
+%             r = stratigraphy2.STATVAR.f_root; % layer root fraction
+%             
+%             w = double(stratigraphy2.STATVAR.water>0).*double(stratigraphy2.STATVAR.T>-2); % Plant wilting factor
+%             
+%             beta_t = sum(r.*w);
+%             
+%             stratigraphy2.TEMP.w = w;
+%         end
         
         function ia_seb_water = distribute_roots(ia_seb_water)
             %             biomass_root = ia_seb_water.PARA.biomass_root;

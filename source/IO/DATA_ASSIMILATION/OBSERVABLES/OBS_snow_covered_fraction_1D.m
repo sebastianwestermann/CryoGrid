@@ -44,6 +44,10 @@ classdef OBS_snow_covered_fraction_1D < matlab.mixin.Copyable
             
         end
         
+        function obs = reset_new_stratigraphy(obs, tile)
+            
+        end
+        
     end
 end
 

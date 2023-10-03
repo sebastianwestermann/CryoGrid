@@ -511,7 +511,25 @@ classdef IA_WATER < IA_BASE
             
         end
         
-        %---------- Vegetation ----------------------
+        
+        
+        %---service functions-----------------
+        %redce in and outflow close to field capacity and full saturation,
+        %bucket water scheme
+        %Note: these functions are duplicates of the respective functions in TIER1 WATER_FLUXES of the GROUND classes 
+        function rf = reduction_factor_out(saturation, ia_heat_water)  %part of get_derivative_water2(ground)
+            smoothness = 3e-2;
+            rf = (1-exp(-saturation./smoothness));
+        end
+        
+        function rf = reduction_factor_in(saturation, ia_heat_water)   %part of get_derivative_water2(ground)
+            smoothness = 3e-2;
+            rf = (1- exp((saturation-1)./smoothness));
+        end
+
+    
+    
+            %---------- Vegetation ----------------------
         
         function ia_seb_water = get_boundary_condition_RichardsEq_canopy_m(ia_seb_water, tile)
             % Equivalent to get_boundary_condition_u_RichardsEq(...) in WATER_FLUXES
@@ -519,7 +537,7 @@ classdef IA_WATER < IA_BASE
             
             max_infiltration = max(0, ia_seb_water.NEXT.STATVAR.hydraulicConductivity(1,1).* ((0 - ia_seb_water.NEXT.STATVAR.waterPotential(1,1)) ./ (ia_seb_water.NEXT.STATVAR.layerThick(1,1) ./ 2) + 1) .* ia_seb_water.NEXT.STATVAR.area(1,1));
             
-            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru;  % throughfall from canopy
+            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru .* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
 
             %partition already here in infiltration and surface runoff,
             %considering ET losses and potentially external fluxes
@@ -553,7 +571,8 @@ classdef IA_WATER < IA_BASE
             
             max_infiltration = max(0, ia_seb_water.NEXT.STATVAR.hydraulicConductivity(1,1).* ((0 - ia_seb_water.NEXT.STATVAR.waterPotential(1,1)) ./ (ia_seb_water.NEXT.STATVAR.layerThick(1,1) ./ 2) + 1) .* ia_seb_water.NEXT.STATVAR.area(1,1));
             
-            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru;  % throughfall from canopy
+            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru .* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
+            
             %partition already here in infiltration and surface runoff, considering ET losses and potentially external fluxes
             %             volume_matrix = ground.STATVAR.layerThick(1) .* ground.STATVAR.area(1) - ground.STATVAR.XwaterIce(1);
             %             saturation_first_cell = (ground.STATVAR.waterIce(1)  - ground.STATVAR.field_capacity(1) .* volume_matrix)./...
@@ -588,12 +607,12 @@ classdef IA_WATER < IA_BASE
             
         end
         
-        function ia_seb_water = get_boundary_condition_water_canopy_SNOW_m(ia_seb_water, tile)
+        function ia_seb_water = get_boundary_condition_water_canopy_SNOW_m(ia_seb_water, tile) %should be different for corcus2??
             % Equivalent to get_boundary_condition_u_water_SNOW(...) in WATER_FLUXES
             ground = ia_seb_water.NEXT;
             forcing = tile.FORCING;
             
-            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru;  % throughfall from canopy
+            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru.* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
             
             %partition already here in infiltration and surface runoff,
             %considering ET losses and potentially external fluxes
@@ -621,19 +640,21 @@ classdef IA_WATER < IA_BASE
             psi = stratigraphy2.STATVAR.waterPotential;
             psi_wilt = stratigraphy1.PARA.psi_wilt;
             
-            water_out = transp_water .* f_root.*max(0,(psi_wilt-psi)./psi_wilt) ./sum(f_root.*max(0,(psi_wilt-psi)./psi_wilt));
+            water_out = transp_water .* f_root.*max(0,(psi_wilt-psi)./psi_wilt) .*double(stratigraphy2.STATVAR.T>=0) ./...
+                max(1e-12, sum(f_root.*max(0,(psi_wilt-psi)./psi_wilt).*double(stratigraphy2.STATVAR.T>=0)));
             water_out(isnan(water_out)) = 0;
             water_out_energy = water_out .* stratigraphy2.STATVAR.T .* (double(stratigraphy2.STATVAR.T>=0).*stratigraphy2.CONST.c_w + double(stratigraphy2.STATVAR.T<0).*stratigraphy2.CONST.c_i);
-            
-            stratigraphy2.TEMP.d_water_ET = stratigraphy2.TEMP.d_water_ET - water_out;
-            stratigraphy2.TEMP.d_water_ET_energy = stratigraphy2.TEMP.d_water_ET_energy - water_out_energy;
+
+            %CHANGED SW Dec 2022, must be times area?
+            stratigraphy2.TEMP.d_water_ET = stratigraphy2.TEMP.d_water_ET - water_out .* stratigraphy2.STATVAR.area;
+            stratigraphy2.TEMP.d_water_ET_energy = stratigraphy2.TEMP.d_water_ET_energy - water_out_energy.* stratigraphy2.STATVAR.area;
         end
         
         function ia_seb_water = canopy_drip(ia_seb_water, tile)
             stratigraphy1 = ia_seb_water.PREVIOUS; %canopy
             stratigraphy2 = ia_seb_water.NEXT; %ground
             
-            water_capacity = stratigraphy1.PARA.Wmax*stratigraphy1.STATVAR.area*(stratigraphy1.STATVAR.LAI+stratigraphy1.STATVAR.SAI);
+            water_capacity = stratigraphy1.PARA.Wmax*stratigraphy1.STATVAR.area.*(stratigraphy1.STATVAR.LAI+stratigraphy1.STATVAR.SAI);
             if stratigraphy1.STATVAR.waterIce > water_capacity
                 water_fraction = stratigraphy1.STATVAR.water./stratigraphy1.STATVAR.waterIce;
                 ice_fraction = stratigraphy1.STATVAR.ice./stratigraphy1.STATVAR.waterIce;
@@ -656,23 +677,8 @@ classdef IA_WATER < IA_BASE
                 stratigraphy1 = get_T_water_vegetation(stratigraphy1);
                 stratigraphy2 = compute_diagnostic(stratigraphy2, tile);
             end
-             
         end
         
-        
-        %---service functions-----------------
-        %redce in and outflow close to field capacity and full saturation,
-        %bucket water scheme
-        %Note: these functions are duplicates of the respective functions in TIER1 WATER_FLUXES of the GROUND classes 
-        function rf = reduction_factor_out(saturation, ia_heat_water)  %part of get_derivative_water2(ground)
-            smoothness = 3e-2;
-            rf = (1-exp(-saturation./smoothness));
-        end
-        
-        function rf = reduction_factor_in(saturation, ia_heat_water)   %part of get_derivative_water2(ground)
-            smoothness = 3e-2;
-            rf = (1- exp((saturation-1)./smoothness));
-        end
     end
 end
 
