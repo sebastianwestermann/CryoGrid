@@ -217,6 +217,8 @@ classdef IA_BGC_Xice <  IA_BGC
                 %ia_BGC.GROUND.STATVAR.area(ia_BGC.GROUND.STATVAR.first_mineral_cell,1) = ia_BGC.GROUND.STATVAR.area(ia_BGC.GROUND.STATVAR.first_mineral_cell,1) + sum(area_BGC(start_pos:pos,1));
                 ia_BGC.GROUND.STATVAR.energy(ia_BGC.GROUND.STATVAR.first_mineral_cell,1) = ia_BGC.GROUND.STATVAR.energy(ia_BGC.GROUND.STATVAR.first_mineral_cell,1) + sum(energy_BGC(start_pos:pos,1));
                 
+                ia_BGC.GROUND.STATVAR.layerThick_wo_Xice = ia_BGC.GROUND.STATVAR.layerThick - ia_BGC.GROUND.STATVAR.XwaterIce./ia_BGC.GROUND.STATVAR.area;
+
                 ia_BGC.GROUND = get_T_water_freezeC_Xice(ia_BGC.GROUND);
                 
                 ia_BGC.GROUND = conductivity(ia_BGC.GROUND);

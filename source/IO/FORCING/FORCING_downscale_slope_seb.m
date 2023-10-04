@@ -354,7 +354,6 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
             
             forcing = split_precip_Tair(forcing);
             
-            'Hallo'
             
 
 % 
