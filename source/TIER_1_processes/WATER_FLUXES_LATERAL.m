@@ -228,9 +228,13 @@ classdef WATER_FLUXES_LATERAL < BASE
             while i <= size(ground.STATVAR.layerThick,1)
                 if ~hardBottom(i,1)
                     fraction_below = min(1, max(0, (lateral.PARA.reservoir_elevation - depths(i+1,1)) ./ ground.STATVAR.layerThick(i,1)));
+%                     target_water = fraction_below .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1)) + ...
+%                         (1-fraction_below) .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1)) .* ground.STATVAR.field_capacity(i,1);
                     target_water = fraction_below .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1)) + ...
-                        (1-fraction_below) .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1)) .* ground.STATVAR.field_capacity(i,1);
-                    %CHECK THIS, second line, this is porosity times field_capacity, but should be total volume times fieldcapacity?
+                         (1-fraction_below) .* ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) .* ground.STATVAR.field_capacity(i,1);
+                    %CHECK THIS, second line, this is porosity times
+                    %field_capacity, but should be total volume times
+                    %fieldcapacity? Implemented SW Oct 2023
                     
                     %water if the cell was filled up right to the reservoir elevation
                     pore_space_below_reservoir = pore_space_below_reservoir + double(fraction_below>0) .* max(0, target_water - ground.STATVAR.waterIce(i,1));
@@ -266,7 +270,7 @@ classdef WATER_FLUXES_LATERAL < BASE
                         
                         j= water_table_cell;
                         if flux > 0
-                            while flux>0
+                            while flux>0 && j <= size(ground.STATVAR.layerThick,1)
                                 water_removed = min(max(0,ground.STATVAR.water(j,1) - ground.STATVAR.field_capacity(j,1) .* ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1)), ...
                                 flux);
                                 flux = flux - water_removed;
@@ -279,7 +283,7 @@ classdef WATER_FLUXES_LATERAL < BASE
                                 j=j+1;
                             end
                         elseif flux <0
-                            while flux<0
+                            while flux<0 && j >= 1 
                                 water_added = min(max(0,ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1)) - ground.STATVAR.waterIce(j,1) - ground.STATVAR.mineral(j,1) - ground.STATVAR.organic(j,1), ...
                                     -flux);
                                 flux = flux + water_added; %flux negative
