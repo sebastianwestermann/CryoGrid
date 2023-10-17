@@ -50,6 +50,15 @@ classdef IA_SEB_vegetation_CLM5 < IA_SEB & IA_WATER % & IA_HEAT
 %             DSL = double(theta_surf<theta_init).*Dmax.*(theta_init-theta_surf)./theta_init;
 %             r_soil = DSL./(Dv*tau);
 
+            % The following 5 lines where in Sebastians fork (Oct. 2023) but
+            % q_first_cell is unused -> commented out
+            % water_fraction = ground.STATVAR.water(1,1) ./ ground.STATVAR.waterIce(1,1);
+            % ice_fraction = ground.STATVAR.ice(1,1) ./ ground.STATVAR.waterIce(1,1);
+            % sat_pressure_first_cell = water_fraction .* satPresWater(ground, ground.STATVAR.T(1)+273.15) + ice_fraction .* satPresIce(ground, ground.STATVAR.T(1)+273.15);
+            % saturation_fraction_air_first_cell = exp(ground.STATVAR.waterPotential(1,1) .* ground.CONST.g ./ ((ground.CONST.R./ ground.CONST.molar_mass_w) .*(ground.STATVAR.T(1)+273.15)));
+            % q_first_cell = 0.622.*sat_pressure_first_cell .* saturation_fraction_air_first_cell ./ forcing.TEMP.p;
+
+
             vol_water_first_cell = (ground.STATVAR.XwaterIce(1) + ground.STATVAR.waterIce(1,1)) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1)); 
             reduce_yes_no = vol_water_first_cell < ground.STATVAR.field_capacity(1,1);
             betaCLM4_5 = 1 +  double(reduce_yes_no) .* (-1 +  0.25 .* (1-(cos(pi() .* vol_water_first_cell ./ ground.STATVAR.field_capacity(1,1)))).^2);
