@@ -5,7 +5,7 @@
 % S. Westermann, October 2020
 %========================================================================
 
-classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsEqW_seb_pressure
+classdef GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation_snow < GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation
     properties
         CHILD
         IA_CHILD
@@ -22,19 +22,19 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
 %         end
 
        function ground = provide_PARA(ground)  
-            ground = provide_PARA@GROUND_freezeC_RichardsEqW_seb_pressure(ground);
+            ground = provide_PARA@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground);
        end
        
        function ground = provide_CONST(ground)  
-           ground = provide_CONST@GROUND_freezeC_RichardsEqW_seb_pressure(ground);
+           ground = provide_CONST@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground);
        end
        
        function ground = provide_STATVAR(ground)  
-           ground = provide_STATVAR@GROUND_freezeC_RichardsEqW_seb_pressure(ground);
+           ground = provide_STATVAR@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground);
        end
        
        function ground = finalize_init(ground, tile)
-           ground = finalize_init@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+           ground = finalize_init@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
            ground.CHILD = 0; % no snow
            ground.IA_CHILD = 0;
        end
@@ -45,7 +45,7 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
         function ground = get_boundary_condition_u(ground, tile)
             forcing = tile.FORCING;
             if ground.CHILD == 0  %CHILD does not exist
-                ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile); %call the native function for the ground class
+                ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile); %call the native function for the ground class
                 
                 if forcing.TEMP.snowfall > 0  %create CHILD 
 %                     CURRENT = ground.PREVIOUS;  %go to Top() and get the stored SNOW class
@@ -83,7 +83,7 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
                 ground.CHILD.STATVAR.Lstar = ground.STATVAR.Lstar;
                 
                 ground.CHILD = get_boundary_condition_u_CHILD(ground.CHILD, tile);
-                ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
                 
                 get_IA_CHILD_boundary_condition_u(ground.IA_CHILD, tile);
                 %call designated mandatory function for CHILD-PARENT interactions in
@@ -106,38 +106,38 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
         end
         
         function [ground, S_up] = penetrate_SW(ground, S_down)  %mandatory function when used with class that features SW penetration
-            [ground, S_up] = penetrate_SW@GROUND_freezeC_RichardsEqW_seb_pressure(ground, S_down);
+            [ground, S_up] = penetrate_SW@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, S_down);
         end
         
         function ground = get_boundary_condition_l(ground, tile)
-              ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+              ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
         end
         
         function ground = get_derivatives_prognostic(ground, tile)
             if ground.CHILD == 0  
-                ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile); %call normal function
+                ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile); %call normal function
             else
                 ground.CHILD = get_derivatives_prognostic_CHILD(ground.CHILD, tile);
-                ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile); 
+                ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile); 
             end
         end
         
         function timestep = get_timestep(ground, tile) 
             if ground.CHILD == 0
-                timestep = get_timestep@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                timestep = get_timestep@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
             else 
                 timestep_snow = get_timestep_CHILD(ground.CHILD, tile);
-                timestep_ground =  get_timestep@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                timestep_ground =  get_timestep@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
                 timestep = timestep_ground + double(timestep_snow > 0 && timestep_snow < timestep_ground) .* (timestep_snow - timestep_ground);
             end
         end
         
         function ground = advance_prognostic(ground, tile) 
             if ground.CHILD == 0
-                ground =  advance_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                ground =  advance_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
             else                
                 ground.CHILD = advance_prognostic_CHILD(ground.CHILD, tile);
-                ground =  advance_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                ground =  advance_prognostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
             end
         end
         
@@ -148,15 +148,16 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
         
         function ground = compute_diagnostic(ground, tile)
             if ground.CHILD == 0
-                ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
             else
-                ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile);
+                ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
                 ground.CHILD = compute_diagnostic_CHILD(ground.CHILD, tile);
                 
             end
         end
         
         function ground = check_trigger(ground, tile)
+            ground = check_trigger@GROUND_freezeC_RichardsEqW_seb_pressure_sedimentation(ground, tile);
             if ground.CHILD ~= 0
                 %delete CHILD
                 if ground.CHILD.STATVAR.area ./ ground.STATVAR.area(1,1) < 1e-6 %cutoff to get rid of remaining snow

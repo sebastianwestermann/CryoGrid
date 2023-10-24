@@ -78,40 +78,40 @@ classdef PEAT_ACCUMULATION < BASE
 %         end
         
 
-        function peat = peat_accumulation_newCell(peat)
-            
-             %new_peat = (peat.STATVAR.peat_moss + peat.STATVAR.peat_shrub + peat.STATVAR.peat_graminoid) ./ peat.PARA.number_of_growing_days; % total peat, in g/cm2!!!
-                         
-             %assume constant NPP
-             new_peat = peat.PARA.annual_NPP./ peat.PARA.number_of_growing_days .* peat.PARA.decompose_timestep;
-             
-             peat.STATVAR.total_peat = [new_peat; peat.STATVAR.total_peat];
-             peat.STATVAR.totalpeatC_originalMass = [new_peat; peat.STATVAR.totalpeatC_originalMass]; %;  peat.STATVAR.totalpeatC_originalMass_old];
-            
-            peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity);
-            
-            peat.TEMP.d_layerThick = [new_peat ./ peat.PARA.bulkDensity; peat.TEMP.d_layerThick];
-            peat.TEMP.d_organic = [ new_peat ./ peat.CONST.organicDensity ; peat.TEMP.d_organic];
-            
-        end
-        
-        function peat = peat_accumulation(peat)
-            
-             %new_peat = (peat.STATVAR.peat_moss + peat.STATVAR.peat_shrub + peat.STATVAR.peat_graminoid)  ./ peat.PARA.number_of_growing_days; % total peat, in kg/m2 ??
-          
-             %assume constant NPP
-             new_peat = peat.PARA.annual_NPP./ peat.PARA.number_of_growing_days .* peat.PARA.decompose_timestep;
-             
-             
-             peat.STATVAR.total_peat(1,1) = peat.STATVAR.total_peat(1,1) + new_peat;
-             peat.STATVAR.totalpeatC_originalMass(1,1) = peat.STATVAR.totalpeatC_originalMass(1,1) + new_peat; %;  peat.STATVAR.totalpeatC_originalMass_old];
-             
-             peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity); %CONVERSION MUST BE WRONG, SEE DECOMPOSITION.* peat.CONST.mtocm; % g/cm2 ./ cm3/g, then convert with m to cm
-             
-             peat.TEMP.d_layerThick(1,1) = peat.TEMP.d_layerThick(1,1) + new_peat ./ peat.PARA.bulkDensity;
-             peat.TEMP.d_organic(1,1) = peat.TEMP.d_organic(1,1) + new_peat ./ peat.CONST.organicDensity;
-             
-        end
+%         function peat = peat_accumulation_newCell(peat)
+%             
+%              %new_peat = (peat.STATVAR.peat_moss + peat.STATVAR.peat_shrub + peat.STATVAR.peat_graminoid) ./ peat.PARA.number_of_growing_days; % total peat, in g/cm2!!!
+%                          
+%              %assume constant NPP
+%              new_peat = peat.PARA.annual_NPP./ peat.PARA.number_of_growing_days .* peat.PARA.decompose_timestep;
+%              
+%              peat.STATVAR.total_peat = [new_peat; peat.STATVAR.total_peat];
+%              peat.STATVAR.totalpeatC_originalMass = [new_peat; peat.STATVAR.totalpeatC_originalMass]; %;  peat.STATVAR.totalpeatC_originalMass_old];
+%             
+%             peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity);
+%             
+%             peat.TEMP.d_layerThick = [new_peat ./ peat.PARA.bulkDensity; peat.TEMP.d_layerThick];
+%             peat.TEMP.d_organic = [ new_peat ./ peat.CONST.organicDensity ; peat.TEMP.d_organic];
+%             
+%         end
+%         
+%         function peat = peat_accumulation(peat)
+%             
+%              %new_peat = (peat.STATVAR.peat_moss + peat.STATVAR.peat_shrub + peat.STATVAR.peat_graminoid)  ./ peat.PARA.number_of_growing_days; % total peat, in kg/m2 ??
+%           
+%              %assume constant NPP
+%              new_peat = peat.PARA.annual_NPP./ peat.PARA.number_of_growing_days .* peat.PARA.decompose_timestep;
+%              
+%              
+%              peat.STATVAR.total_peat(1,1) = peat.STATVAR.total_peat(1,1) + new_peat;
+%              peat.STATVAR.totalpeatC_originalMass(1,1) = peat.STATVAR.totalpeatC_originalMass(1,1) + new_peat; %;  peat.STATVAR.totalpeatC_originalMass_old];
+%              
+%              peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity); %CONVERSION MUST BE WRONG, SEE DECOMPOSITION.* peat.CONST.mtocm; % g/cm2 ./ cm3/g, then convert with m to cm
+%              
+%              peat.TEMP.d_layerThick(1,1) = peat.TEMP.d_layerThick(1,1) + new_peat ./ peat.PARA.bulkDensity;
+%              peat.TEMP.d_organic(1,1) = peat.TEMP.d_organic(1,1) + new_peat ./ peat.CONST.organicDensity;
+%              
+%         end
         
         function peat = peat_accumulation_Frolking_newCell(peat)
             
@@ -140,7 +140,7 @@ classdef PEAT_ACCUMULATION < BASE
              %assume constant NPP
              %new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./70e3 .* peat.PARA.BGC_timestep;
              %new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3 .* peat.PARA.BGC_timestep;
-             new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3;
+             new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3; 
              
              peat.STATVAR.total_peat(1,1) = peat.STATVAR.total_peat(1,1) + sum(new_peat,2);
              peat.STATVAR.total_peat_PFT(1,:) = peat.STATVAR.total_peat_PFT(1,:) + new_peat;
@@ -155,7 +155,8 @@ classdef PEAT_ACCUMULATION < BASE
         
         function peat = updatebulkD(peat)
             
-            peat.STATVAR.bulkDensity = (peat.STATVAR.organic> 0).*peat.PARA.minbulkDensity+(peat.PARA.diffbulkDensity .*(1/(1+exp(-(40*(1-peat.STATVAR.massRemain(1))-34))))) + (peat.STATVAR.organic <= 0).* peat.PARA.mineral_bulkDensity;
+            %peat.STATVAR.bulkDensity = (peat.STATVAR.organic> 0).*peat.PARA.minbulkDensity+(peat.PARA.diffbulkDensity .*(1/(1+exp(-(40*(1-peat.STATVAR.massRemain(1))-34))))) + (peat.STATVAR.organic <= 0).* peat.PARA.mineral_bulkDensity;
+            peat.STATVAR.bulkDensity = peat.PARA.minbulkDensity+(peat.PARA.diffbulkDensity .*(1./(1+exp(-(40*(1-peat.STATVAR.total_peat./sum(peat.STATVAR.totalpeatC_originalMass,2) )-34)))));
             
         end
         
@@ -232,9 +233,9 @@ classdef PEAT_ACCUMULATION < BASE
             peat.STATVAR.annual_NPP = peat.PARA.NPP_max .* exp(-a);
 
             
-            %ERC MODEL; REMOVE LATER
-            peat.STATVAR.annual_NPP = peat.STATVAR.annual_NPP ./10;
-            %END REMOVE
+%             %ERC MODEL; REMOVE LATER
+%             peat.STATVAR.annual_NPP = peat.STATVAR.annual_NPP ./10;
+%             %END REMOVE
         end
         
         %not sure these functions are required at some stage

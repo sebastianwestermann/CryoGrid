@@ -860,21 +860,6 @@ classdef WATER_FLUXES_LATERAL < BASE
             end
         end
         
-        function ground = lateral_push_water_overland_flow_RichardsEq_pressure(ground, lateral)
-                lateral.STATVAR.water_depth = max(0, ground.STATVAR.SurfaceWater ./ ground.STATVAR.SurfaceArea);
-                lateral.STATVAR.max_flow = max(0, ground.STATVAR.SurfaceWater .* 0.25);
-                lateral.STATVAR.flow = 0; lateral.STATVAR.flow_energy = 0; lateral.STATVAR.surface_flow = 0;
-                lateral = gaucklerManningFlow(ground, lateral);
-                
-                ground.STATVAR.SurfaceWaterIce = ground.STATVAR.SurfaceWaterIce + lateral.STATVAR.flow;
-                ground.STATVAR.SurfaceWater = ground.STATVAR.SurfaceWater + lateral.STATVAR.flow;
-                ground.STATVAR.SurfaceLayerThick = ground.STATVAR.SurfaceLayerThick + lateral.STATVAR.flow ./ ground.STATVAR.SurfaceArea;
-                
-                %Nice to have variable
-                ground.STATVAR.overland_flow = ground.STATVAR.overland_flow + lateral.STATVAR.flow;
-        end
-
-
         function lateral = gaucklerManningFlow(ground, lateral)
             if lateral.STATVAR.water_depth >1e-6 
                velocity = lateral.PARA.GaMa_coefficient .* real(lateral.STATVAR.water_depth.^(2/3) .* abs(lateral.PARA.gradient).^0.5);
