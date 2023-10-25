@@ -20,6 +20,7 @@ classdef BGC_Frolking_peat < PEAT_ACCUMULATION2 & PEAT_DECOMPOSE2
         function ground = provide_PARA(ground)%, tile)
 
             ground.PARA.Q10 = 2;
+            ground.PARA.base_accumulation_constant = 1./70e3; %must be adjusted to achieve field-observed peat accumulation values
 
             ground.PARA.fieldCapacity = 0.75;% soil water at field capacity
             ground.PARA.min_bulkDensity = 50; %is this kg/m3
@@ -177,11 +178,11 @@ classdef BGC_Frolking_peat < PEAT_ACCUMULATION2 & PEAT_DECOMPOSE2
 
             if tile.t == ground.STATVAR.next_decompose_timestamp
                 ground.STATVAR.total_peat_PFT = ground.STATVAR.total_peat_PFT - ground.TEMP.d_peat_decompose_PFT .* ground.STATVAR.total_peat_PFT .* ground.PARA.BGC_timestep;
-                ground.STATVAR.total_peat_PFT(1,:) = ground.STATVAR.total_peat_PFT(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc./100e3 .* ground.PARA.BGC_timestep; 
-                ground.STATVAR.total_peat_PFT_originalMass(1,:) = ground.STATVAR.total_peat_PFT_originalMass(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc./100e3 .* ground.PARA.BGC_timestep; 
+                ground.STATVAR.total_peat_PFT(1,:) = ground.STATVAR.total_peat_PFT(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
+                ground.STATVAR.total_peat_PFT_originalMass(1,:) = ground.STATVAR.total_peat_PFT_originalMass(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
                 
                 ground.TEMP.delta_organic = - sum(ground.TEMP.d_peat_decompose_PFT .* ground.STATVAR.total_peat_PFT, 2) .* ground.PARA.BGC_timestep ./ ground.CONST.organicDensity;
-                ground.TEMP.delta_organic(1,1) = ground.TEMP.delta_organic(1,1) + sum(ground.STATVAR.annual_NPP,2) .* ground.TEMP.GPP_acc ./ 100e3 .* ground.PARA.BGC_timestep ./ ground.CONST.organicDensity;
+                ground.TEMP.delta_organic(1,1) = ground.TEMP.delta_organic(1,1) + sum(ground.STATVAR.annual_NPP,2) .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep ./ ground.CONST.organicDensity; %./ 100e3
                 
                 ground.TEMP.GPP_acc = 0;
                 

@@ -19,7 +19,7 @@ classdef PEAT_DECOMPOSE2 < BASE
 %             range = peat.STATVAR.vol_water >= 0.00 & peat.STATVAR.vol_water <= peat.PARA.fieldCapacity; %CHECK THIS!, should be 0.01 accoriding to Chaudhary 2017?
 %             peat.TEMP.waterModifier(range,1) = 1.0-((peat.PARA.fieldCapacity - peat.STATVAR.vol_water(range,1))./peat.PARA.fieldCapacity).^5.0;%4.88);//IWRO 5 to 2//4.82
             
-            saturated = peat.STATVAR.vol_water >0.99;
+            saturated = peat.STATVAR.vol_water >0.95; %should be enough to prevent oxygen being transported in the air phase
             depth_below_waterTable = cumsum(peat.STATVAR.layerThick .* double(saturated)) - peat.STATVAR.layerThick .* double(saturated) ./ 2;
             c1 = 2.31;
             vol_water_opt = 0.45;

@@ -29,23 +29,23 @@ classdef PEAT_ACCUMULATION2 < BASE
 %             
 %         end
         
-        function peat = peat_accumulation_Frolking(peat)
-            
-%              new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3; 
-             
-             peat.TEMP.d_peat_accumulate_PFT = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3; 
-             
-             %must come later in advance_prognostic()
-%              peat.STATVAR.total_peat(1,1) = peat.STATVAR.total_peat(1,1) + sum(new_peat,2);
-%              peat.STATVAR.total_peat_PFT(1,:) = peat.STATVAR.total_peat_PFT(1,:) + new_peat;
-%              peat.STATVAR.total_peat_PFT_originalMass(1,:) = peat.STATVAR.total_peat_PFT_originalMass(1,:) + new_peat; %;  peat.STATVAR.totalpeatC_originalMass_old];
+%         function peat = peat_accumulation_Frolking(peat)
+%             
+% %              new_peat = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc./100e3; 
 %              
-%              peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity); %CONVERSION MUST BE WRONG, SEE DECOMPOSITION.* peat.CONST.mtocm; % g/cm2 ./ cm3/g, then convert with m to cm
+%              peat.TEMP.d_peat_accumulate_PFT = peat.STATVAR.annual_NPP .* peat.TEMP.GPP_acc .* peat.PARA.base_accumulation_constant; %./100e3; 
 %              
-%              peat.TEMP.d_layerThick(1,1) = peat.TEMP.d_layerThick(1,1) + sum(new_peat,2) ./ peat.PARA.bulkDensity;
-%              peat.TEMP.d_organic(1,1) = peat.TEMP.d_organic(1,1) + sum(new_peat,2) ./ peat.CONST.organicDensity;
-             
-        end
+%              %must come later in advance_prognostic()
+% %              peat.STATVAR.total_peat(1,1) = peat.STATVAR.total_peat(1,1) + sum(new_peat,2);
+% %              peat.STATVAR.total_peat_PFT(1,:) = peat.STATVAR.total_peat_PFT(1,:) + new_peat;
+% %              peat.STATVAR.total_peat_PFT_originalMass(1,:) = peat.STATVAR.total_peat_PFT_originalMass(1,:) + new_peat; %;  peat.STATVAR.totalpeatC_originalMass_old];
+% %              
+% %              peat.STATVAR.layerThick = (peat.STATVAR.total_peat./peat.PARA.bulkDensity); %CONVERSION MUST BE WRONG, SEE DECOMPOSITION.* peat.CONST.mtocm; % g/cm2 ./ cm3/g, then convert with m to cm
+% %              
+% %              peat.TEMP.d_layerThick(1,1) = peat.TEMP.d_layerThick(1,1) + sum(new_peat,2) ./ peat.PARA.bulkDensity;
+% %              peat.TEMP.d_organic(1,1) = peat.TEMP.d_organic(1,1) + sum(new_peat,2) ./ peat.CONST.organicDensity;
+%              
+%         end
         
         function peat = update_bulk_density(peat)
             
@@ -61,8 +61,8 @@ classdef PEAT_ACCUMULATION2 < BASE
             
             peat.PARA.PFT_name = cell(12, 1);
             peat.PARA.PFT_name{1,1} = 'grass';
-            peat.PARA.PFT_name{2,1} = 'Minerotrophicf orb';
-            peat.PARA.PFT_name{3,1} = 'Minerotrophics edge';
+            peat.PARA.PFT_name{2,1} = 'Minerotrophicf forb';
+            peat.PARA.PFT_name{3,1} = 'Minerotrophics sedge';
             peat.PARA.PFT_name{4,1} = 'Minerotrophic shrub';
             peat.PARA.PFT_name{5,1} = 'Ombrotrophic forb';
             peat.PARA.PFT_name{6,1} = 'Ombrotrophic sedge';
