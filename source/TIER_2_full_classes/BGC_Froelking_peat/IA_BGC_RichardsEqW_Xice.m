@@ -260,7 +260,7 @@ classdef IA_BGC_RichardsEqW_Xice <  IA_BGC
                
                T_GROUND = ia_BGC.GROUND.STATVAR.T(i,1);
 
-               if BGC_layerThick > GROUND_layerThick %cell size has increased
+%                if BGC_layerThick > GROUND_layerThick %cell size has increased
                    
                    %T_GROUND = ia_BGC.GROUND.STATVAR.T(i,1);
                    saturation_waterIce = ia_BGC.GROUND.STATVAR.waterIce(i,1) ./ (ia_BGC.GROUND.STATVAR.layerThick(i,1) .* ia_BGC.GROUND.STATVAR.area(i,1) - ia_BGC.GROUND.STATVAR.XwaterIce(i,1) - ia_BGC.GROUND.STATVAR.mineral(i,1) - ia_BGC.GROUND.STATVAR.organic(i,1));
@@ -278,21 +278,21 @@ classdef IA_BGC_RichardsEqW_Xice <  IA_BGC
                    ia_BGC.GROUND.STATVAR.energy(i,1) =  T_GROUND .* (ia_BGC.GROUND.STATVAR.organic(i,1) .* ia_BGC.GROUND.CONST.c_o + ia_BGC.GROUND.STATVAR.mineral(i,1) .* ia_BGC.GROUND.CONST.c_m);
                    ia_BGC.GROUND.STATVAR.energy(i,1) = ia_BGC.GROUND.STATVAR.energy(i,1) + energy_density_waterIce .* (ia_BGC.GROUND.STATVAR.waterIce(i,1) + ia_BGC.GROUND.STATVAR.XwaterIce(i,1));
                    
-               elseif BGC_layerThick < GROUND_layerThick %cell size has decreased
-                   d_layerThick = GROUND_layerThick - BGC_layerThick;
-                   d_organic = ia_BGC.GROUND.STATVAR.organic(i,1) -  ia_BGC.GROUND.STATVAR.non_BGC_organic(i,1) - sum(ia_BGC.BGC.STATVAR.total_peat(new_cells),1) ./ ia_BGC.BGC.CONST.organicDensity .* ia_BGC.GROUND.STATVAR.area(i,1);
-                   
-                   ia_BGC.GROUND.STATVAR.layerThick(i,1) = ia_BGC.GROUND.STATVAR.layerThick(i,1) - d_layerThick ;
-                   ia_BGC.GROUND.STATVAR.organic(i,1) = ia_BGC.GROUND.STATVAR.organic(i,1) - d_organic;
-                   ia_BGC.GROUND.STATVAR.energy(i,1) = ia_BGC.GROUND.STATVAR.energy(i,1) - d_organic .* T_GROUND .* ia_BGC.GROUND.CONST.c_o;
-                   new_waterIce = min(ia_BGC.GROUND.STATVAR.waterIce(i,1), ia_BGC.GROUND.STATVAR.layerThick(i,1) .* ia_BGC.GROUND.STATVAR.area(i,1) - ia_BGC.GROUND.STATVAR.organic(i,1) - ia_BGC.GROUND.STATVAR.mineral(i,1));
-                   difference_waterIce = ia_BGC.GROUND.STATVAR.waterIce(i,1) - new_waterIce;
-                   ia_BGC.GROUND.STATVAR.waterIce(i,1) = new_waterIce;
-                   ia_BGC.GROUND.STATVAR.XwaterIce(i,1) = ia_BGC.GROUND.STATVAR.XwaterIce(i,1) + difference_waterIce;
-                   ia_BGC.GROUND.STATVAR.layerThick(i,1) = ia_BGC.GROUND.STATVAR.layerThick(i,1) +  ia_BGC.GROUND.STATVAR.XwaterIce(i,1)  ./  ia_BGC.GROUND.STATVAR.area(i,1); 
-                   %no change in energy
-                   
-               end
+%                elseif BGC_layerThick < GROUND_layerThick %cell size has decreased
+%                    d_layerThick = GROUND_layerThick - BGC_layerThick;
+%                    d_organic = ia_BGC.GROUND.STATVAR.organic(i,1) -  ia_BGC.GROUND.STATVAR.non_BGC_organic(i,1) - sum(ia_BGC.BGC.STATVAR.total_peat(new_cells),1) ./ ia_BGC.BGC.CONST.organicDensity .* ia_BGC.GROUND.STATVAR.area(i,1);
+%                    
+%                    ia_BGC.GROUND.STATVAR.layerThick(i,1) = ia_BGC.GROUND.STATVAR.layerThick(i,1) - d_layerThick ;
+%                    ia_BGC.GROUND.STATVAR.organic(i,1) = ia_BGC.GROUND.STATVAR.organic(i,1) - d_organic;
+%                    ia_BGC.GROUND.STATVAR.energy(i,1) = ia_BGC.GROUND.STATVAR.energy(i,1) - d_organic .* T_GROUND .* ia_BGC.GROUND.CONST.c_o;
+%                    new_waterIce = min(ia_BGC.GROUND.STATVAR.waterIce(i,1), ia_BGC.GROUND.STATVAR.layerThick(i,1) .* ia_BGC.GROUND.STATVAR.area(i,1) - ia_BGC.GROUND.STATVAR.organic(i,1) - ia_BGC.GROUND.STATVAR.mineral(i,1));
+%                    difference_waterIce = ia_BGC.GROUND.STATVAR.waterIce(i,1) - new_waterIce;
+%                    ia_BGC.GROUND.STATVAR.waterIce(i,1) = new_waterIce;
+%                    ia_BGC.GROUND.STATVAR.XwaterIce(i,1) = ia_BGC.GROUND.STATVAR.XwaterIce(i,1) + difference_waterIce;
+%                    ia_BGC.GROUND.STATVAR.layerThick(i,1) = ia_BGC.GROUND.STATVAR.layerThick(i,1) +  ia_BGC.GROUND.STATVAR.XwaterIce(i,1)  ./  ia_BGC.GROUND.STATVAR.area(i,1); 
+%                    %no change in energy
+%                    
+%                end
                i=i+1;
            end
            

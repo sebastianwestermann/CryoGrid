@@ -1477,7 +1477,7 @@ classdef WATER_FLUXES_LATERAL < BASE
 %             end
             
             depths = ground.STATVAR.upperPos - cumsum(ground.STATVAR.layerThick) + ground.STATVAR.layerThick./2; %midpoints!
-            saturation = (ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic) ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            saturation = ground.STATVAR.waterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic);
             saturated = saturation > 1-1e-6;
             water_volumetric = ground.STATVAR.water ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             hardBottom = water_volumetric <= lateral.PARA.hardBottom_cutoff;
@@ -1510,6 +1510,47 @@ classdef WATER_FLUXES_LATERAL < BASE
             lateral.PARENT.STATVAR.matric_potential_head = [lateral.PARENT.STATVAR.matric_potential_head; matric_potential_head];
             lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; ground.STATVAR.T];
         end
+        
+        function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq_Xice(ground, lateral)
+
+            depths = ground.STATVAR.upperPos - cumsum(ground.STATVAR.layerThick) + ground.STATVAR.layerThick./2; %midpoints!
+            saturation = ground.STATVAR.waterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic - ground.STATVAR.XwaterIce);
+            saturated = saturation > 1-1e-6;
+            water_volumetric = ground.STATVAR.water ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce);
+            hardBottom = water_volumetric <= lateral.PARA.hardBottom_cutoff;
+            
+            %calculate hydrostatic head, does not yet work together with
+            %classes above and below 
+            index1 = double([0; saturated & ~hardBottom; 0]);
+            index2 = index1(1:end-1,1) + index1(2:end,1);
+            index3 = index1(1:end-1,1) - index1(2:end,1);
+            start_index_saturated = find(index2==1 & index3==-1);
+            end_index_saturated = find(index2==1 & index3==1);
+            end_index_saturated = end_index_saturated - 1;
+            hydrostatic_head = saturation .* 0;
+            for i=1:size(start_index_saturated,1)
+                hydrostatic_head(start_index_saturated:end_index_saturated,1) = ...
+                    cumsum(ground.STATVAR.layerThick(start_index_saturated:end_index_saturated,1)) - ground.STATVAR.layerThick(start_index_saturated:end_index_saturated,1)./2;
+            end
+            
+            %matric_potential
+            matric_potential_head = ground.STATVAR.waterPotential; 
+            
+            if isempty(lateral.PARENT.STATVAR.depths)
+                lateral.PARENT.STATVAR.depths = [lateral.PARENT.STATVAR.depths; depths];
+            else
+                lateral.PARENT.STATVAR.depths = [lateral.PARENT.STATVAR.depths; depths(2:end,1)];
+            end
+%             lateral.PARENT.STATVAR.water_status = [lateral.PARENT.STATVAR.water_status; mobile_water];
+            lateral.PARENT.STATVAR.hydraulicConductivity = [lateral.PARENT.STATVAR.hydraulicConductivity;  ground.STATVAR.hydraulicConductivity];
+            lateral.PARENT.STATVAR.hydrostatic_head = [lateral.PARENT.STATVAR.hydrostatic_head; hydrostatic_head]; 
+            lateral.PARENT.STATVAR.matric_potential_head = [lateral.PARENT.STATVAR.matric_potential_head; matric_potential_head];
+            lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; ground.STATVAR.T];
+        end
+        
+
+        
+        
         
         function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq_snow(ground, lateral)
             
