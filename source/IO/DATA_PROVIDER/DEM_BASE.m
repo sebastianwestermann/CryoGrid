@@ -55,7 +55,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
                 if dem.PARA.reproject2utm
                     
                     [X,Y, utm_zone] = ll2utm(dem, lat2, lon2, []);
-                    disp(utm_zone)
+                    
                     dem.TEMP.utm_zone = utm_zone;
                     cell_size = 30;
                     dem.TEMP.cell_size_X = cell_size;
@@ -150,6 +150,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
             dzdx2 = interp2(dem.TEMP.X, dem.TEMP.Y, dzdx, dem.TEMP.X_target, dem.TEMP.Y_target); %check if + or -!!!
             aspect = atan2d(-1.*dzdx2,dzdy2);
             aspect(aspect<0)=aspect(aspect<0)+360;
+
             dem.STATVAR.aspect = double(aspect +  dem.TEMP.offset_angle_trueNorth);
         end
         
@@ -325,7 +326,8 @@ classdef DEM_BASE < matlab.mixin.Copyable
             l1 = lon/D0;			% Lambda = Longitude (rad)
             % UTM zone automatic setting
             if isempty(zone)
-                F0 = round((l1*D0 + 183)/6);
+                F0 =((l1*D0 + 183)/6);
+                F0 = round(mean(F0(:)));  %SEB changed, so that only a single UTM zone is output
             else
                 F0 = abs(zone);
             end

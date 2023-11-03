@@ -132,7 +132,7 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ_OVERLAND_FLOW < BASE_LATERAL
                         %could be necessary to  limit flow for numerical
                         %stability?
                         gradient = -(lateral.PARENT.STATVAR.depths(1,1) - lateral.PARENT.ENSEMBLE{j,1}.depths(1,1)) ./ (distance.*lateral.PARA.tortuosity);
-                        if gradient < 0  %own realization higher
+                        if gradient <= 0  %own realization higher
                             T_water =  lateral.PARENT.STATVAR.T_water(1,1);
                             depth1 = min(lateral.PARENT.STATVAR.depths(1,1) - (lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) - lateral.PARENT.ENSEMBLE{j,1}.water_depth), lateral.PARENT.STATVAR.water_depth);
                             depth2 = lateral.PARENT.ENSEMBLE{j,1}.water_depth;
