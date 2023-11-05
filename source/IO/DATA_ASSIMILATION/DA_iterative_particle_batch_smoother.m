@@ -27,6 +27,7 @@ classdef DA_iterative_particle_batch_smoother < matlab.mixin.Copyable
             da.PARA.learning_coefficient = [];
             da.PARA.min_ensemble_diversity = [];
             da.PARA.max_iterations = [];
+            da.PARA.convergence_delay = [];
             da.PARA.store_format = [];
             da.PARA.store_file_tag = [];
             da.PARA.recalculate_stratigraphy = 0;
@@ -236,7 +237,8 @@ classdef DA_iterative_particle_batch_smoother < matlab.mixin.Copyable
                         proposal_cov =  (1./tile.PARA.ensemble_size) .* (deviation*deviation');  %   propc=(1/Ne).*(A*A'); % Proposal covariance
                         % Inflate proposal covariance to avoid overconfidence
                         
-                        proposal_cov = proposal_cov + 0.1 .* (1 - da.ENSEMBLE.effective_ensemble_size./ tile.PARA.ensemble_size).* diag(da.TEMP.old_std_gaussian); % propc=propc+0.1.*(1-diversity).*pric;
+                        %proposal_cov = proposal_cov + 0.1 .* (1 - da.ENSEMBLE.effective_ensemble_size./ tile.PARA.ensemble_size).* diag(da.TEMP.old_std_gaussian.^2); % propc=propc+0.1.*(1-diversity).*pric;
+                        proposal_cov = proposal_cov + (1./da.ENSEMBLE.effective_ensemble_size).^((da.TEMP.num_iterations-1) ./ da.PARA.convergence_delay) .* diag(da.TEMP.old_std_gaussian.^2); % propc=propc+0.1.*(1-diversity).*pric;
                         % Gaussian resampling using the Cholesky decomposition
                         L=chol(proposal_cov,'lower');
                         Z = randn(size(mean_gaussian_resampled,1), tile.PARA.ensemble_size); %Z=randn(Np,Ne);
@@ -317,7 +319,8 @@ classdef DA_iterative_particle_batch_smoother < matlab.mixin.Copyable
                     proposal_cov =  (1./tile.PARA.ensemble_size) .* (deviation*deviation');  %   propc=(1/Ne).*(A*A'); % Proposal covariance
                     % Inflate proposal covariance to avoid overconfidence
                     
-                    proposal_cov = proposal_cov + 0.1 .* (1 - da.ENSEMBLE.effective_ensemble_size./ tile.PARA.ensemble_size).* diag(da.TEMP.old_std_gaussian); % propc=propc+0.1.*(1-diversity).*pric;
+                    %proposal_cov = proposal_cov + 0.1 .* (1 - da.ENSEMBLE.effective_ensemble_size./ tile.PARA.ensemble_size).* diag(da.TEMP.old_std_gaussian.^2); % propc=propc+0.1.*(1-diversity).*pric;
+                    proposal_cov = proposal_cov + (1./da.ENSEMBLE.effective_ensemble_size).^((da.TEMP.num_iterations-1) ./ da.PARA.convergence_delay) .* diag(da.TEMP.old_std_gaussian.^2); % propc=propc+0.1.*(1-diversity).*pric;
                     % Gaussian resampling using the Cholesky decomposition
                     L=chol(proposal_cov,'lower');
                     Z = randn(size(mean_gaussian_resampled,1), tile.PARA.ensemble_size); %Z=randn(Np,Ne);
@@ -516,7 +519,7 @@ classdef DA_iterative_particle_batch_smoother < matlab.mixin.Copyable
             
             proposal = da.ENSEMBLE.value_gaussian;
             prim = da.TEMP.old_mean_gaussian;
-            pricov = diag(da.TEMP.old_std_gaussian);
+            pricov = diag(da.TEMP.old_std_gaussian.^2);
             
            % None of these three exist yet, compute here!
             % Prior term
@@ -571,7 +574,7 @@ classdef DA_iterative_particle_batch_smoother < matlab.mixin.Copyable
             state = copy(tile);
             variables = fieldnames(state);
             for i=1:size(variables,1)
-                if ~strcmp(variables{i,1}, 'LATERAL') && ~strcmp(variables{i,1}, 'TOP') && ~strcmp(variables{i,1}, 'BOTTOM') && ~strcmp(variables{i,1}, 'TOP_CLASS') && ~strcmp(variables{i,1}, 'BOTTOM_CLASS')
+                if ~strcmp(variables{i,1}, 'LATERAL') && ~strcmp(variables{i,1}, 'TOP') && ~strcmp(variables{i,1}, 'BOTTOM') && ~strcmp(variables{i,1}, 'TOP_CLASS') && ~strcmp(variables{i,1}, 'BOTTOM_CLASS') && ~strcmp(variables{i,1}, 'OUT')
                     state.(variables{i,1}) = [];
                 end
             end

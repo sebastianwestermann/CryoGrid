@@ -204,13 +204,11 @@ classdef TILE_1D_DA < matlab.mixin.Copyable
                 %update time variable t
                 tile.t = tile.t + tile.timestep./tile.CONST.day_sec;
                 
-                %store output
-                tile = store_OUT_tile(tile);
-                
-
                 %data assimilation
                 tile = data_assimilation(tile);
-
+                
+                %store output
+                tile = store_OUT_tile(tile);
             end
             
         end
