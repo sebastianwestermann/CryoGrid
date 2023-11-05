@@ -372,7 +372,7 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         wc=ws(clip);
                         w(w>wc)=wc; % > truncated ("clipped") < anti-truncated
                         w=w./sum(w); %renomralize
-                        resamplec_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:)); 
+                        resamplec_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, w); 
                         thetapc=reshape(thetapc,[size(thetapc,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); %reshape(thetapc,[Np,Nw]);
                         thetapc=thetapc(:,resamplec_ID);
                         pmc=mean(value_gaussian_resampled,2); % proposal mean for next iteration
