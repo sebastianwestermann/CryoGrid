@@ -222,13 +222,15 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                 N_weights = numel(da.ENSEMBLE.weights(:)); %same as number of ensemble members x number of iterations
                     
                 %store
-                if strcmp(da.PARA.store_format, 'all') %&& da.TILE.PARA.worker_number==1
+                if strcmp(da.PARA.store_format, 'all') && da.TILE.PARA.worker_number==1
                     da_store = copy(da);
                     da_store.TILE = [];
                     if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                        save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '.mat'], 'da_store')
+                      %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '.mat'], 'da_store')
+                      save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store')
                     else
-                        save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                      %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                      save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store')
                     end
                 end
                 %end store
@@ -379,7 +381,13 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         Ac=thetapc-pmc;
                         pcc=(1./da.TILE.PARA.ensemble_size).*(Ac*Ac');
                         mean_gaussian_resampled = pmc;
-                        cov_gaussian_resampled=pcc;
+                        if all(eig(pcc)>0) %%sum(pcc(:))>0 
+                            cov_gaussian_resampled=pcc;
+                        else
+                            disp('clipping unsuccessful')
+                            pric = diag(da.TEMP.old_std_gaussian.^2);
+                            cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*pric;
+                        end
                     else
                         disp('no clipping')
                         pric = diag(da.TEMP.old_std_gaussian.^2);
