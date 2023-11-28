@@ -34,6 +34,9 @@ classdef LAT3D_WATER_OVERLAND_FLOW < BASE_LATERAL
 
         function lateral = finalize_init(lateral, tile)
             lateral.STATVAR.surface_run_off = 0;
+            if isempty(lateral.PARA.overflow_threshold_elevation) || isnan(lateral.PARA.overflow_threshold_elevation)
+                lateral.PARA.overflow_threshold_elevation = -Inf;
+            end
         end
         
         %-----time integration-------

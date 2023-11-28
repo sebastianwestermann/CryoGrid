@@ -5,8 +5,7 @@
 % S. Westermann, October 2020
 %========================================================================
 
-%classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_seb 
-classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_Xice_seb 
+classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_seb 
 
     properties
         VEGETATION
@@ -31,9 +30,6 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.PARA.ratioET = []; %fraction of transpiration of total evapotranspiration [-]
             ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
             
-            ground.PARA.conductivity_function = [];
-            ground.PARA.permeability = [];  %permeability for fluids/gases [m2]
-          
             ground.PARA.dt_max = []; %maximum possible timestep [sec]
             ground.PARA.dE_max = []; %maximum possible energy change per timestep [J/m3]
             ground.PARA.dWater_max = []; %%maximum possible volumteric water content change per timestep [-] 
@@ -67,7 +63,7 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.STATVAR.ice = [];  %total volume of ice [m3]
             ground.STATVAR.air = [];  % total volume of air [m3] - NOT USED
             ground.STATVAR.thermCond = []; %thermal conductivity [W/mK]
-            ground.STATVAR.permeability = [];  %permeability for fluids/gases [m2]
+            ground.PARA.permeability = [];  %permeability for fluids/gases [m2]
             %ground.STATVAR.hydraulicConductivity = []; % hydraulic conductivity [m/sec]
             
             ground.STATVAR.Lstar = [];  %Obukhov length [m]
@@ -132,9 +128,8 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
         
         
         function ground = finalize_init(ground, tile)
-%             ground = finalize_init@GROUND_freezeC_RichardsEqW_seb(ground, tile);
-            ground = finalize_init@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
-           
+            ground = finalize_init@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            
             ground.VEGETATION = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(ground.PARA.VEGETATION_class){ground.PARA.VEGETATION_class_index,1});
             ground.VEGETATION.PARENT_GROUND = ground;
             ground.VEGETATION.PARENT_SURFACE = ground; 
@@ -183,10 +178,8 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.TEMP.d_energy(1) = ground.TEMP.d_energy(1) + ground.TEMP.F_ub;
             
             %water -> evaporation
-
-            ground.STATVAR.evap = ground.STATVAR.evaporation;
             ground.TEMP.d_water_ET(1,1) = ground.TEMP.d_water_ET(1,1) -  ground.STATVAR.evap.* ground.STATVAR.area(1,1); %in m3 water per sec, put everything in uppermost grid cell
-            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.TEMP.evaporation_energy.* ground.STATVAR.area(1,1);
+            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.STATVAR.evap_energy.* ground.STATVAR.area(1,1);
             %mass balance of sublimation not considered!
             
             %transpiration
@@ -205,19 +198,15 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
         
       function ground = get_boundary_condition_l(ground, tile)
             ground.VEGETATION = get_boundary_condition_l(ground.VEGETATION, tile);
-%            ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_seb(ground, tile);
-            ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+            ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_seb(ground, tile);
         end
         
         function ground = get_derivatives_prognostic(ground, tile)
             ground.VEGETATION = get_derivatives_prognostic(ground.VEGETATION, tile);
-            %ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb(ground, tile);
-            ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
-
+            ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb(ground, tile);
         end
         
         function timestep = get_timestep(ground, tile) 
-            timestep_ground = get_timestep@GROUND_freezeC_RichardsEqW_seb(ground, tile);
             timestep_ground = get_timestep@GROUND_freezeC_RichardsEqW_seb(ground, tile);
             timestep_vegetation = get_timestep(ground.VEGETATION, tile);
             

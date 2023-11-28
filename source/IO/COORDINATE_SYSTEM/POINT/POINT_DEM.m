@@ -75,7 +75,8 @@ classdef POINT_DEM < DEM_BASE
                 a = str2func(['get_' point.PARA.variables{i,1}]);
                 point = a(point);
             end
-
+            
+            
         end
         
         function point = get_altitude(point)

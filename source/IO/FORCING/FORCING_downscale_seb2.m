@@ -1,6 +1,6 @@
 %========================================================================
-% CryoGrid FORCING class FORCING_downscale_slope_seb
-%
+% CryoGrid FORCING class FORCING_downscale_slope_seb2
+% same as FORCING_downscale_slope_seb, but assumes that there is no trend 
 
 %
 % Authors:
@@ -9,7 +9,7 @@
 %
 %========================================================================
 
-classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
+classdef FORCING_downscale_seb2 < FORCING_base & READ_FORCING_mat
     
     methods
         
@@ -66,6 +66,8 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
             carrier_class = finalize_init(carrier_class, tile);
             carrier_class.DATA.timeForcing = carrier_class.DATA.timeForcing - forcing.PARA.offset_from_GMT_carrier ./ 24;
             reference_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.reference_forcing_class){forcing.PARA.reference_forcing_class_index,1});
+            reference_class.PARA.start_time = [forcing.PARA.start_overlap(1,1);1; 1];
+            reference_class.PARA.end_time = [forcing.PARA.end_overlap(1,1)+1; 1; 1];
             reference_class = finalize_init(reference_class, tile);
             reference_class.DATA.timeForcing = reference_class.DATA.timeForcing - forcing.PARA.offset_from_GMT_reference ./ 24;
             
@@ -76,28 +78,6 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
                 reference_class.DATA.precip = reference_class.DATA.snowfall + reference_class.DATA.rainfall;
             end
             
-
-            
-%             carrier_class.DATA.RH = carrier_class.DATA.q .*98000./ 611.2 ./ (double(carrier_class.DATA.Tair>=0) .* exp(17.62.*(carrier_class.DATA.Tair)./(243.12+carrier_class.DATA.Tair)) + ...
-%                 double(carrier_class.DATA.Tair<0) .* exp(22.46.*(carrier_class.DATA.Tair)./(272.61+carrier_class.DATA.Tair)));
-% 
-%             reference_class.DATA.RH = reference_class.DATA.q .*98000./ 611.2 ./ (double(reference_class.DATA.Tair>=0) .* exp(17.62.*(reference_class.DATA.Tair)./(243.12+reference_class.DATA.Tair)) + ...
-%                 double(reference_class.DATA.Tair<0) .* exp(22.46.*(reference_class.DATA.Tair)./(272.61+reference_class.DATA.Tair)));
-            
-%             carrier_class.DATA.RH = carrier_class.DATA.q .*98000./ 0.622./ 611.2 ./ exp(17.62.*(carrier_class.DATA.Tair)./(243.12+carrier_class.DATA.Tair));
-%             reference_class.DATA.RH = reference_class.DATA.q .* 98000 ./0.622./ 611.2 ./ exp(17.62.*(reference_class.DATA.Tair)./(243.12+reference_class.DATA.Tair));
-%                         forcing_T_old = forcing_T_old + 273.15;
-%             forcing_T_new = forcing_T_new + 273.15;
-%             
-%             range = find(forcing_T_old>=273.15);
-%             q_new(range) = q_new(range) .* exp(17.62.*(forcing_T_new(range)-273.15)./(243.12-273.15+forcing_T_new(range))) ./ exp(17.62.*(forcing_T_old(range)-273.15)./(243.12-273.15+forcing_T_old(range)));
-%             range = find(forcing_T_old<273.15);
-%             q_new(range) = q_new(range) .*  exp(22.46.*(forcing_T_new(range)-273.15)./(272.61-273.15+forcing_T_new(range))) ./ exp(22.46.*(forcing_T_old(range)-273.15)./(272.61-273.15+forcing_T_old(range)));
-
-            
-%             mean_precip_reference = mean(carrier_class.DATA.precip,1);
-%             carrier_class.DATA.precip = (carrier_class.DATA.precip - mean_precip_reference) ./ mean_precip_reference;
-%             reference_class.DATA.precip = (reference_class.DATA.precip - mean_precip_reference) ./ mean_precip_reference;
             
             %find indices for overlap period
             if ~isempty(forcing.PARA.start_overlap) && sum(isnan(forcing.PARA.start_overlap))==0
@@ -115,7 +95,6 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
                         (reference_class.DATA.timeForcing(2,1)-reference_class.DATA.timeForcing(1,1))./2,1); %subtract half a timestep
                     start_index_reference = 1;
                 end
-                
             end
             if ~isempty(forcing.PARA.end_overlap) && sum(isnan(forcing.PARA.end_overlap))==0
                 forcing.PARA.end_overlap = datenum(forcing.PARA.end_overlap(1,1), forcing.PARA.end_overlap(2,1), forcing.PARA.end_overlap(3,1));
@@ -144,6 +123,8 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
             else
                 get_q=0;
             end
+            
+            mean_value_reference = [];
             
             for i=1:size(forcing.PARA.variables,1)
                 if strcmp(forcing.PARA.overlap_interval, 'year')
@@ -200,83 +181,36 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
                         end
                     end
                     
+
+                    mvr = [];
                     
-                    lin_fit_carrier=[]; 
-                    lin_fit_reference=[];                    
-                    carrier_detrended = overlap_pairs(:,1);
-                    std_carrier_detrended = [];
-                    reference_detrended = overlap_pairs(:,2);
-                    std_reference_detrended =[];
-                    std_inflation_factor = [];
-                    reference_detrended_inflated = overlap_pairs(:,2);
-                    %std_test=[]; %checked that std is the same as for
-                    %carrier in inflated reference
                     for m=1:12
                         pos = find(month(overlap_pairs_time(:,1))==m);
-                        lin_fit_carrier = [lin_fit_carrier; polyfit(overlap_pairs_time(pos, 1) - overlap_pairs_time(1,1),overlap_pairs(pos,1),1)];
-                        lin_fit_reference = [lin_fit_reference; polyfit(overlap_pairs_time(pos, 1) - overlap_pairs_time(1,1), overlap_pairs(pos,2),1)];
-                        carrier_detrended(pos,1) = carrier_detrended(pos,1) - (lin_fit_carrier(end,2) + lin_fit_carrier(end,1) .* (overlap_pairs_time(pos, 1) - overlap_pairs_time(1,1)));
-                        std_carrier_detrended = [std_carrier_detrended; std(carrier_detrended(pos,1))];
-                        reference_detrended(pos,1) = reference_detrended(pos,1) - (lin_fit_reference(end,2) + lin_fit_reference(end,1) .* (overlap_pairs_time(pos, 1) - overlap_pairs_time(1,1)));
-                        std_reference_detrended = [std_reference_detrended; std(reference_detrended(pos,1))];
-                        infl_factor = std(carrier_detrended(pos,1)) ./ std(reference_detrended(pos,1));
-                        if isnan(infl_factor)
-                            infl_factor = 1;
-                        end
-                        %std_inflation_factor = [std_inflation_factor; std(carrier_detrended(pos,1)) ./ std(reference_detrended(pos,1))];
-                        std_inflation_factor = [std_inflation_factor; infl_factor];
-                        reference_detrended_inflated(pos,1)  = reference_detrended(pos,1) .* std(carrier_detrended(pos,1))./ std(reference_detrended(pos,1));
-                       % std_test=[std_test; std(reference_detrended_inflated(pos,1))];
+                        mvr = [mvr; mean(overlap_pairs(pos, 2))];
+%                         absolute_offset = [absolute_offset; mean(overlap_pairs(pos, 2) - overlap_pairs(pos,1))];
+%                         relative_offset = [relative_offset; mean(overlap_pairs(pos, 2)./overlap_pairs(pos,1))];
                     end
-                    lin_fit_carrier = [lin_fit_carrier  lin_fit_carrier(:,2) + lin_fit_carrier(:,1).* (overlap_pairs_time(end,1)-overlap_pairs_time(1,1))]; %slope, start_point, end_point
-                    lin_fit_reference = [lin_fit_reference  lin_fit_reference(:,2) + lin_fit_reference(:,1).* (overlap_pairs_time(end,1)-overlap_pairs_time(1,1))];
                     
-                   
+                    mean_value_reference = [mean_value_reference mvr];
                     
-                    lin_fit_reference_before=[];
-                    reference_before_detrended = reference_before;
-                    reference_before_detrended_in_std_reference = reference_before;
-                    reference_before_detrended_inflated= reference_before;
-                    for m=1:12
-                        pos = find(month(reference_before_time(:,1))==m);
-                        lin_fit_reference_before = [lin_fit_reference_before; polyfit(reference_before_time(pos, 1) - reference_before_time(1,1),reference_before(pos,1),1)];
-                        reference_before_detrended(pos,1) = reference_before_detrended(pos,1) - (lin_fit_reference_before(end,2) + lin_fit_reference_before(end,1) .* (reference_before_time(pos, 1) - reference_before_time(1,1)));
-                        reference_before_detrended_in_std_reference(pos,1) = reference_before_detrended(pos,1) ./ std_reference_detrended(m,1);
-                        reference_before_detrended_inflated(pos,1) = reference_before_detrended(pos,1) .* std_inflation_factor(m,1);
-                    end
-                    lin_fit_reference_before = [lin_fit_reference_before  lin_fit_reference_before(:,2) + lin_fit_reference_before(:,1).* (reference_before_time(end,1)-reference_before_time(1,1))];
-
-                    lin_fit_reference_after=[];
-                    reference_after_detrended = reference_after;
-                    reference_after_detrended_in_std_reference = reference_after;
-                    reference_after_detrended_inflated = reference_after;
-                    for m=1:12
-                        pos = find(month(reference_after_time(:,1))==m);
-                        lin_fit_reference_after = [lin_fit_reference_after; polyfit(reference_after_time(pos, 1) - reference_after_time(1,1), reference_after(pos,1),1)];
-                        reference_after_detrended(pos,1) = reference_after_detrended(pos,1) - (lin_fit_reference_after(end,2) + lin_fit_reference_after(end,1) .* (reference_after_time(pos, 1) - reference_after_time(1,1)));
-                        reference_after_detrended_in_std_reference(pos,1) = reference_after_detrended(pos,1) ./ std_reference_detrended(m,1);
-                        reference_after_detrended_inflated(pos,1) = reference_after_detrended(pos,1) .* std_inflation_factor(m,1);
-                    end
-                    lin_fit_reference_after = [lin_fit_reference_after  lin_fit_reference_after(:,2) + lin_fit_reference_after(:,1).* (reference_after_time(end,1)-reference_after_time(1,1))];
+                elseif strcmp(forcing.PARA.overlap_interval, 'day')
                     
-                    
-                    total_change=lin_fit_reference_after(:,3)-lin_fit_reference_before(:,2);
-                    offset_start_overlap = lin_fit_reference_before(:,3)-lin_fit_reference(:,2);
-                    offset_end_overlap = -lin_fit_reference_after(:,2)+lin_fit_reference(:,3);
-                    new_end_point_before = lin_fit_carrier(:,2)+offset_start_overlap;
-                    new_start_point_after = lin_fit_carrier(:,3)+offset_end_overlap;
-                    
-                    %assume unchanged slope before
-                    strength_of_trend_before = 1;
-                    new_start_point_before = new_end_point_before + strength_of_trend_before .* (- lin_fit_reference_before(:,3) + lin_fit_reference_before(:,2));
-                    new_end_point_after = new_start_point_before + total_change;
-                    
-                    
-%                     if strcmp(forcing.PARA.variables{i,1},'precip')
-%                         carrier_class.DATA.precip = carrier_class.DATA.precip .* mean_precip_reference + mean_precip_reference;
-%                         reference_class.DATA.precip = reference_class.DATA.precip .* mean_precip_reference + mean_precip_reference;
-%                     end
-                    
+                
+                end
+            end
+            
+            %load new reference
+            reference_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.reference_forcing_class){forcing.PARA.reference_forcing_class_index,1});
+            reference_class.PARA.start_time = [year(forcing.PARA.start_time);1; 1];
+            reference_class.PARA.end_time = [year(forcing.PARA.end_time)+1; 1; 1];
+            reference_class = finalize_init(reference_class, tile);
+            reference_class.DATA.timeForcing = reference_class.DATA.timeForcing - forcing.PARA.offset_from_GMT_reference ./ 24;
+            
+            
+            for i=1:size(forcing.PARA.variables,1)
+                
+                if strcmp(forcing.PARA.overlap_interval, 'month')
+                                        
                     forcing.DATA.(forcing.PARA.variables{i,1}) = [];
                     y = year(reference_class.DATA.timeForcing(1,1));
                     m = month(reference_class.DATA.timeForcing(1,1));
@@ -296,42 +230,26 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
                         
                         pos_start_carrier = find(carrier_class.DATA.timeForcing(:,1) >= datenum(year(overlap_pairs_time(pos,1)), m, 1), 1);
                         pos_end_carrier = find(carrier_class.DATA.timeForcing(:,1) < datenum(year(overlap_pairs_time(pos,1)), m+1, 1), 1, 'last');
-                        carrier_trend = lin_fit_carrier(m,2) + lin_fit_carrier(m,1).* (overlap_pairs_time(pos,1)-overlap_pairs_time(1,1)); 
 
                         new_month = carrier_class.DATA.(forcing.PARA.variables{i,1})(pos_start_carrier:pos_end_carrier,1);
-                        new_month = new_month - carrier_trend - carrier_detrended(pos,1); %should be adjusted to zero mean
-                        if get_q && strcmp(forcing.PARA.variables{i,1}, 'Tair')
-                            new_month_q = carrier_class.DATA.q(pos_start_carrier:pos_end_carrier,1);
-                            old_month = carrier_class.DATA.Tair(pos_start_carrier:pos_end_carrier,1);
-                        end
                         
-                        if datenum(y,m,15) < overlap_pairs_time(1,1)
-                            pos = reference_before_time(:,1) == datenum(y,m,15);
-                            new_month = new_month + reference_before_detrended_inflated(pos,1);
-                            trend = new_start_point_before(m,1) + (datenum(y,m,15) - reference_before_time(1,1))./(reference_before_time(end,1)-reference_before_time(1,1)) .* (new_end_point_before(m,1) - new_start_point_before(m,1));
-                            new_month = new_month + trend;
-                        elseif datenum(y,m,15) >= overlap_pairs_time(1,1) && datenum(y,m,15) <= overlap_pairs_time(end,1)
-                            pos = overlap_pairs_time(:,1) == datenum(y,m,15);
-                            new_month = new_month + reference_detrended_inflated(pos,1);
-                            trend = lin_fit_carrier(m,2) + (datenum(y,m,15) - overlap_pairs_time(1,1))./(overlap_pairs_time(end,1)-overlap_pairs_time(1,1)) .* (lin_fit_carrier(m,3) - lin_fit_carrier(m,2));
-                            new_month = new_month + trend;
-                        elseif datenum(y,m,15) > overlap_pairs_time(end,1)
-                            pos = reference_after_time(:,1) == datenum(y,m,15);
-                            new_month = new_month + reference_after_detrended_inflated(pos,1);
-                            trend = new_start_point_after(m,1) + (datenum(y,m,15) - reference_after_time(1,1))./(reference_after_time(end,1)-reference_after_time(1,1)) .* (new_end_point_after(m,1) - new_start_point_after(m,1));
-                            new_month = new_month + trend;
-                        end
-                        
+                        range = find(reference_class.DATA.timeForcing>=datenum(y,m,1) & reference_class.DATA.timeForcing<datenum(y,m+1,1));
                         if strcmp(forcing.PARA.variables{i,1},'precip') || strcmp(forcing.PARA.variables{i,1},'Sin') || strcmp(forcing.PARA.variables{i,1},'wind')
-                            relative_change = mean(new_month) ./ mean(carrier_class.DATA.(forcing.PARA.variables{i,1})(pos_start_carrier:pos_end_carrier,1));
+                            relative_change = mean(reference_class.DATA.(forcing.PARA.variables{i,1})(range,1)) ./ mean_value_reference(m,i);
                             if isnan(relative_change)
                                 relative_change = 1;
                             end
-                            new_month = max(0, relative_change .* carrier_class.DATA.(forcing.PARA.variables{i,1})(pos_start_carrier:pos_end_carrier,1));
-                        end
-                        
-                        forcing.DATA.(forcing.PARA.variables{i,1}) = [forcing.DATA.(forcing.PARA.variables{i,1}); new_month];
+                            new_month = max(0, relative_change .* new_month);
+                        else
+                            absolute_offset_reference = mean(reference_class.DATA.(forcing.PARA.variables{i,1})(range,1)) - mean_value_reference(m,i);
+                            new_month = new_month + absolute_offset_reference;
+                         end
+                         
+                         forcing.DATA.(forcing.PARA.variables{i,1}) = [forcing.DATA.(forcing.PARA.variables{i,1}); new_month];
+
                         if get_q && strcmp(forcing.PARA.variables{i,1}, 'Tair')
+                            new_month_q = carrier_class.DATA.q(pos_start_carrier:pos_end_carrier,1);
+                            old_month = carrier_class.DATA.Tair(pos_start_carrier:pos_end_carrier,1);
                             forcing.DATA.q = [forcing.DATA.q; new_month_q .* exp(17.62.*new_month./(243.12+new_month)) ./ exp(17.62.*old_month./(243.12+old_month))];
                         end
                         
@@ -346,18 +264,13 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
                     timestamp = carrier_class.DATA.timeForcing(2,1) - carrier_class.DATA.timeForcing(1,1);
                     forcing.DATA.timeForcing = [starttime:timestamp:starttime+timestamp.*(size(forcing.DATA.(forcing.PARA.variables{i,1}),1)-1)]';
                     
-                elseif strcmp(forcing.PARA.overlap_interval, 'day')
-                    
+
                 end
-               
             end
             
             
-            forcing = adjust_precip_quantile_mapping(forcing, carrier_class, tile);
+            %forcing = adjust_precip_quantile_mapping(forcing, carrier_class, tile);
             forcing = split_precip_Tair(forcing);
-            
-            
-
 
             forcing.DATA.rainfall = forcing.DATA.rainfall.*forcing.PARA.rain_fraction;
             forcing.DATA.snowfall = forcing.DATA.snowfall.*forcing.PARA.snow_fraction;
@@ -365,27 +278,27 @@ classdef FORCING_downscale_slope_seb < FORCING_base & READ_FORCING_mat
             forcing = check_and_correct(forcing); % Remove known errors
              
             forcing = initialize_TEMP(forcing);
-            forcing = initialize_TEMP_slope(forcing);
-            
-            forcing = reduce_precip_slope(forcing, tile);
-            
-            forcing = convert_accumulated2instantaneous_Sin(forcing, tile);
-            
-            forcing = SolarAzEl(forcing, tile);
-            
-            %make own function?
-            if ~isfield(forcing.DATA, 'S_TOA')
-                mu0=max(sind(forcing.DATA.sunElevation),0); % Trunacte negative values.
-                sunset=mu0<cosd(89);%(mu0==0); % Sunset switch.
-                forcing.DATA.S_TOA = 1370.*mu0;
-            end
-            
-            forcing = split_Sin(forcing); % split Sin in dir and dif
-            forcing = terrain_corr_Sin_dif(forcing, tile);
-            forcing = reproject_Sin_dir(forcing, tile);
-            forcing = terrain_shade(forcing, tile);
-            forcing.DATA.Sin = forcing.DATA.Sin_dir + forcing.DATA.Sin_dif;
-            
+%             forcing = initialize_TEMP_slope(forcing);
+%             
+%             forcing = reduce_precip_slope(forcing, tile);
+%             
+%             forcing = convert_accumulated2instantaneous_Sin(forcing, tile);
+%             
+%             forcing = SolarAzEl(forcing, tile);
+%             
+%             %make own function?
+%             if ~isfield(forcing.DATA, 'S_TOA') %this will not really work in this case, would require paleo-S_TOA from 
+%                 mu0=max(sind(forcing.DATA.sunElevation),0); % Trunacte negative values.
+%                 sunset=mu0<cosd(89);%(mu0==0); % Sunset switch.
+%                 forcing.DATA.S_TOA = 1370.*mu0;
+%             end
+%             
+%             forcing = split_Sin(forcing); % split Sin in dir and dif
+%             forcing = terrain_corr_Sin_dif(forcing, tile);
+%             forcing = reproject_Sin_dir(forcing, tile);
+%             forcing = terrain_shade(forcing, tile);
+%             forcing.DATA.Sin = forcing.DATA.Sin_dir + forcing.DATA.Sin_dif;
+%             
 %             set pressure to mean pressure at corresponding altitude (international
 %             altitude formula) if not provided by the forcing time series
             if ~isfield(forcing.DATA, 'p')

@@ -398,6 +398,10 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq_Xice(ground, lateral);
         end
         
+         function ground = lateral3D_push_water_unconfined_aquifer_RichardsEq(ground, lateral)
+             ground = lateral3D_push_water_unconfined_aquifer_Xice(ground, lateral);
+         end
+        
         %LAT3D_WATER_RESERVOIR and LAT3D_WATER_SEEPAGE_FACE do not require specific functions
         
         %-------LAT3D_HEAT-------------            

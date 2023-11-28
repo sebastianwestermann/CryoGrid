@@ -1,12 +1,11 @@
 %========================================================================
-% CryoGrid GROUND class GROUND_freezeC_RichardsEqW_seb
+% CryoGrid GROUND class GROUND_freezeC_RichardsEqW_Xice_seb
 % heat conduction, Richards equation water scheme, freeze curve based on
 % freezing=drying assumption, surface energy balance
 % S. Westermann, October 2020
 %========================================================================
 
-%classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_seb 
-classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_Xice_seb 
+classdef GROUND_freezeC_RichardsEqW_Xice_seb_vegetation < GROUND_freezeC_RichardsEqW_Xice_seb 
 
     properties
         VEGETATION
@@ -26,13 +25,13 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.PARA.epsilon = []; % surface emissivity [-]
             ground.PARA.z0 = []; % roughness length [m] 
 
+            ground.PARA.conductivity_function = [];
+            ground.PARA.permeability = [];  %permeability for fluids/gases [m2]
+
             ground.PARA.rootDepth = []; %e-folding constant of transpiration reduction with depth [1/m]
             ground.PARA.evaporationDepth = []; %e-folding constant of evaporation reduction reduction with depth [1/m]
             ground.PARA.ratioET = []; %fraction of transpiration of total evapotranspiration [-]
-            ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
-            
-            ground.PARA.conductivity_function = [];
-            ground.PARA.permeability = [];  %permeability for fluids/gases [m2]
+            ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]            
           
             ground.PARA.dt_max = []; %maximum possible timestep [sec]
             ground.PARA.dE_max = []; %maximum possible energy change per timestep [J/m3]
@@ -47,6 +46,12 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
                       
             ground.PARA.VEGETATION_class = [];
             ground.PARA.VEGETATION_class_index = [];
+            
+             %trigger parameters
+            ground.PARA.threshold_Xwater = []; %excess water height in first grid cell for which a LAKE is triggered, or for which water is moved to the variable "excessWater"
+            ground.PARA.threshold_Xwater_class = []; %LAKE class that is added by trigger, no LAKE triggered if empty. Must correspond to a sleeping class in the initialization!
+            ground.PARA.threshold_Xwater_index = []; %index of LAKE class that is added by trigger
+            
         end
         
         function ground = provide_STATVAR(ground)
@@ -54,30 +59,33 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.STATVAR.upperPos = [];  % upper surface elevation [m]
             ground.STATVAR.lowerPos = [];  % lower surface elevation [m]
             ground.STATVAR.layerThick = []; % thickness of grid cells [m]
-            
+
             ground.STATVAR.waterIce = [];  % total volume of water plus ice in a grid cell [m3]
+            ground.STATVAR.XwaterIce = [];  % total volume of excess water plus excess ice in a grid cell [m3]
             ground.STATVAR.mineral = [];   % total volume of minerals [m3]
-            ground.STATVAR.organic = [];   % total volume of organics [m3]
-            ground.STATVAR.energy = [];    % total internal energy [J]
-            ground.STATVAR.soil_type = []; % integer code for soil_type; 1: sand; 2: silt: 3: clay: 4: peat; 5: water (i.e. approximation of free water, very large-pore ground material).
-                        
+            ground.STATVAR.organic = []; % total volume of organics [m3]
+            ground.STATVAR.energy = [];   % total internal energy [J]
+            ground.STATVAR.soil_type = [];  % integer code for soil_type; 1: sand; 2: silt: 3: clay: 4: peat; 5: water (i.e. approximation of free water, very large-pore ground material).
+%             ground.STATVAR.satHydraulicConductivity = [];            
+            
             ground.STATVAR.T = [];  % temperature [degree C]
             ground.STATVAR.water = [];  % total volume of water [m3]
             ground.STATVAR.waterPotential = []; %soil water potential [Pa]
+            ground.STATVAR.Xwater = [];  % total volume of excess water [m3]
+            ground.STATVAR.Xice = []; % total volume of excess ice [m3]
             ground.STATVAR.ice = [];  %total volume of ice [m3]
-            ground.STATVAR.air = [];  % total volume of air [m3] - NOT USED
-            ground.STATVAR.thermCond = []; %thermal conductivity [W/mK]
+            ground.STATVAR.air = [];   % total volume of air [m3] - NOT USED
+            ground.STATVAR.thermCond = [];   %thermal conductivity [W/mK]
+            ground.STATVAR.hydraulicConductivity = [];  % hydraulic conductivity [m/sec]
             ground.STATVAR.permeability = [];  %permeability for fluids/gases [m2]
-            %ground.STATVAR.hydraulicConductivity = []; % hydraulic conductivity [m/sec]
             
-            ground.STATVAR.Lstar = [];  %Obukhov length [m]
-            ground.STATVAR.Qh = [];     %sensible heat flux [W/m2]
-            ground.STATVAR.Qe = [];     % latent heat flux [W/m2]
+            ground.STATVAR.Lstar = [];   %Obukhov length [m]
+            ground.STATVAR.Qh = [];      %sensible heat flux [W/m2]
+            ground.STATVAR.Qe = [];      % latent heat flux [W/m2]
             
             ground.STATVAR.field_capacity = [];  %field capacity in fraction of the total volume [-]
-            ground.STATVAR.excessWater = 0;  %water volume overtopping first grid cell (i.e. surface water) [m3]
-            
-        end
+            ground.STATVAR.excessWater = 0;     %water volume overtopping first grid cell (i.e. surface water) [m3]
+          end
         
         function ground = provide_CONST(ground)
             
@@ -104,6 +112,8 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             
             ground.CONST.rho_w = []; % water density
             ground.CONST.rho_i = []; %ice density
+            ground.CONST.rho_m = []; %density minerals
+            ground.CONST.rho_o = []; % density organics
             
             ground.CONST.g = [];
             ground.CONST.molar_mass_w = [];
@@ -130,11 +140,13 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
 
         end
         
+        function ground = convert_units(ground, tile)
+            ground = convert_units@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+        end         
         
         function ground = finalize_init(ground, tile)
-%             ground = finalize_init@GROUND_freezeC_RichardsEqW_seb(ground, tile);
             ground = finalize_init@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
-           
+            
             ground.VEGETATION = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(ground.PARA.VEGETATION_class){ground.PARA.VEGETATION_class_index,1});
             ground.VEGETATION.PARENT_GROUND = ground;
             ground.VEGETATION.PARENT_SURFACE = ground; 
@@ -142,10 +154,16 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.VEGETATION = finalize_init(ground.VEGETATION, tile);
             %ground.STATVAR.acc=[0 0];
         end
+
+        % Turned around 20230805 Simone
+        function ground = finalize_init2(ground, tile)
+            ground = finalize_init2@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+        end
         
         %---time integration------
         
         function ground = get_boundary_condition_u(ground, tile)
+%             disp('vegetation without snow');
             
             %could eventually be done in compute_diagnostic
             %specific for each compatible GROUND class
@@ -154,6 +172,7 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.STATVAR.Lout4vegetation = ground.PARA.epsilon .* ground.CONST.sigma .* (ground.STATVAR.T(1)+273.15).^4; %emitted part of Lout, reflected part in the vegetation
             
             %calculate SEB for canopy and adjust forcing data
+            
             ground.VEGETATION = get_boundary_condition_u(ground.VEGETATION, tile);
             
             forcing = ground.VEGETATION.ForcingV;
@@ -174,7 +193,8 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             %set reference height to middle of first canopy layer
             ground.PARA.airT_height = ground.VEGETATION.STATVAR.mlcanopyinst.zs(1,2);
             
-            ground = Q_evap_CLM4_5(ground, forcing);
+            %Change to evap xICE?
+            ground = Q_evap_CLM4_5_Xice(ground, forcing);
             
             ground.STATVAR.Qh = Q_h(ground, forcing);
             
@@ -183,10 +203,13 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
             ground.TEMP.d_energy(1) = ground.TEMP.d_energy(1) + ground.TEMP.F_ub;
             
             %water -> evaporation
-
-            ground.STATVAR.evap = ground.STATVAR.evaporation;
+            if isfield(ground.STATVAR, 'evaporation')
+                ground.STATVAR.evap = ground.STATVAR.evaporation;
+                ground.TEMP.evap_energy = ground.TEMP.evaporation_energy;
+            end
+            
             ground.TEMP.d_water_ET(1,1) = ground.TEMP.d_water_ET(1,1) -  ground.STATVAR.evap.* ground.STATVAR.area(1,1); %in m3 water per sec, put everything in uppermost grid cell
-            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.TEMP.evaporation_energy.* ground.STATVAR.area(1,1);
+            ground.TEMP.d_water_ET_energy(1,1) = ground.TEMP.d_water_ET_energy(1,1) -  ground.TEMP.evap_energy.* ground.STATVAR.area(1,1);
             %mass balance of sublimation not considered!
             
             %transpiration
@@ -199,26 +222,33 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
                 double(ground.STATVAR.T(range)<0) .* ground.CONST.c_i .* ground.STATVAR.T(range));           
 
             %upper BC water (rainfall)
-            ground = get_boundary_condition_u_RichardsEq(ground, forcing); %checked that this flux can be taken up!!
+            ground = get_boundary_condition_u_water_RichardsEq_Xice2(ground, forcing); %checked that this flux can be taken up!!
+%             ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
         end
         
+        function [ground, S_up] = penetrate_SW(ground, S_down)  %mandatory function when used with class that features SW penetration
+            [ground, S_up] = penetrate_SW@GROUND_freezeC_RichardsEqW_Xice_seb(ground, S_down);
+        end
+%         function [ground, S_up] = penetrate_SW_PARENT(ground, S_down)  %mandatory function when used with class that features SW penetration
+%             ground = penetrate_SW_PARENT@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+%         end
+%         
+%         function [ground, L_up] = penetrate_LW(ground, L_down)  %mandatory function when used with class that features LW penetration
+%             ground = penetrate_LW@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+%         end        
         
       function ground = get_boundary_condition_l(ground, tile)
             ground.VEGETATION = get_boundary_condition_l(ground.VEGETATION, tile);
-%            ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_seb(ground, tile);
             ground = get_boundary_condition_l@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
         end
         
         function ground = get_derivatives_prognostic(ground, tile)
             ground.VEGETATION = get_derivatives_prognostic(ground.VEGETATION, tile);
-            %ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_seb(ground, tile);
             ground = get_derivatives_prognostic@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
-
         end
         
         function timestep = get_timestep(ground, tile) 
-            timestep_ground = get_timestep@GROUND_freezeC_RichardsEqW_seb(ground, tile);
-            timestep_ground = get_timestep@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            timestep_ground = get_timestep@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
             timestep_vegetation = get_timestep(ground.VEGETATION, tile);
             
             timestep = min(timestep_ground, timestep_vegetation);
@@ -226,7 +256,7 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
         
         function ground = advance_prognostic(ground, tile) 
             ground.VEGETATION = advance_prognostic(ground.VEGETATION, tile);
-            ground = advance_prognostic@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            ground = advance_prognostic@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
 %             if tile.t > tile.FORCING.PARA.start_time +1;
 %             ground.STATVAR.acc=ground.STATVAR.acc + [tile.FORCING.TEMP.rainfall ground.VEGETATION.ForcingV.TEMP.rainfall] .* tile.timestep;
 %             disp(ground.STATVAR.acc)
@@ -235,13 +265,13 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
         
         function ground = compute_diagnostic_first_cell(ground, tile)
             ground.VEGETATION = compute_diagnostic_first_cell(ground.VEGETATION, tile);
-            ground = compute_diagnostic_first_cell@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            ground = compute_diagnostic_first_cell@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
         end
        
         function ground = compute_diagnostic(ground, tile)
             ground.VEGETATION = compute_diagnostic(ground.VEGETATION, tile);
             
-            ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            ground = compute_diagnostic@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
             
             %SEBASTIAN: no water fluxes when frozen
             %ground.STATVAR.hydraulicConductivity(ground.STATVAR.T<0) = 0;
@@ -250,7 +280,11 @@ classdef GROUND_freezeC_RichardsEqW_seb_vegetation < GROUND_freezeC_RichardsEqW_
         
         function ground = check_trigger(ground, tile)
             ground.VEGETATION = check_trigger(ground.VEGETATION, tile);
-            ground = check_trigger@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            ground = check_trigger@GROUND_freezeC_RichardsEqW_Xice_seb(ground, tile);
+            
+%             ground.VEGETATION = choose_canopy(ground.VEGETATION, tile.t); % Simone LAI
+%             disp('LAI');
+%             disp(ground.STATVAR.canopy.lai);
         end
         
         

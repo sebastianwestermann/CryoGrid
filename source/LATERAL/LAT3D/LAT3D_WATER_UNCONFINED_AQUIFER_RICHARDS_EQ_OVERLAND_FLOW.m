@@ -65,7 +65,7 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ_OVERLAND_FLOW < BASE_LATERAL
             lateral.PARENT.STATVAR.water_status = [];
             lateral.PARENT.STATVAR.hydraulicConductivity = [];
             lateral.PARENT.STATVAR.matric_potential_head = [];
-            lateral.PARENT.STATVAR.hydrostatic_head = 0;
+            lateral.PARENT.STATVAR.hydrostatic_head = [];
             lateral.PARENT.STATVAR.T_water = [];
             lateral.PARENT.STATVAR.water_depth = 0; %depth of the free water at the surface flowing according to Gauckler-Manning 
         %    lateral.PARENT.STATVAR.ground_surface_elevation = []; %NEW SEBASTIAN for hillslope flow between grid cells
@@ -86,25 +86,45 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ_OVERLAND_FLOW < BASE_LATERAL
 
             lateral.PARENT = get_overlap_cells2(lateral.PARENT, 'depths', 'overlap');
             
+            
             %calculate fluxes
             flux = lateral.PARENT.STATVAR.hydraulicConductivity .* 0;
             flux_energy = flux;
             for j=1:size(lateral.PARENT.ENSEMBLE,1)
                 if lateral.PARENT.PARA.connected(lateral.PARENT.STATVAR.index, lateral.PARENT.ENSEMBLE{j,1}.index)  %add if water is available at all
                     %flow between saturated cells
+                    
+                    %calculate offset from grid cell midpoint of overlap
+                    %section midpoint
+                    offset_from_midpoint = [];
+                    overlap = lateral.PARENT.ENSEMBLE{j,1}.overlap;
+                    depth1=lateral.PARENT.STATVAR.depths;
+                    depth2 = lateral.PARENT.ENSEMBLE{j,1}.depths;
+                    for k=1:size(overlap,1)
+                        offset_from_midpoint=[offset_from_midpoint; ...
+                            [-(depth1(overlap(k,1),1)+depth1(overlap(k,1)+1,1))/2+(min(depth1(overlap(k,1),1), depth2(overlap(k,2),1))-overlap(k,3)./2)...
+                            -(depth2(overlap(k,2),1)+depth2(overlap(k,2)+1,1))/2+(min(depth1(overlap(k,1),1), depth2(overlap(k,2),1))-overlap(k,3)./2)]];
+                    end
+                    
+
                     contact_length = lateral.PARENT.PARA.contact_length(lateral.PARENT.STATVAR.index, lateral.PARENT.ENSEMBLE{j,1}.index);
                     distance = lateral.PARENT.PARA.distance(lateral.PARENT.STATVAR.index, lateral.PARENT.ENSEMBLE{j,1}.index);
                     for i=1:size(lateral.PARENT.ENSEMBLE{j,1}.overlap,1) %does not do anything when overlap is empty!
                         
                         hc1 = lateral.PARENT.STATVAR.hydraulicConductivity(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1);
                         hc2 = lateral.PARENT.ENSEMBLE{j,1}.hydraulicConductivity(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1);
-                        hydraulicConductivity = hc1 .* hc2 ./ (hc1 .* distance./2 + hc2 .* distance./2); %change to different distances laters
+                        hydraulicConductivity = hc1 .* hc2 ./ (hc1 .* distance./2 + hc2 .* distance./2); %change to different distances later
                         hydraulicConductivity(isnan(hydraulicConductivity)) = 0;
 
                         flux_i = contact_length .* lateral.PARENT.ENSEMBLE{j,1}.overlap(i,3) .* hydraulicConductivity .* ...
                             -(lateral.PARENT.STATVAR.matric_potential_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) - lateral.PARENT.ENSEMBLE{j,1}.matric_potential_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1) + ...
-                            lateral.PARENT.STATVAR.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) - lateral.PARENT.ENSEMBLE{j,1}.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1) + ...
+                            double(lateral.PARENT.STATVAR.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1)~=0).*(lateral.PARENT.STATVAR.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) - offset_from_midpoint(i,1)) - ...
+                            double(lateral.PARENT.ENSEMBLE{j,1}.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1)~=0).*(lateral.PARENT.ENSEMBLE{j,1}.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1)  - offset_from_midpoint(i,2)) + ...
                             double(lateral.PARENT.PARA.hill_slope) .* (lateral.PARENT.STATVAR.ground_surface_elevation - lateral.PARENT.ENSEMBLE{j,1}.ground_surface_elevation)); 
+%           flux_i = contact_length .* lateral.PARENT.ENSEMBLE{j,1}.overlap(i,3) .* hydraulicConductivity .* ...
+%                             -(lateral.PARENT.STATVAR.matric_potential_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) - lateral.PARENT.ENSEMBLE{j,1}.matric_potential_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1) + ...
+%                             (lateral.PARENT.STATVAR.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) - lateral.PARENT.ENSEMBLE{j,1}.hydrostatic_head(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,2),1)) + ...
+%                             double(lateral.PARENT.PARA.hill_slope) .* (lateral.PARENT.STATVAR.ground_surface_elevation - lateral.PARENT.ENSEMBLE{j,1}.ground_surface_elevation)); 
                             
                         flux(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) = flux(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) + flux_i;
                         flux_energy(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) = flux_energy(lateral.PARENT.ENSEMBLE{j,1}.overlap(i,1),1) + flux_i .* lateral.PARENT.CONST.c_w .* ...
@@ -198,8 +218,6 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ_OVERLAND_FLOW < BASE_LATERAL
             lateral.PARENT.STATVAR.water_flux_energy = flux_energy .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
             lateral.STATVAR.subsurface_run_off = sum(lateral.PARENT.STATVAR.water_flux);
             
-
-            
         end
 
         function lateral = push(lateral, tile)
@@ -216,7 +234,7 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ_OVERLAND_FLOW < BASE_LATERAL
                 end
 
                 while ~(strcmp(class(CURRENT), 'Top'))
-                    CURRENT = lateral3D_push_water_unconfined_aquifer(CURRENT, lateral);
+                    CURRENT = lateral3D_push_water_unconfined_aquifer_RichardsEq(CURRENT, lateral);
                     CURRENT = CURRENT.PREVIOUS;
                 end
             end
