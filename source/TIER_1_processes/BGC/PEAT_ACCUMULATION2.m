@@ -56,6 +56,11 @@ classdef PEAT_ACCUMULATION2 < BASE
         end
         
         function peat = define_NPP_variables_Frolking(peat)
+            peat.PARA.isvascular = [1; 1; 0; 1; 1; 0; 1; 0; 0; 0; 0; 0];
+            peat.PARA.issedge =    [0; 0; 1; 0; 0; 1; 0; 0; 0; 0; 0; 0];
+            peat.PARA.above_ground_fraction_NPP = [0.5; 0.5; 0.2; 0.5; 0.5; 0.2; 0.5; 1; 1; 1; 1; 1]; 
+            peat.PARA.damping_factor_sedges = 5.365; %ensures that 80% of NPP is allocated above 0.3m depth (Bauer et al., 2004)
+            
             peat.PARA.NPP_max = [0.85; 0.85; 1.13; 0.56; 0.09; 0.19; 0.19; 0.56; 0.19; 0.19; ...
                 0.19; 0.09]';
             

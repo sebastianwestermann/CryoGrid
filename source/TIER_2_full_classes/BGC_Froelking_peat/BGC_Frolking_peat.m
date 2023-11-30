@@ -22,7 +22,7 @@ classdef BGC_Frolking_peat < PEAT_ACCUMULATION2 & PEAT_DECOMPOSE2
             ground.PARA.Q10 = 2;
             ground.PARA.base_accumulation_constant = 1./70e3; %must be adjusted to achieve field-observed peat accumulation values
 
-            ground.PARA.fieldCapacity = 0.75;% soil water at field capacity
+%             ground.PARA.fieldCapacity = 0.75;% soil water at field capacity
             ground.PARA.min_bulkDensity = 50; %is this kg/m3
             ground.PARA.max_bulkDensity = 120;
             
@@ -175,12 +175,34 @@ classdef BGC_Frolking_peat < PEAT_ACCUMULATION2 & PEAT_DECOMPOSE2
             ground.TEMP.GPP_acc = ground.TEMP.GPP_acc + ground.TEMP.GPP  .* tile.timestep./ground.CONST.day_sec./ground.PARA.BGC_timestep; %normalize to BGC timestep
             ground.TEMP.GPP_acc2 = ground.TEMP.GPP_acc2 + ground.TEMP.GPP  .* tile.timestep./ground.CONST.day_sec;
             ground.TEMP.water_table_depth_acc = ground.TEMP.water_table_depth_acc + ground.TEMP.water_table_depth .* ground.TEMP.GPP  .* tile.timestep./ground.CONST.day_sec;
+            
 
             if tile.t == ground.STATVAR.next_decompose_timestamp
-                ground.STATVAR.total_peat_PFT = ground.STATVAR.total_peat_PFT - ground.TEMP.d_peat_decompose_PFT .* ground.STATVAR.total_peat_PFT .* ground.PARA.BGC_timestep;
-                ground.STATVAR.total_peat_PFT(1,:) = ground.STATVAR.total_peat_PFT(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
-                ground.STATVAR.total_peat_PFT_originalMass(1,:) = ground.STATVAR.total_peat_PFT_originalMass(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
+                %distribute NPP over root zone
+                depths = cumsum(ground.STATVAR.layerThick) - ground.STATVAR.layerThick./2;
+                NPP_distribution_vascular = (depths <= max(0.05, min(0.2, mean(ground.STATVAR.water_table_depth,1))));
+                NPP_distribution_vascular = NPP_distribution_vascular ./ sum(NPP_distribution_vascular,1);
                 
+                NPP_distribution_sedge = ground.PARA.damping_factor_sedges.* exp(-ground.PARA.damping_factor_sedges.*depths);
+                NPP_distribution_sedge(NPP_distribution_sedge<0.05) = 0;
+                NPP_distribution_sedge = NPP_distribution_sedge ./ sum(NPP_distribution_sedge,1);
+                
+                NPP_distribution = repmat(depths .* 0, 1,12);
+                NPP_distribution(1,:) = ground.PARA.above_ground_fraction_NPP';
+                NPP_distribution(:,ground.PARA.isvascular'==1) = NPP_distribution(:,ground.PARA.isvascular'==1) + repmat(1-ground.PARA.above_ground_fraction_NPP(ground.PARA.isvascular==1)', size(NPP_distribution,1),1) ...
+                    .* repmat(NPP_distribution_vascular,1, sum(ground.PARA.isvascular));
+                NPP_distribution(:,ground.PARA.issedge'==1) = NPP_distribution(:,ground.PARA.issedge'==1) + repmat(1-ground.PARA.above_ground_fraction_NPP(ground.PARA.issedge==1)', size(NPP_distribution,1),1) ...
+                    .* repmat(NPP_distribution_sedge,1, sum(ground.PARA.issedge));
+                NPP_distribution = NPP_distribution .* repmat(ground.STATVAR.annual_NPP, size(ground.STATVAR.total_peat_PFT,1),1);
+                %end distribute
+                
+                ground.STATVAR.total_peat_PFT = ground.STATVAR.total_peat_PFT - ground.TEMP.d_peat_decompose_PFT .* ground.STATVAR.total_peat_PFT .* ground.PARA.BGC_timestep;
+%                 ground.STATVAR.total_peat_PFT(1,:) = ground.STATVAR.total_peat_PFT(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
+%                 ground.STATVAR.total_peat_PFT_originalMass(1,:) = ground.STATVAR.total_peat_PFT_originalMass(1,:) + ground.STATVAR.annual_NPP .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
+
+                ground.STATVAR.total_peat_PFT = ground.STATVAR.total_peat_PFT + NPP_distribution .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep; %./100e3
+                ground.STATVAR.total_peat_PFT_originalMass = ground.STATVAR.total_peat_PFT_originalMass + NPP_distribution .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep;
+ 
                 ground.TEMP.delta_organic = - sum(ground.TEMP.d_peat_decompose_PFT .* ground.STATVAR.total_peat_PFT, 2) .* ground.PARA.BGC_timestep ./ ground.CONST.organicDensity;
                 ground.TEMP.delta_organic(1,1) = ground.TEMP.delta_organic(1,1) + sum(ground.STATVAR.annual_NPP,2) .* ground.TEMP.GPP_acc .* ground.PARA.base_accumulation_constant .* ground.PARA.BGC_timestep ./ ground.CONST.organicDensity; %./ 100e3
                 

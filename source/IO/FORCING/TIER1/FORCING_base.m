@@ -411,9 +411,9 @@ classdef FORCING_base < matlab.mixin.Copyable
            [forcing.DATA.azimuth,forcing.DATA.sunElevation] = solargeom(forcing, forcing.DATA.timeForcing ,tile.PARA.latitude,tile.PARA.longitude);
            %-----
           % [forcing.DATA.azimuth,forcing.DATA.sunElevation, forcing.DATA.hour_angle, forcing.DATA.DecR] = solargeom(forcing, forcing.DATA.timeForcing ,tile.PARA.latitude,tile.PARA.longitude); %CHANGE SW
-           forcing.DATA.hour_angle = rad2deg(forcing.DATA.hour_angle);
-           forcing.DATA.hour_angle(forcing.DATA.hour_angle<0) = forcing.DATA.hour_angle(forcing.DATA.hour_angle<0)+360;
-           forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360) = forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360)-360;
+%            forcing.DATA.hour_angle = rad2deg(forcing.DATA.hour_angle);
+%            forcing.DATA.hour_angle(forcing.DATA.hour_angle<0) = forcing.DATA.hour_angle(forcing.DATA.hour_angle<0)+360;
+%            forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360) = forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360)-360;
            %----------------
 
            forcing.DATA.azimuth = rad2deg(forcing.DATA.azimuth);
