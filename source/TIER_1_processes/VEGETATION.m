@@ -120,7 +120,7 @@ classdef VEGETATION < BASE
         
         function canopy = add_canopy_linear(canopy, doy)
             doy = min(doy, canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period); % Avoid overshoot
-            canopy.STATVAR.LAI = canopy.PARA.LAI.* (doy - canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period) ./ canopy.PARA.leafsprout_period;
+            canopy.STATVAR.LAI = canopy.PARA.LAI.* max(canopy.PARA.leafsprout_period, doy - canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period) ./ canopy.PARA.leafsprout_period;
             if canopy.STATVAR.LAI > canopy.PARA.LAI || canopy.STATVAR.LAI < 0
                 error
             end
@@ -140,7 +140,7 @@ classdef VEGETATION < BASE
         
         function canopy = remove_canopy_linear(canopy, doy)
             doy = min(doy,canopy.PARA.t_leaffall + canopy.PARA.leaffall_period);
-            canopy.STATVAR.LAI = canopy.PARA.LAI.* (canopy.PARA.t_leaffall - doy) ./ canopy.PARA.leaffall_period;
+            canopy.STATVAR.LAI = canopy.PARA.LAI.* max(0,canopy.PARA.t_leaffall - doy) ./ canopy.PARA.leaffall_period;
             if canopy.STATVAR.LAI > canopy.PARA.LAI || canopy.STATVAR.LAI < 0
                 error
             end

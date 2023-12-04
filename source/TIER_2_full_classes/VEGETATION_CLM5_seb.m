@@ -231,8 +231,8 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             
             % LW enhancement: https://tc.copernicus.org/articles/13/3077/2019/
             if canopy.PARA.LW_enhancement == 1
-                b_day = [0.717029534450176;0.331661420328917;-1.652770076676212e-04;3.372316918943601e-04];
-                b_night = [0.729759194773731;0.309390539038778;0;0];
+                b_day = [0.673476793605971;0.397159572686006;-4.700356406147842e-05;1.385553999208223e-04];
+                b_night = [0.791947291666270;0.240525096024668;0;0];
                 sky_emissivity = forcing.TEMP.Lin./(canopy.CONST.sigma.*(forcing.TEMP.Tair + canopy.CONST.Tmfw)^4);
                 if forcing.TEMP.Sin > 1
                     canopy.TEMP.f_corr = 1./(b_day(1) + b_day(2).*sky_emissivity + b_day(3).*forcing.TEMP.Sin + b_day(4).*sky_emissivity.*forcing.TEMP.Sin);
