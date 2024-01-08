@@ -65,7 +65,7 @@ elseif strcmp(above_class, 'GROUND_freeW_bucketW_seb_snow')
     if strcmp(below_class, 'GROUND_freeW_seb') || strcmp(below_class, 'GROUND_freezeC_seb')
         ia_class = IA_HEAT11_WATER10();
         
-    elseif strcmp(below_class, 'GROUND_freeW_bucketW_seb') || strcmp(below_class, 'GROUND_freeW_bucketW_convection_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb')
+    elseif strcmp(below_class, 'GROUND_freeW_bucketW_seb') || strcmp(below_class, 'GROUND_freeW_bucketW_convection_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb_snow')
         ia_class = IA_HEAT11_WATER11();
     end
     
@@ -81,7 +81,7 @@ elseif strcmp(above_class, 'GROUND_freeW_bucketW_convection_seb_snow')
     if strcmp(below_class, 'GROUND_freeW_seb') || strcmp(below_class, 'GROUND_freezeC_seb')
         ia_class = IA_HEAT11_WATER10();
         
-    elseif strcmp(below_class, 'GROUND_freeW_bucketW_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb')
+    elseif strcmp(below_class, 'GROUND_freeW_bucketW_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb') || strcmp(below_class, 'GROUND_freezeC_bucketW_seb_snow')
         ia_class = IA_HEAT11_WATER11();
     end
     

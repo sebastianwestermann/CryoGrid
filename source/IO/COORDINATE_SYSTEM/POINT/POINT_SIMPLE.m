@@ -42,7 +42,7 @@ classdef POINT_SIMPLE < matlab.mixin.Copyable
             
             point.STATVAR.slope_angle = 0;     %
             point.STATVAR.aspect = 0;     %
-            point.STATVAR.skyview_factor = 0;     %
+            point.STATVAR.skyview_factor = 1;     %
             point.STATVAR.horizon_angles = 0;   
             point.STATVAR.horizon_bins = 0;
         end

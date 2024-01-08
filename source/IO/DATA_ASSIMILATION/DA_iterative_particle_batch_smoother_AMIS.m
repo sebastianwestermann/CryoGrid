@@ -15,6 +15,7 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
     
     methods
         function da = provide_PARA(da)
+            da.PARA.scratchfolder = [];
             da.PARA.observation_files = [];
             da.PARA.observation_paths = [];
             da.PARA.observable_classes = [];
@@ -44,6 +45,17 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
             da.TILE = tile;
 %             offset = length(num2str(da.TILE.PARA.worker_number))+1;
             da.TEMP.run_name = da.TILE.PARA.run_name;%(1, 1:length(da.TILE.PARA.run_name)-offset); %original results folder w.o worker number
+            
+            if isempty(da.PARA.scratchfolder) || sum(isnan(da.PARA.scratchfolder))>0
+                da.PARA.scratchfolder = tile.PARA.result_path;
+            else
+                if ~exist([da.PARA.scratchfolder da.TEMP.run_name], 'dir')
+                    mkdir([da.PARA.scratchfolder da.TEMP.run_name]);
+                end
+                %mkdir([da.PARA.scratchfolder da.TEMP.run_name]);
+            end
+            
+            
             da.TEMP.first_obs_index =[];
             da.TEMP.index_next_obs = [];
             da.TEMP.time_next_obs = [];
@@ -101,6 +113,7 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
             da.ENSEMBLE.value_gaussian = [];  %Xp in Kris code, size N_param x N_ens x N_iterations
             da.TEMP.cov_gaussian_resampled = []; %size N_param x N_param x N_iterations
             da.TEMP.mean_gaussian_resampled = []; %size N_param x N_iterations
+            
             
         end
         
@@ -210,6 +223,7 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                 
 %                 save(['save_all_1_' num2str(tile.PARA.worker_number) '.mat'])
                
+
                 %actual DA 
 %                 if da.TEMP.num_iterations == 1
 %                     da = PBS(da);
@@ -256,9 +270,12 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         end
                     end
                     %end store
+                    
                     da = save_state(da, tile); %save the current run for resampling, index is num_iterations
                    
-                    rng(da.DA_TIME.*da.TEMP.num_iterations+1);                 
+                    rng(da.DA_TIME.*da.TEMP.num_iterations+1);
+                    % randsample N_ensemblesize values from all members (of
+                    % all iterations) weighted by their weight
                     resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:)); 
                     %find the correct ID of the suviving ensemble member
                     [ensemble_number, iteration_number] = meshgrid([1:da.TILE.PARA.ensemble_size], [1:da.TEMP.num_iterations]);
@@ -266,8 +283,10 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                     iteration_number = iteration_number';
                                                             
                     %read the new stratigraphy and info from file
-                    %IMPORTANT: this must now load from all iterations!!!  
-                    temp=load([tile.PARA.result_path  da.TEMP.run_name '/tile_' ...
+                    %IMPORTANT: this must now load from all iterations!!!
+                    % each worker draws one of the resampled members and
+                    % loads the state
+                    temp=load([da.PARA.scratchfolder  da.TEMP.run_name '/tile_' ...
                         num2str(ensemble_number(resample_ID(tile.PARA.worker_number,1))) '_' num2str(iteration_number(resample_ID(tile.PARA.worker_number,1)))  '.mat']);
                     variables = fieldnames(temp.state);
                     for i=1:size(variables,1)
@@ -276,6 +295,10 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         end
                     end
                     
+                    % rand creates pseudorandom values drawn from standard
+                    % uniform distribution on the open interval (0,1), i.e.
+                    % with learning_coefficient = 0 it never fulfills the
+                    % if-criterion to learn
                     rand_sequence = rand(1,tile.PARA.ensemble_size);
                     if da.PARA.learning_coefficient >= rand_sequence(1, tile.PARA.worker_number)
                         %learning
@@ -347,7 +370,7 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                     da = save_state(da, tile); %save the state with the current iteration
                                        
                     %load "old" state, i.e. from 1st iteration
-                    temp=load([tile.PARA.result_path da.TEMP.run_name '/tile_' num2str(da.TILE.PARA.worker_number) '_0.mat']);
+                    temp=load([da.PARA.scratchfolder da.TEMP.run_name '/tile_' num2str(da.TILE.PARA.worker_number) '_0.mat']);
                     variables = fieldnames(temp.state);
                     for i=1:size(variables,1)
                         if ~isempty(temp.state.(variables{i,1}))
@@ -355,7 +378,8 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         end
                     end
                     
-                    rng(da.DA_TIME.*da.TEMP.num_iterations+2);                 
+                
+                    rng(da.DA_TIME.*da.TEMP.num_iterations+2); % seeds the random number generator new for each iteration                
                     resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:)); 
                     value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
                     thetapc=value_gaussian_resampled; % For clipping potentially
@@ -365,7 +389,8 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                     A=value_gaussian_resampled-mean_gaussian_resampled;
                     cov_gaussian_resampled=(1./da.TILE.PARA.ensemble_size).*(A*A'); % proposal covariance for next iteration
                     d = min(da.ENSEMBLE.effective_ensemble_size./da.TILE.PARA.ensemble_size./da.PARA.min_ensemble_diversity,1); %d=min(diversity/adapt_thresh,1);
-
+                    
+                    a = rand(1);                  
                     clip = round(da.PARA.min_ensemble_diversity.*da.TILE.PARA.ensemble_size); %clip=round(adapt_thresh*Ne);
                     if sum(da.ENSEMBLE.weights(:) > 1/(10*da.TILE.PARA.ensemble_size))>clip  %should have a threshold, is 0 in Kris original code
                         disp('clipping')
@@ -386,12 +411,16 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                         else
                             disp('clipping unsuccessful')
                             pric = diag(da.TEMP.old_std_gaussian.^2);
-                            cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*pric;
+                            % 07.11.
+                            cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
+                            % 07.11.
                         end
                     else
                         disp('no clipping')
                         pric = diag(da.TEMP.old_std_gaussian.^2);
-                        cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*pric;
+                        % 07.11.
+                        cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
+                        % 07.11.
                     end
 
                     da.TEMP.cov_gaussian_resampled = cat(3, da.TEMP.cov_gaussian_resampled, cov_gaussian_resampled); %propc(:,:,ell)=pc;
@@ -670,15 +699,22 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                     state.(variables{i,1}) = [];
                 end
             end
-            %each ensemble member also stores its OUT field, so in this
-            %case OUT is with each state and then is passed on, so that it gets stored directly after DA step -> for this to work, the OUT save_interval must be the same or larrger as the DA interval 
-            %consider doing the same for the other DA class!
-            save([tile.PARA.result_path da.TEMP.run_name '/tile_' num2str(da.TILE.PARA.worker_number) '_' num2str(da.TEMP.num_iterations) '.mat'], 'state');
+
+
+           save([da.PARA.scratchfolder da.TEMP.run_name '/tile_' num2str(da.TILE.PARA.worker_number) '_' num2str(da.TEMP.num_iterations) '.mat'], 'state');
+           labBarrier;
+
             
-            labBarrier;
+          % save iteration 1 aditionally as prior of each year's DA, so
+          % this is not overwritten
+          if da.TEMP.num_iterations == 1
+              save([tile.PARA.result_path da.TEMP.run_name '/tile_' num2str(da.TILE.PARA.worker_number) '_prior_' datestr(tile.t, 'yy') '.mat'], 'state');
+              labBarrier;
+          end
 
         end
-
+        
+    
     end
 end
 

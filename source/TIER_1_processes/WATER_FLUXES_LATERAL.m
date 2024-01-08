@@ -659,12 +659,23 @@ classdef WATER_FLUXES_LATERAL < BASE
             above = (depths > lateral.PARA.reservoir_elevation);
             saturated = ground.STATVAR.saturation > 1-1e-6;
             head = ground.STATVAR.waterPotential;
-            head(saturated) = head(saturated) + (ground.STATVAR.overburden_pressure(saturated) - ground.STATVAR.bearing_capacity(saturated))./ground.CONST.density_water ./ ground.CONST.g;
+            head(saturated) = head(saturated) + (ground.STATVAR.overburden_pressure(saturated) - ground.STATVAR.bearing_capacity(saturated))./ground.CONST.rho_w ./ ground.CONST.g;
             head(above) = head(above) + (depths(above) - lateral.PARA.reservoir_elevation);
             head(~saturated & ~above) = head(~saturated & ~above) + (depths(~saturated & ~above) - lateral.PARA.reservoir_elevation);
             
             cross_section = lateral.PARA.reservoir_contact_length .* ground.STATVAR.layerThick;    
             fluxes = ground.STATVAR.hydraulicConductivity  .* head ./ lateral.PARA.distance_reservoir .* cross_section .* lateral.PARENT.IA_TIME_INCREMENT .* lateral.CONST.day_sec;
+            
+%             %ONLY CONSIDER FLUXES IN THE SURFACE UNFROZEN ZONE
+%             first_frozen_cell = find(ground.STATVAR.T<=0, 1, 'first');
+%             if isempty(first_frozen_cell)
+%                 first_frozen_cell = size(ground.STATVAR.T,1)+1;
+%             end
+%             fluxes_on_off = ground.STATVAR.T.*0;
+%             fluxes_on_off(1:first_frozen_cell-1,1)=1;
+%             
+%             fluxes = fluxes .* double(fluxes_on_off);
+            
             %positive: outflow; negative: inflow
             
             %make sure fluxes are too large
@@ -766,8 +777,7 @@ classdef WATER_FLUXES_LATERAL < BASE
                             end
                         elseif flux <0
                             while flux<0 && j>=1
-                                water_added = min(max(0,ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1)) - ground.STATVAR.waterIce(j,1) - ground.STATVAR.mineral(j,1) - ground.STATVAR.organic(j,1), ...
-                                    -flux);
+                                water_added = min(max(0,ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1) - ground.STATVAR.waterIce(j,1)), -flux);
                                 flux = flux + water_added; %flux negative
                                 ground.STATVAR.waterIce(j,1) = ground.STATVAR.waterIce(j,1) + water_added;
                                 ground.STATVAR.energy(j,1) = ground.STATVAR.energy(j,1) + water_added .* ground.STATVAR.T(j,1).* ...
@@ -826,7 +836,7 @@ classdef WATER_FLUXES_LATERAL < BASE
             ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) + lateral.STATVAR.flow;
             ground.STATVAR.water(1,1) = ground.STATVAR.water(1,1) + lateral.STATVAR.flow;
             ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + lateral.STATVAR.flow ./ ground.STATVAR.area(1,1);
-            ground.STATVAR.energy = ground.STATVAR.energy + lateral.STATVAR.flow_energy;
+            ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy;
         end
         
         function ground = lateral_push_water_overland_flow_SNOW_crocus2(ground, lateral)
@@ -838,7 +848,7 @@ classdef WATER_FLUXES_LATERAL < BASE
                 ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) + lateral.STATVAR.flow;
                 ground.STATVAR.water(1,1) = ground.STATVAR.water(1,1) + lateral.STATVAR.flow;
                 ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + lateral.STATVAR.flow ./ ground.STATVAR.area(1,1);
-                ground.STATVAR.energy = ground.STATVAR.energy + lateral.STATVAR.flow_energy;
+                ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy;
                 
                 lateral.STATVAR.surface_flow = lateral.STATVAR.surface_flow - lateral.STATVAR.flow;
             end
@@ -846,15 +856,16 @@ classdef WATER_FLUXES_LATERAL < BASE
         end
         
         function ground = lateral_push_water_overland_flow_XICE(ground, lateral)
-            if ground.STATVAR.Xice(1,1) == 0
+            if ground.STATVAR.Xice(1,1) <= 0
                 lateral.STATVAR.water_depth = max(0, ground.STATVAR.Xwater(1,1) ./ ground.STATVAR.area(1,1));
-                lateral.STATVAR.max_flow = max(0, ground.STATVAR.XwaterIce(1,1) .* 0.25);
+                lateral.STATVAR.max_flow = max(0, ground.STATVAR.Xwater(1,1) .* 0.25);
                 lateral = gaucklerManningFlow(ground, lateral);
                 
-                ground.STATVAR.XwaterIce(1,1) = ground.STATVAR.XwaterIce(1,1) + lateral.STATVAR.flow;
-                ground.STATVAR.Xwater(1,1) = ground.STATVAR.Xwater(1,1) + lateral.STATVAR.flow;
+                ground.STATVAR.XwaterIce(1,1) = max(0, ground.STATVAR.XwaterIce(1,1) + lateral.STATVAR.flow);
+                ground.STATVAR.Xwater(1,1) = max(0, ground.STATVAR.Xwater(1,1) + lateral.STATVAR.flow);
                 ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + lateral.STATVAR.flow ./ ground.STATVAR.area(1,1);
-                ground.STATVAR.energy = ground.STATVAR.energy + lateral.STATVAR.flow_energy;
+                ground.STATVAR.layerThick(1,1) = max(ground.STATVAR.layerThick(1,1), ground.STATVAR.layerThick_wo_Xice(1,1));
+                ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy;
                 
                 lateral.STATVAR.surface_flow = lateral.STATVAR.surface_flow - lateral.STATVAR.flow;
             end
@@ -869,6 +880,8 @@ classdef WATER_FLUXES_LATERAL < BASE
                 ground.STATVAR.SurfaceWaterIce = ground.STATVAR.SurfaceWaterIce + lateral.STATVAR.flow;
                 ground.STATVAR.SurfaceWater = ground.STATVAR.SurfaceWater + lateral.STATVAR.flow;
                 ground.STATVAR.SurfaceLayerThick = ground.STATVAR.SurfaceLayerThick + lateral.STATVAR.flow ./ ground.STATVAR.SurfaceArea;
+                
+                ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy; %added Des 2023 SW
                 
                 %Nice to have variable
                 ground.STATVAR.overland_flow = ground.STATVAR.overland_flow + lateral.STATVAR.flow;

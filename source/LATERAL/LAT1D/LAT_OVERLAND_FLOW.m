@@ -43,12 +43,10 @@ classdef LAT_OVERLAND_FLOW < BASE_LATERAL
             
             CURRENT = lateral.PARENT.TOP.NEXT;
             %lateral.STATVAR.water_depth = 0;
-            %while ~(strcmp(class(CURRENT), 'Bottom'))
+
             CURRENT = lateral_push_remove_water_overland_flow(CURRENT, lateral);
             CURRENT = compute_diagnostic(CURRENT, tile);
-            %CURRENT = CURRENT.NEXT;
-            %end
-            
+ 
         end
         
         

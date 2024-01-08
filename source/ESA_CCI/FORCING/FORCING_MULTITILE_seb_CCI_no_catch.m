@@ -5,7 +5,7 @@
 % dim2: annual 8d values; dim3: years
 %========================================================================
 
-classdef FORCING_MULTITILE_seb_CCI < matlab.mixin.Copyable
+classdef FORCING_MULTITILE_seb_CCI < FORCING_base
     
     properties
         PARA
@@ -397,7 +397,7 @@ classdef FORCING_MULTITILE_seb_CCI < matlab.mixin.Copyable
                     for i=1:size(forcing.POST_PROC,1)
                         if forcing.POST_PROC{i,1}.PARA.annual
                             tic
-                            forcing = post_process(forcing.POST_PROC{i,1}, forcing, tile);
+                            forcing = process(forcing.POST_PROC{i,1}, forcing, tile);
                             toc
                         end
                     end
@@ -407,7 +407,7 @@ classdef FORCING_MULTITILE_seb_CCI < matlab.mixin.Copyable
                 for i=1:size(forcing.POST_PROC,1)
                     if ~forcing.POST_PROC{i,1}.PARA.annual
                         tic
-                        forcing = post_process(forcing.POST_PROC{i,1}, forcing, tile);
+                        forcing = process(forcing.POST_PROC{i,1}, forcing, tile);
                         toc
                     end
                 end

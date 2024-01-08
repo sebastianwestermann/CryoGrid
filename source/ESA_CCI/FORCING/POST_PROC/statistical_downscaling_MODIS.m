@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef statistical_downscaling_MODIS < FORCING_base 
+classdef statistical_downscaling_MODIS < matlab.mixin.Copyable  
     
     properties
         
@@ -39,7 +39,7 @@ classdef statistical_downscaling_MODIS < FORCING_base
         end
         
         
-        function forcing = post_process(post_proc, forcing, tile)
+        function forcing = process(post_proc, forcing, tile)
             
             %statistical downscaling
             

@@ -71,7 +71,7 @@ classdef DEM < DEM_BASE
             dem.PARENT.STATVAR.altitude = dem.PARENT.STATVAR.longitude.*0;
             dem.PARENT.STATVAR.slope_angle = dem.PARENT.STATVAR.longitude.*0;
             dem.PARENT.STATVAR.aspect = dem.PARENT.STATVAR.longitude.*0;
-            dem.PARENT.STATVAR.skyview_factor = dem.PARENT.STATVAR.longitude.*0;
+            dem.PARENT.STATVAR.skyview_factor = dem.PARENT.STATVAR.longitude.*0 + 1;
             dem.PARENT.STATVAR.horizon_bins = dem.PARENT.STATVAR.longitude.*0;
             dem.PARENT.STATVAR.horizon_angles = dem.PARENT.STATVAR.longitude.*0;
             
@@ -130,7 +130,8 @@ classdef DEM < DEM_BASE
         function dem = get_aspect(dem)
             dem = get_aspect_base(dem);
             dem.PARENT.STATVAR.aspect = double(dem.STATVAR.aspect);
-%             
+            dem.PARENT.STATVAR.skyview_factor = double(dem.STATVAR.skyview_factor);
+            
 %             %Elevation derivatives. N.B. not computed for the boundary of the DEM.
 %             dzdy=NaN.*dem.STATVAR.Z;  
 %             dzdx=dzdy;

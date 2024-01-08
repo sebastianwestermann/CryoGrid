@@ -47,10 +47,10 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
             point.STATVAR.aspect = point.PARA.aspect;     
             point.STATVAR.skyview_factor = point.PARA.skyview_factor;
             
-            point.PARA.horizon_angles = point.PARA.horizon_angles';
+%             point.PARA.horizon_angles = point.PARA.horizon_angles';
             %append 360 degree
             point.STATVAR.horizon_bins = [point.PARA.horizon_angles(:,1); 360];
-            point.STATVAR.horizon_angles = [point.PARA.horizon_angles(:,2); point.PARA.horizon_angles(1,2)];
+            point.STATVAR.horizon_angles = [point.PARA.horizon_angles(:,1); point.PARA.horizon_angles(1,1)];
             
             if isempty(point.PARA.horizon_angles) || sum(isnan(point.PARA.horizon_angles(:)))>0
                 point.STATVAR.horizon_bins = [0; 360];
@@ -58,11 +58,16 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
             end
             if isempty(point.PARA.skyview_factor) || sum(isnan(point.PARA.skyview_factor))>0
                 
-                azmRadian = (pi/180).*point.STATVAR.horizon_bins;
+                horizon_bins = [0:360]';
+                horizon_angles = interp1(point.STATVAR.horizon_bins, point.STATVAR.horizon_angles, horizon_bins);
                 
+%                 azmRadian = (pi/180).*point.STATVAR.horizon_bins;
+                azmRadian = (pi/180).*horizon_bins;
+     
                 % convert output from horizon program to radians and translate to angle
                 % from zenith
-                H = (pi/180).*(90-point.STATVAR.horizon_angles(:));
+               % H = (pi/180).*(90-point.STATVAR.horizon_angles(:));
+                H = (pi/180).*(90 - horizon_angles);
                 
                 aspectRadian = (pi/180)*(point.STATVAR.aspect);
                 % modify limits of integration for slopes facing away from horizons

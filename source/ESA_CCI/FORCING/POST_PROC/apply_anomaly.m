@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef apply_anomaly < FORCING_base 
+classdef apply_anomaly < matlab.mixin.Copyable  
     
     properties
         
@@ -50,7 +50,7 @@ classdef apply_anomaly < FORCING_base
         end
         
         
-        function forcing = post_process(post_proc, forcing, tile)
+        function forcing = process(post_proc, forcing, tile)
             
             if forcing.TEMP.current_year >= post_proc.PARA.year_range(1) && forcing.TEMP.current_year <= post_proc.PARA.year_range(end)
 

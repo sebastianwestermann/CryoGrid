@@ -581,8 +581,13 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         end
         
         %---LAT_OVERLAND_FLOW----------
-        function ground = lateral_push_remove_water_overland_flow(ground, lateral)
-            ground = lateral_push_water_overland_flow_SNOW_crocus2(ground, lateral);
+        function snow = lateral_push_remove_water_overland_flow(snow, lateral)
+            snow = lateral_push_water_overland_flow_SNOW_crocus2(snow, lateral);
+        end
+        
+        %---LAT_SNOW_CROCUS_wind_drift--------
+        function snow = lateral_pull_snow_wind_drift(snow, lateral)
+            snow = lateral_pull_snow_crocus_wind_drift(snow, lateral);
         end
         
         %----LAT3D_WATER_UNCONFINED_AQUIFER------------

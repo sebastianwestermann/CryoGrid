@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef time_average_temperature < FORCING_base 
+classdef time_average_temperature < matlab.mixin.Copyable  
     
     properties
         
@@ -39,7 +39,7 @@ classdef time_average_temperature < FORCING_base
         end
         
         
-        function forcing = post_process(post_proc, forcing, tile)
+        function forcing = process(post_proc, forcing, tile)
             
             if forcing.TEMP.current_year >= post_proc.PARA.year_range(1) && forcing.TEMP.current_year <= post_proc.PARA.year_range(end)
                 pos_year = forcing.TEMP.current_year - (forcing.PARA.ERA_data_years(1) - forcing.PARA.number_of_spin_up_years) + 1 - post_proc.TEMP.offset_years;

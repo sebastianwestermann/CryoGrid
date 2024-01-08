@@ -62,17 +62,17 @@ classdef RUN_SPATIAL_SPINUP < matlab.mixin.Copyable
                 parpool(run_info.PARA.number_of_cores)
                 spmd
                     for run_number = 1:size(run_info.SPATIAL.STATVAR.key,1) %this is still wrong, does not distribute the load over workers, must be taken from ESA_CCI
-                        
-                        for ai=1:size(run_info.SPATIAL.ACTION,1)
-                            run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
-                        end
-                        
+
                         disp(['running grid cell ' num2str(run_number)])
                         %as normal 1D run
                         for i=1:size(run_info.PARA.tile_class,1)
                             disp(['running tile number ' num2str(i)])
                             for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
                                 disp(['running round ' num2str(j)])
+                                
+                                for ai=1:size(run_info.SPATIAL.ACTION,1)
+                                    run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
+                                end
                                 
                                 new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
                                 new_tile.RUN_INFO = run_info;
@@ -90,16 +90,17 @@ classdef RUN_SPATIAL_SPINUP < matlab.mixin.Copyable
                 delete(gcp('nocreate'));
             else
                 for run_number = 1:size(run_info.SPATIAL.STATVAR.key,1)    
-                    for i=1:size(run_info.SPATIAL.ACTION,1)
-                        run_info.SPATIAL.ACTION{i,1} = assign_tile_properties(run_info.SPATIAL.ACTION{i,1}, run_number); %writes the provider class
-                    end
-                    
+
                     disp(['running grid cell ' num2str(run_number)])
                     %as normal 1D run
                     for i=1:size(run_info.PARA.tile_class,1) 
                         disp(['running tile number ' num2str(i)])
                         for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
                             disp(['running round ' num2str(j)])
+                            
+                            for ai=1:size(run_info.SPATIAL.ACTION,1)
+                                run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
+                            end
                             
                             new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
                             new_tile.RUN_INFO = run_info;

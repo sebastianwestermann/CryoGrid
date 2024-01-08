@@ -9,7 +9,35 @@
 classdef SNOW_FLUXES_LATERAL < BASE
     
     methods
+              
+        %LAT (single realization)
+        
+        function snow = lateral_pull_snow_crocus_wind_drift(snow, lateral)
+            snow = prog_wind_drift(snow); %populate one_over_tau
+            
+            drifting_SWE =  abs(lateral.PARA.exposure) .* snow.TEMP.one_over_tau .* lateral.PARA.n_drift .* lateral.CONST.day_sec .* lateral.PARA.ia_time_increment .* snow.STATVAR.area .* double(snow.STATVAR.water(1,1)<=0); %absolute rate, potentially driftable snow
+            fraction_mobile = drifting_SWE ./ snow.STATVAR.ice;
+            fraction_mobile(isnan(fraction_mobile))=0;
+            fraction_mobile = min(0.5, fraction_mobile);
+            
+            if max(fraction_mobile) > 0 && sum(snow.STATVAR.layerThick,1) > lateral.PARA.snow_holding_height 
                 
+                %extensive variables
+                ds_height = -fraction_mobile .* snow.STATVAR.layerThick .* sign(lateral.PARA.exposure);
+                ds_waterIce = -fraction_mobile .* snow.STATVAR.waterIce .* sign(lateral.PARA.exposure);
+                ds_energy = -fraction_mobile .* snow.STATVAR.energy .* sign(lateral.PARA.exposure);
+                ds_ice = -fraction_mobile .* snow.STATVAR.ice .* sign(lateral.PARA.exposure);
+                
+                snow.STATVAR.layerThick = snow.STATVAR.layerThick + ds_height;
+                snow.STATVAR.waterIce  = snow.STATVAR.waterIce  + ds_waterIce;
+                snow.STATVAR.energy  = snow.STATVAR.energy  + ds_energy;
+                snow.STATVAR.ice  = snow.STATVAR.ice  + ds_ice;
+                
+            end
+        end
+        
+        
+        %LAT3D
         
         function snow = lateral3D_pull_snow_crocus(snow, lateral)
             snow = prog_wind_drift(snow); %populate one_over_tau

@@ -37,6 +37,7 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
             out.PARA.max_depth = [];
             
             out.PARA.cell_size = 0.02;
+            out.PARA.tag = [];
             
         end
         
@@ -110,7 +111,11 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
                    out.STATVAR.TTOP = (out.STATVAR.TDD(first_stable_cell,1) + out.STATVAR.FDD(first_stable_cell,1)) ./ out.STATVAR.time_interval;
                    out.STATVAR.TTOP_depth = out.TEMP.new_grid(first_stable_cell, 1);
                    
-                   save([result_path run_name '/' run_name '_OUT_FDD_TDD.mat'], 'out')
+                   if isempty(out.PARA.tag) || all(isnan(out.PARA.tag))
+                       save([result_path run_name '/' run_name '_OUT_FDD_TDD.mat'], 'out')
+                   else
+                       save([result_path run_name '/' run_name '_OUT_FDD_TDD_' out.PARA.tag '.mat'], 'out')
+                   end
                 end
             end
         end

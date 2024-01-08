@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef get_snowfall_sublimation_melt < FORCING_base 
+classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable 
     
     properties
         
@@ -71,7 +71,7 @@ classdef get_snowfall_sublimation_melt < FORCING_base
         end
         
         
-        function forcing = post_process(post_proc, forcing, tile)
+        function forcing = process(post_proc, forcing, tile)
             
             if forcing.TEMP.current_year >= post_proc.PARA.year_range(1) && forcing.TEMP.current_year <= post_proc.PARA.year_range(end)
                 pos_year = forcing.TEMP.current_year - (forcing.PARA.ERA_data_years(1)- forcing.PARA.number_of_spin_up_years) + 1 - post_proc.TEMP.offset_years;

@@ -60,6 +60,8 @@ classdef RUN_SPATIAL_SPINUP_CLUSTERING < matlab.mixin.Copyable
             run_info.CLUSTER.RUN_INFO = run_info;
             run_info.CLUSTER = finalize_init(run_info.CLUSTER);
             run_info.CLUSTER = compute_clusters(run_info.CLUSTER);
+            
+            save([run_info.PPROVIDER.PARA.result_path run_info.PPROVIDER.PARA.run_name '/run_parameters.mat'], 'run_info')
         end
         
         
@@ -74,16 +76,18 @@ classdef RUN_SPATIAL_SPINUP_CLUSTERING < matlab.mixin.Copyable
                     for sample_number = worker_number:run_info.PARA.number_of_cores:size(run_info.CLUSTER.STATVAR.sample_centroid_index,1)
                         
                         run_number = run_info.CLUSTER.STATVAR.sample_centroid_index(sample_number,1);
-                        for ai=1:size(run_info.SPATIAL.ACTION,1)
-                            run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
-                        end
                         
                         disp(['running grid cell ' num2str(run_number)])
                         %as normal 1D run
                         for i=1:size(run_info.PARA.tile_class,1) %can be parallelized
                             disp(['running tile number ' num2str(i)])
+
                             for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
                                 disp(['running round ' num2str(j)])
+                                
+                                for ai=1:size(run_info.SPATIAL.ACTION,1)
+                                    run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
+                                end
                                 
                                 new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
                                 new_tile.RUN_INFO = run_info;
@@ -101,17 +105,19 @@ classdef RUN_SPATIAL_SPINUP_CLUSTERING < matlab.mixin.Copyable
                 for sample_number = 1:size(run_info.CLUSTER.STATVAR.sample_centroid_index,1)
                     
                     run_number = run_info.CLUSTER.STATVAR.sample_centroid_index(sample_number,1);
-                    for i=1:size(run_info.SPATIAL.ACTION,1)
-                        run_info.SPATIAL.ACTION{i,1} = assign_tile_properties(run_info.SPATIAL.ACTION{i,1}, run_number); %writes the provider class
-                    end
+
                     
                     disp(['running grid cell ' num2str(run_number)])
                     %as normal 1D run
                     for i=1:size(run_info.PARA.tile_class,1) %can be parallelized
                         disp(['running tile number ' num2str(i)])
+                        
                         for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
                             disp(['running round ' num2str(j)])
                             
+                            for ai=1:size(run_info.SPATIAL.ACTION,1)
+                                run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
+                            end
                             new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
                             new_tile.RUN_INFO = run_info;
                             new_tile = finalize_init(new_tile);

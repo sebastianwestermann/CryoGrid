@@ -262,8 +262,10 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
 
             %4. build stratigraphy
-            class_list = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.class_name;
-            class_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.class_index;
+            strat_classes_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1});
+            strat_classes_class = finalize_init(strat_classes_class, tile);
+            class_list = strat_classes_class.PARA.classes.class_name;
+            class_index = strat_classes_class.PARA.classes.class_index;
             tile.TOP = Top();
             CURRENT = tile.TOP;
             for i=1:size(class_list,1)
@@ -279,7 +281,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.BOTTOM_CLASS = tile.BOTTOM.PREVIOUS;
             
             %5. assign STATVAR using STRATGRAPHY_STATVAR classes
-            class_depths = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.depth;
+            class_depths = strat_classes_class.PARA.classes.depth;
             class_depths = [class_depths; tile.GRID.STATVAR.GRID(end,1)];
             
             CURRENT = tile.TOP_CLASS;
@@ -335,8 +337,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
             
             %8. assign SNOW class
-            snow_class_name = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.snow_class_name;
-            snow_class_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.snow_class_index;
+            snow_class_name = strat_classes_class.PARA.snow_class_name;
+            snow_class_index = strat_classes_class.PARA.snow_class_index;
             
             if ~isempty(snow_class_name) && sum(isnan(snow_class_name))==0
                 snow_class =  tile.RUN_INFO.PPROVIDER.CLASSES.(snow_class_name);
@@ -350,8 +352,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
             
             %9. assign sleeping classes
-            sleeping_classes = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.sleeping_classes_name;
-            sleeping_classes_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.sleeping_classes_index; 
+            sleeping_classes = strat_classes_class.PARA.sleeping_classes_name;
+            sleeping_classes_index = strat_classes_class.PARA.sleeping_classes_index; 
 
 %             for i=1:size(sleeping_classes,1)
 %                 sc = tile.RUN_INFO.PPROVIDER.CLASSES.(sleeping_classes{i,1});
@@ -405,8 +407,10 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
 
             %4. build stratigraphy
-            class_list = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.class_name;
-            class_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.class_index;
+            strat_classes_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1});
+            strat_classes_class = finalize_init(strat_classes_class, tile);
+            class_list = strat_classes_class.PARA.classes.class_name;
+            class_index = strat_classes_class.PARA.classes.class_index;
             tile.TOP = Top();
             CURRENT = tile.TOP;
             for i=1:size(class_list,1)
@@ -422,7 +426,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.BOTTOM_CLASS = tile.BOTTOM.PREVIOUS;
             
             %5. assign STATVAR using STRATGRAPHY_STATVAR classes
-            class_depths = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.classes.depth;
+            class_depths = strat_classes_class.PARA.classes.depth;
             class_depths = [class_depths; tile.GRID.STATVAR.GRID(end,1)];
             
             CURRENT = tile.TOP_CLASS;
@@ -491,8 +495,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
             
             %8. assign SNOW class
-            snow_class_name = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.snow_class_name;
-            snow_class_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.snow_class_index;
+            snow_class_name = strat_classes_class.PARA.snow_class_name;
+            snow_class_index = strat_classes_class.PARA.snow_class_index;
             
             if ~isempty(snow_class_name) && sum(isnan(snow_class_name))==0
                 snow_class =  tile.RUN_INFO.PPROVIDER.CLASSES.(snow_class_name);
@@ -504,8 +508,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             end
             
             %9. assign sleeping classes
-            sleeping_classes = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.sleeping_classes_name;
-            sleeping_classes_index = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1}.PARA.sleeping_classes_index; 
+            sleeping_classes = strat_classes_class.PARA.sleeping_classes_name;
+            sleeping_classes_index = strat_classes_class.PARA.sleeping_classes_index; 
 
             for i=1:size(sleeping_classes,1)
                 sc = tile.RUN_INFO.PPROVIDER.CLASSES.(sleeping_classes{i,1});
