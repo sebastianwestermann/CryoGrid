@@ -12,7 +12,10 @@
 classdef convert2ESA_CCI_ensemble <  matlab.mixin.Copyable 
     
     properties
-        
+        CONST
+        PARA
+        STATVAR
+        TEMP
     end
     
     methods

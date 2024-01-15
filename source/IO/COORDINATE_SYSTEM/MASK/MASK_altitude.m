@@ -32,7 +32,12 @@ classdef MASK_altitude < matlab.mixin.Copyable
         end
         
         function mask = finalize_init(mask)
-            
+            if isempty(mask.PARA.min_altitude) || isnan(mask.PARA.min_altitude)
+                mask.PARA.min_altitude = -Inf;
+            end
+            if isempty(mask.PARA.max_altitude) || isnan(mask.PARA.max_altitude)
+                mask.PARA.max_altitude = Inf;
+            end
         end
         
 
