@@ -1,4 +1,4 @@
-classdef proc_forcing_simple < matlab.mixin.Copyable
+classdef perturb_forcing_simple < matlab.mixin.Copyable
 
     
     properties
@@ -39,7 +39,7 @@ classdef proc_forcing_simple < matlab.mixin.Copyable
             
         end
         
-        function forcing = proc_forcing(proc, forcing, tile)
+        function forcing = perturb_forcing(proc, forcing, tile)
             sky_emissivity = forcing.TEMP.Lin ./ (forcing.TEMP.Tair+273.15).^4 ./ proc.CONST.sigma;
             forcing.TEMP.Tair = forcing.TEMP.Tair + proc.PARA.Tair_bias;
             forcing.TEMP.Lin = sky_emissivity .* proc.CONST.sigma .* (forcing.TEMP.Tair+273.15).^4;

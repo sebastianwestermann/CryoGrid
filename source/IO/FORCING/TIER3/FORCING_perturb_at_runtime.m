@@ -32,9 +32,11 @@ classdef FORCING_perturb_at_runtime < FORCING_base
                         
             %optional post-processing with dedicated classes
             if ~isempty(forcing.PARA.perturb_forcing_class) && sum(isnan(forcing.PARA.perturb_forcing_class_index)) == 0
-                forcing.PERTURB_CLASS = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.perturb_forcing_class){forcing.PARA.perturb_forcing_class_index,1});
-                forcing.PERTURB_CLASS = finalize_init(forcing.PERTURB_CLASS, tile);
-                forcing.PERTURB_CLASS = preprocess(forcing.PERTURB_CLASS, forcing.FORCING_CLASS, tile);
+                for i=1:size(forcing.PARA.perturb_forcing_class,1)
+                    forcing.PERTURB_CLASS{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.perturb_forcing_class{i,1}){forcing.PARA.perturb_forcing_class_index(i,1),1});
+                    forcing.PERTURB_CLASS{i,1} = finalize_init(forcing.PERTURB_CLASS{i,1}, tile);
+                    forcing.PERTURB_CLASS{i,1} = preprocess(forcing.PERTURB_CLASS{i,1}, forcing.FORCING_CLASS, tile);
+                end
             end
             forcing.PARA = forcing.FORCING_CLASS.PARA;
         end
@@ -43,7 +45,9 @@ classdef FORCING_perturb_at_runtime < FORCING_base
         function forcing = interpolate_forcing(forcing, tile)
             forcing.FORCING_CLASS = interpolate_forcing(forcing.FORCING_CLASS, tile);
             forcing.TEMP = forcing.FORCING_CLASS.TEMP;
-            forcing = perturb_forcing(forcing.PERTURB_CLASS, forcing, tile);
+            for i=1:size(forcing.PERTURB_CLASS,1)
+                forcing = perturb_forcing(forcing.PERTURB_CLASS{i,1}, forcing, tile);
+            end
         end
 
 
