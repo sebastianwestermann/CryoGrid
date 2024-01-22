@@ -25,6 +25,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
             
             disp('read DEM')
             dem.TEMP.Z = readgeoraster([dem.PARA.DEM_folder dem.PARA.DEM_filename]);
+            dem.TEMP.Z = double(dem.TEMP.Z);
             info = georasterinfo([dem.PARA.DEM_folder dem.PARA.DEM_filename]);
             dem.TEMP.info = info;
             if ~isempty(info.MissingDataIndicator)
