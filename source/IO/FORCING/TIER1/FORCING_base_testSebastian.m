@@ -93,6 +93,10 @@ classdef FORCING_base < matlab.mixin.Copyable
             end
             
             % Correct known isues
+            if isfield(forcing.DATA, 'wind')
+                forcing.DATA.wind(forcing.DATA.wind<0.5)=0.5; %set min wind speed to 0.5 m/sec to avoid breakdown of turbulence
+            end
+
             if isfield(forcing.DATA, 'Lin') && isfield(forcing.DATA, 'Tair')
                 forcing.DATA.Lin(find(forcing.DATA.Lin==0)) = 5.67e-8 .* (forcing.DATA.Tair(find(forcing.DATA.Lin==0))+273.15).^4;
             end
@@ -143,7 +147,6 @@ classdef FORCING_base < matlab.mixin.Copyable
             
             kt = Sin ./ Sin_TOA; %clearness index
             kt(isnan(kt))=0;
-            kt = min(kt, 1); % Sometimes Sin is bigger than S_TOA, check impact later! RBZ Jan23
             kd = 0.952 - 1.041.*exp(-exp(2.300 - 4.702 .* kt)); %diffuse fraction
             kd(isnan(kd))=0;
             kd = max(0,kd);
@@ -221,6 +224,42 @@ classdef FORCING_base < matlab.mixin.Copyable
                 end
             end
             forcing.TEMP.t = t;
+
+
+            %--------------------
+            %Sin correction SW, works only with deg functions
+            if forcing.DATA.hour_angle(posit+1,1) <  forcing.DATA.hour_angle(posit,1)
+                ha = forcing.DATA.hour_angle(posit,:) + (forcing.DATA.hour_angle(posit+1,:) + 360 - forcing.DATA.hour_angle(posit,:)).*t_weight;
+            else
+                ha = forcing.DATA.hour_angle(posit,:) + (forcing.DATA.hour_angle(posit+1,:) - forcing.DATA.hour_angle(posit,:)).*t_weight;
+            end
+
+            DecR = forcing.DATA.DecR(posit,:)+(forcing.DATA.DecR(posit+1,:)-forcing.DATA.DecR(posit,:)).*t_weight;
+            sin_sunElevation = cosd(tile.PARA.latitude) .* cos(DecR) .* cosd(ha) + sind(tile.PARA.latitude) .* sin(DecR);
+
+            S_TOA = 1370.*max(sin_sunElevation,0);
+
+            S_TOA1 = 1370.*max(sind(forcing.DATA.sunElevation(posit,:)),0);
+            S_TOA2 = 1370.*max(sind(forcing.DATA.sunElevation(posit+1,:)),0);
+
+            attenuation1 = forcing.DATA.Sin(posit,:)./S_TOA1;
+            attenuation2 = forcing.DATA.Sin(posit+1,:)./S_TOA2;
+            if isnan(attenuation1) && isnan(attenuation2)
+                Sin = 0;
+            else
+                if isnan(attenuation1)
+                    Sin = attenuation2 .* S_TOA;
+                elseif isnan(attenuation2)
+                    Sin = attenuation1 .* S_TOA;
+                else
+                    attenuation = attenuation1 + (attenuation2 - attenuation1).*t_weight;
+                    Sin = attenuation .* S_TOA;
+                end
+            end
+
+            forcing.TEMP.sin = Sin;
+
+            %---------------
         end
 
         
@@ -248,6 +287,12 @@ classdef FORCING_base < matlab.mixin.Copyable
         function p = satPresWater(forcing, T)
             Tmfw = forcing.CONST.Tmfw;
             p = 6.112 .* 100 .* exp(17.62.*(T-Tmfw)./(243.12+T-Tmfw));
+        end
+        
+        function q = convertRelative2absoluteHumidity(forcing)
+            p=1005*100;
+            
+            q=(double((forcing.DATA.Tair)<=0).*(forcing.DATA.RH.*satPresIce(forcing, forcing.DATA.Tair+273.15)) + double(forcing.DATA.Tair>0).*(forcing.DATA.RH.*satPresWater(forcing, forcing.DATA.Tair+273.15)))./p;
         end
         
         %Juditah's script, not used anymore - this is just a random choice, not
@@ -354,8 +399,15 @@ classdef FORCING_base < matlab.mixin.Copyable
         
         %wrapper for Kris function
         function forcing = SolarAzEl(forcing, tile)
-            [forcing.DATA.azimuth,forcing.DATA.sunElevation] = solargeom(forcing, forcing.DATA.timeForcing ,tile.PARA.latitude,tile.PARA.longitude);
-            forcing.DATA.azimuth = rad2deg(forcing.DATA.azimuth);
+           % [forcing.DATA.azimuth,forcing.DATA.sunElevation] = solargeom(forcing, forcing.DATA.timeForcing ,tile.PARA.latitude,tile.PARA.longitude);
+           %-----
+           [forcing.DATA.azimuth,forcing.DATA.sunElevation, forcing.DATA.hour_angle, forcing.DATA.DecR] = solargeom(forcing, forcing.DATA.timeForcing ,tile.PARA.latitude,tile.PARA.longitude); %CHANGE SW
+           forcing.DATA.hour_angle = rad2deg(forcing.DATA.hour_angle);
+           forcing.DATA.hour_angle(forcing.DATA.hour_angle<0) = forcing.DATA.hour_angle(forcing.DATA.hour_angle<0)+360;
+           forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360) = forcing.DATA.hour_angle(forcing.DATA.hour_angle>=360)-360;
+           %----------------
+
+           forcing.DATA.azimuth = rad2deg(forcing.DATA.azimuth);
             forcing.DATA.azimuth(forcing.DATA.azimuth<0) = forcing.DATA.azimuth(forcing.DATA.azimuth<0) + 360;
             forcing.DATA.sunElevation = 90-rad2deg(forcing.DATA.sunElevation);
         end
@@ -385,7 +437,7 @@ classdef FORCING_base < matlab.mixin.Copyable
         end
         
         %Kris script, used now to be consistent with TopoScale
-        function [solar_azimuth,solar_zenith]=solargeom(forcing, Time, Latitude,Longitude)
+        function [solar_azimuth, solar_zenith, HrAngleR, DecR]=solargeom(forcing, Time, Latitude,Longitude)  %added two arguments, SW
             %% [saz,szen]=solargeom(time,latitude,longitude)
             % Adopted from the Sandia National Labs PVL Toolbox ephemeris routine.
             % Inputs:
@@ -474,6 +526,7 @@ classdef FORCING_base < matlab.mixin.Copyable
                 end
             end
         end
+
         
     end
 

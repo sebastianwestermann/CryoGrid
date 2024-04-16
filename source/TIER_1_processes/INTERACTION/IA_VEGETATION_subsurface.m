@@ -5,28 +5,17 @@
 % R. B. Zwegiel, February 2022
 %========================================================================
 
-classdef IA_VEGETATION_CLM5 < IA_WATER
+classdef IA_VEGETATION_subsurface < IA_WATER
     
     properties
     end
     
     methods
         
-        function ia_soil = distribute_roots_CLM5(ia_soil, tile)
-            % Vertical root distribution as in 2.11.1.1 in CLM5 documentation
-%             beta = ia_soil.PREVIOUS.PARA.beta_root; % Root distribution parameter
-%             dz = ia_soil.NEXT.STATVAR.layerThick;
-%             z = cumsum(dz);
-%            
-%             % Root fraction per soil layer
-%             f_root = beta.^([0; z(1:end-1)].*100) - beta.^(z*100); % Eq. 11.1
-%             
-%             ia_soil.NEXT.STATVAR.f_root = f_root;
-            
+        function ia_soil = distribute_roots_simple(ia_soil, tile)            
             rootzone = double(cumsum(ia_soil.NEXT.STATVAR.layerThick) <=0.5);
             f_root = rootzone.* ia_soil.NEXT.STATVAR.layerThick ./ sum(ia_soil.NEXT.STATVAR.layerThick.* rootzone);
             ia_soil.NEXT.STATVAR.f_root = f_root;
-            
         end
         
         function beta = get_soil_moisture_stress(ia_soil, tile)

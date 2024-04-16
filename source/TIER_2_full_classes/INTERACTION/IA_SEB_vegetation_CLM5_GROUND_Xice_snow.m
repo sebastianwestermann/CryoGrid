@@ -1,6 +1,8 @@
 %========================================================================
-% CryoGrid INTERACTION (IA) class for surface energy balance of a GROUND
-% class with snow CHILD below a shading VEGETATION class
+% CryoGrid INTERACTION (IA) class handling interactions between
+% VEGETATION_CLM5_seb and
+% GROUND (RichardsEqW, Xice)
+% with CHILD SNOW_crocus2_bucketW_seb
 % R. B. Zwegiel, February 2022
 %========================================================================
 
@@ -9,13 +11,11 @@ classdef IA_SEB_vegetation_CLM5_GROUND_Xice_snow < IA_SEB_vegetation_CLM5
     methods
         
         function ia_seb_water = get_boundary_condition_m(ia_seb_water, tile)
-            % Roughly equivalent to
-            % get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_snow,
-            % but with no radiation
+            % below-canopy equivalent to get_boundary_condition_u in GROUND_freezeC_RichardsEqW_Xice_seb_snow
             ground = ia_seb_water.NEXT; % for easy access
             
             if ground.CHILD == 0 % No CHILD exists
-                ia_seb_water = get_boundary_condition_m_Xice(ia_seb_water, tile);
+                ia_seb_water = get_boundary_condition_m_GROUND_Xice(ia_seb_water, tile);
                 
                 if tile.FORCING.TEMP.snowfall > 0 % Create CHILD
                     ground.CHILD = copy(tile.STORE.SNOW);
@@ -53,9 +53,9 @@ classdef IA_SEB_vegetation_CLM5_GROUND_Xice_snow < IA_SEB_vegetation_CLM5
                 
                 ground.CHILD.STATVAR.Lstar = ground.STATVAR.Lstar;
                 
-                ia_seb_water = get_boundary_condition_m_CHILD(ia_seb_water, tile); %@IA_SEB; snowfall, throughfall, Qh, Qe & d_energy
+                ia_seb_water = get_boundary_condition_m_CHILD(ia_seb_water, tile); % snowfall, throughfall, Qh, Qe & d_energy
                 
-                ia_seb_water = get_boundary_condition_m_Xice(ia_seb_water, tile); % throughfall, Qh, Qe & d_energy
+                ia_seb_water = get_boundary_condition_m_GROUND_Xice(ia_seb_water, tile); % throughfall, Qh, Qe & d_energy
                 
                 get_IA_CHILD_boundary_condition_u(ground.IA_CHILD, tile); %call designated mandatory function for CHILD-PARENT interactions in the IA class governing IA between SNOW and GROUND
                 
@@ -75,42 +75,28 @@ classdef IA_SEB_vegetation_CLM5_GROUND_Xice_snow < IA_SEB_vegetation_CLM5
                 ground.STATVAR.Xwater = total_Xwater;
             end
         
-        end
+        end   
         
-        function q_g = get_humidity_surface(ia_seb_water, tile)
-            q_g = get_humidity_surface_GROUND(ia_seb_water, tile);
-            if ia_seb_water.NEXT.CHILD ~= 0
-                q_snow = get_humidity_surface_SNOW_CHILD(ia_seb_water, tile);
-                snow_fraction = ia_seb_water.NEXT.CHILD.STATVAR.area./ia_seb_water.NEXT.STATVAR.area(1);
-                q_g = q_g*(1-snow_fraction) + q_snow*snow_fraction;
-            end
-        end        
-        
-        %NEW SW, Dec 2022, must be separate function for Xice classes,
-        %should also be changed for Snow_crocus2?
         function ia_seb_water = canopy_drip(ia_seb_water, tile)
-            stratigraphy1 = ia_seb_water.PREVIOUS; %canopy
-            stratigraphy2 = ia_seb_water.NEXT; %ground
-            
-            water_capacity = stratigraphy1.PARA.Wmax*stratigraphy1.STATVAR.area*(stratigraphy1.STATVAR.LAI+stratigraphy1.STATVAR.SAI);
-            if stratigraphy1.STATVAR.waterIce > water_capacity
-                water_fraction = stratigraphy1.STATVAR.water./stratigraphy1.STATVAR.waterIce;
-                ice_fraction = stratigraphy1.STATVAR.ice./stratigraphy1.STATVAR.waterIce;
-                excess_waterIce = max(0,stratigraphy1.STATVAR.waterIce - water_capacity);
-                excess_water = excess_waterIce.*water_fraction;
-                excess_ice = excess_waterIce.*ice_fraction;
-                excess_water_energy = excess_water.*stratigraphy1.CONST.c_w.*stratigraphy1.STATVAR.T(1);
-                excess_ice_energy = excess_ice.*(stratigraphy1.CONST.c_i.*stratigraphy1.STATVAR.T(1)-stratigraphy2.CONST.L_f);
-                
-                stratigraphy1.STATVAR.waterIce = water_capacity;
-                stratigraphy1.STATVAR.energy = stratigraphy1.STATVAR.energy - excess_water_energy - excess_ice_energy;
-                
-                stratigraphy2.STATVAR.XwaterIce(1,1) = stratigraphy2.STATVAR.XwaterIce(1,1) + excess_water + excess_ice;
-                stratigraphy2.STATVAR.layerThick(1,1) = stratigraphy2.STATVAR.layerThick(1,1) + (excess_water + excess_ice)./stratigraphy2.STATVAR.area(1,1);
-                stratigraphy2.STATVAR.energy(1,1) = stratigraphy2.STATVAR.energy(1,1) + excess_water_energy + excess_ice_energy;
-                
-                stratigraphy1 = get_T_water_vegetation(stratigraphy1);
-                stratigraphy2 = compute_diagnostic(stratigraphy2, tile);
+            if ia_seb_water.NEXT.CHILD ~= 0
+                ia_seb_water = canopy_drip_Xice_SNOW_CHILD(ia_seb_water, tile);
+            else
+                ia_seb_water = canopy_drip_Xice(ia_seb_water, tile);
+            end
+        end
+
+        function r_soil = ground_resistance_evap(ia_seb_water, tile)
+            ground = ia_seb_water.NEXT;
+            vol_water_first_cell = (ground.STATVAR.waterIce(1) + ground.STATVAR.XwaterIce(1)) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1));
+            reduce_yes_no = vol_water_first_cell < ground.STATVAR.field_capacity(1,1);
+            betaCLM4_5 = 1 +  double(reduce_yes_no) .* (-1 +  0.25 .* (1-(cos(pi() .* vol_water_first_cell ./ ground.STATVAR.field_capacity(1,1)))).^2);
+
+            r_soil = min(1e10, 250.*((1./betaCLM4_5).^0.5 -1));
+            if ground.CHILD ~= 0
+                if ground.CHILD.STATVAR.area/ground.STATVAR.area(1) > 0.5
+                    % Simple swich for now - use r_soil for ground until child covers 50%
+                    r_soil = 0;
+                end
             end
         end
     

@@ -260,6 +260,15 @@ classdef GROUND_freezeC_RichardsEqW_seb_snow < GROUND_freezeC_RichardsEqW_seb
             end
         end
 
+        function q_g = get_humidity_surface(ground, tile)
+            q_g = get_humidity_surface@GROUND_freezeC_RichardsEqW_seb(ground, tile);
+            if ground.CHILD ~= 0
+                q_snow = get_humidity_surface(ground.CHILD, tile);
+                snow_fraction = ground.CHILD.STATVAR.area./ground.STATVAR.area(1);
+                q_g = q_g*(1-snow_fraction) + q_snow*snow_fraction;
+            end
+        end
+
                 
         %----------
         %reset timestamp when changing TILES

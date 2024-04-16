@@ -529,9 +529,9 @@ classdef IA_WATER < IA_BASE
 
     
     
-            %---------- Vegetation ----------------------
+%--------------- Vegetation ----------------------
         
-        function ia_seb_water = get_boundary_condition_RichardsEq_canopy_m(ia_seb_water, tile)
+        function ia_seb_water = get_boundary_condition_m_RichardsEq_below_canopy(ia_seb_water, tile)
             % Equivalent to get_boundary_condition_u_RichardsEq(...) in WATER_FLUXES
             forcing = tile.FORCING;
             
@@ -565,18 +565,13 @@ classdef IA_WATER < IA_BASE
             
         end
         
-        function ia_seb_water = get_boundary_condition_water_RichardsEq_Xice_canopy_m(ia_seb_water, tile)  %simply add the water to first grid cell, excess taken up by Xwater, no checks needed
-            % Equivalent to get_boundary_condition_u_water_RichardsEq_Xice2 in WATER_FLUXES
+        function ia_seb_water = get_boundary_condition_m_RichardsEq_Xice_below_canopy(ia_seb_water, tile)  %simply add the water to first grid cell, excess taken up by Xwater, no checks needed
+            % below-canopy quivalent to get_boundary_condition_u_water_RichardsEq_Xice2 in WATER_FLUXES
             forcing = tile.FORCING;
             
             max_infiltration = max(0, ia_seb_water.NEXT.STATVAR.hydraulicConductivity(1,1).* ((0 - ia_seb_water.NEXT.STATVAR.waterPotential(1,1)) ./ (ia_seb_water.NEXT.STATVAR.layerThick(1,1) ./ 2) + 1) .* ia_seb_water.NEXT.STATVAR.area(1,1));
             
-            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru .* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
-            
-            %partition already here in infiltration and surface runoff, considering ET losses and potentially external fluxes
-            %             volume_matrix = ground.STATVAR.layerThick(1) .* ground.STATVAR.area(1) - ground.STATVAR.XwaterIce(1);
-            %             saturation_first_cell = (ground.STATVAR.waterIce(1)  - ground.STATVAR.field_capacity(1) .* volume_matrix)./...
-            %                 (volume_matrix - ground.STATVAR.mineral(1) - ground.STATVAR.organic(1) - ground.STATVAR.field_capacity(1) .* volume_matrix);
+            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru .* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy
             
             saturation_first_cell = ia_seb_water.NEXT.STATVAR.waterIce(1)./ (ia_seb_water.NEXT.STATVAR.layerThick(1).*ia_seb_water.NEXT.STATVAR.area(1) - ia_seb_water.NEXT.STATVAR.mineral(1) - ia_seb_water.NEXT.STATVAR.organic(1) - ia_seb_water.NEXT.STATVAR.XwaterIce(1));
             
@@ -607,29 +602,64 @@ classdef IA_WATER < IA_BASE
             
         end
         
-        function ia_seb_water = get_boundary_condition_water_canopy_SNOW_m(ia_seb_water, tile) %should be different for corcus2??
-            % Equivalent to get_boundary_condition_u_water_SNOW(...) in WATER_FLUXES
-            ground = ia_seb_water.NEXT;
+        function ia_seb_water = get_boundary_condition_water_SNOW_below_canopy(ia_seb_water, tile) %should be different for corcus2??
+            % below-canopy quivalent to get_boundary_condition_u_water_SNOW in WATER_FLUXES
+            snow = ia_seb_water.NEXT;
             forcing = tile.FORCING;
             
-            rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru.* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
+            snow.TEMP.rainfall = ia_seb_water.PREVIOUS.TEMP.rain_thru.* ia_seb_water.NEXT.STATVAR.area(1,1);  % throughfall from canopy, Changed SW Dec 2022
             
             %partition already here in infiltration and surface runoff,
             %considering ET losses and potentially external fluxes
-            remaining_pore_space = ground.STATVAR.layerThick(1).* ground.STATVAR.area(1) - ground.STATVAR.mineral(1) - ground.STATVAR.organic(1) - ground.STATVAR.ice(1);
-            saturation_first_cell = (ground.STATVAR.waterIce(1) - ground.PARA.field_capacity .* remaining_pore_space) ./ ...
-                (ground.STATVAR.layerThick(1).*ground.STATVAR.area(1) - remaining_pore_space); 
+            remaining_pore_space = snow.STATVAR.layerThick(1).* snow.STATVAR.area(1) - snow.STATVAR.mineral(1) - snow.STATVAR.organic(1) - snow.STATVAR.ice(1);
+            saturation_first_cell = (snow.STATVAR.waterIce(1) - snow.PARA.field_capacity .* remaining_pore_space) ./ ...
+                (snow.STATVAR.layerThick(1).*snow.STATVAR.area(1) - remaining_pore_space); 
             saturation_first_cell = max(0,min(1,saturation_first_cell)); % 0 water at field capacity, 1: water at saturation
             saturation_first_cell(saturation_first_cell >= (1 - 1e-9)) = 1;
             
-            ground.TEMP.F_ub_water = rainfall .* reduction_factor_in(saturation_first_cell, ground);
-            ground.TEMP.surface_runoff = rainfall - ground.TEMP.F_ub_water;  %route this to surface pool
+            snow.TEMP.F_ub_water = snow.TEMP.rainfall .* reduction_factor_in(saturation_first_cell, snow);
+            snow.TEMP.surface_runoff = snow.TEMP.rainfall - snow.TEMP.F_ub_water;  %route this to surface pool
             
-            ground.TEMP.T_rainWater =  max(0,forcing.TEMP.Tair);
-            ground.TEMP.F_ub_water_energy = ground.TEMP.F_ub_water .* ground.CONST.c_w .* ground.TEMP.T_rainWater;
+            snow.TEMP.rain_energy =  snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
+            snow.TEMP.F_ub_water_energy = snow.TEMP.rain_energy .* reduction_factor_in(saturation_first_cell, snow);
             
-            ground.TEMP.d_water(1) = ground.TEMP.d_water(1) + ground.TEMP.F_ub_water;
-            ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
+            snow.TEMP.d_water(1) = snow.TEMP.d_water(1) + snow.TEMP.F_ub_water;
+            snow.TEMP.d_water_energy(1) = snow.TEMP.d_water_energy(1) + snow.TEMP.F_ub_water_energy;
+        end
+
+        function ia_seb_water = get_boundary_condition_m_SNOW_CHILD_below_canopy(ia_seb_water, tile) %should be different for corcus2??
+            % below-canopy equivalent (for SNOW in CHILD phase) of
+            % get_boundary_condition_u_water_SNOW in WATER_FLUXES
+            snow = ia_seb_water.NEXT.CHILD;
+                        
+            %partition already here in infiltration and surface runoff,
+            %considering ET losses and potentially external fluxes
+            remaining_pore_space = snow.STATVAR.layerThick(1).* snow.STATVAR.area(1) - snow.STATVAR.mineral(1) - snow.STATVAR.organic(1) - snow.STATVAR.ice(1);
+            saturation_first_cell = (snow.STATVAR.waterIce(1) - snow.PARA.field_capacity .* remaining_pore_space) ./ ...
+                (snow.STATVAR.layerThick(1).*snow.STATVAR.area(1) - remaining_pore_space); 
+            saturation_first_cell = max(0,min(1,saturation_first_cell)); % 0 water at field capacity, 1: water at saturation
+            saturation_first_cell(saturation_first_cell >= (1 - 1e-9)) = 1;
+            
+            snow.TEMP.F_ub_water = snow.TEMP.rainfall .* reduction_factor_in(saturation_first_cell, snow);
+            snow.TEMP.surface_runoff = snow.TEMP.rainfall - snow.TEMP.F_ub_water;  %route this to surface pool
+            
+            snow.TEMP.F_ub_water_energy = snow.TEMP.rain_energy .* reduction_factor_in(saturation_first_cell, snow);
+            
+            snow.TEMP.d_water(1) = snow.TEMP.d_water(1) + snow.TEMP.F_ub_water;
+            snow.TEMP.d_water_energy(1) = snow.TEMP.d_water_energy(1) + snow.TEMP.F_ub_water_energy;
+        end
+
+        function ia_seb_water = get_boundary_condition_allSNOW_throughfall_m(ia_seb_water, tile) 
+            % below-canopy equivalent get_boundary_condition_allSNOW_rain_u
+            % for snow child
+            forcing = tile.FORCING;
+            snow = ia_seb_water.NEXT.CHILD;
+            canopy = ia_seb_water.PREVIOUS;
+
+            snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* (snow.PARENT.STATVAR.area(1,1) + snow.STATVAR.area); %snowfall is in mm/day -> [m3/sec]
+            snow.TEMP.rainfall = canopy.TEMP.rain_thru .* snow.STATVAR.area;
+            snow.TEMP.snow_energy = snow.TEMP.snowfall .* (min(0, forcing.TEMP.Tair) .* snow.CONST.c_i - snow.CONST.L_f);  %[J/sec]
+            snow.TEMP.rain_energy = snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
         end
         
         function ia_seb_water = get_water_transpiration(ia_seb_water)
@@ -645,40 +675,155 @@ classdef IA_WATER < IA_BASE
             water_out(isnan(water_out)) = 0;
             water_out_energy = water_out .* stratigraphy2.STATVAR.T .* (double(stratigraphy2.STATVAR.T>=0).*stratigraphy2.CONST.c_w + double(stratigraphy2.STATVAR.T<0).*stratigraphy2.CONST.c_i);
 
-            %CHANGED SW Dec 2022, must be times area?
             stratigraphy2.TEMP.d_water_ET = stratigraphy2.TEMP.d_water_ET - water_out .* stratigraphy2.STATVAR.area;
             stratigraphy2.TEMP.d_water_ET_energy = stratigraphy2.TEMP.d_water_ET_energy - water_out_energy.* stratigraphy2.STATVAR.area;
         end
         
-        function ia_seb_water = canopy_drip(ia_seb_water, tile)
-            stratigraphy1 = ia_seb_water.PREVIOUS; %canopy
-            stratigraphy2 = ia_seb_water.NEXT; %ground
+        function ia_seb_water = canopy_drip_simple(ia_seb_water, tile)
+            canopy = ia_seb_water.PREVIOUS; %canopy
+            ground = ia_seb_water.NEXT; %ground OR snow
             
-            water_capacity = stratigraphy1.PARA.Wmax*stratigraphy1.STATVAR.area.*(stratigraphy1.STATVAR.LAI+stratigraphy1.STATVAR.SAI);
-            if stratigraphy1.STATVAR.waterIce > water_capacity
-                water_fraction = stratigraphy1.STATVAR.water./stratigraphy1.STATVAR.waterIce;
-                ice_fraction = stratigraphy1.STATVAR.ice./stratigraphy1.STATVAR.waterIce;
-                excess_waterIce = max(0,stratigraphy1.STATVAR.waterIce - water_capacity);
+            water_capacity = canopy.PARA.Wmax*canopy.STATVAR.area.*(canopy.STATVAR.LAI+canopy.STATVAR.SAI);
+            if canopy.STATVAR.waterIce > water_capacity
+                water_fraction = canopy.STATVAR.water./canopy.STATVAR.waterIce;
+                ice_fraction = canopy.STATVAR.ice./canopy.STATVAR.waterIce;
+                excess_waterIce = max(0,canopy.STATVAR.waterIce - water_capacity);
                 excess_water = excess_waterIce.*water_fraction;
                 excess_ice = excess_waterIce.*ice_fraction;
-                excess_water_energy = excess_water.*stratigraphy1.CONST.c_w.*stratigraphy1.STATVAR.T(1);
-                excess_ice_energy = excess_ice.*(stratigraphy1.CONST.c_i.*stratigraphy1.STATVAR.T(1)-stratigraphy2.CONST.L_f);
+                excess_water_energy = excess_water.*canopy.CONST.c_w.*canopy.STATVAR.T(1);
+                excess_ice_energy = excess_ice.*(canopy.CONST.c_i.*canopy.STATVAR.T(1)-ground.CONST.L_f);
                 
-                stratigraphy1.STATVAR.waterIce = water_capacity;
-                stratigraphy1.STATVAR.energy = stratigraphy1.STATVAR.energy - excess_water_energy - excess_ice_energy;
+                % Remove excess water from canopy
+                canopy.STATVAR.waterIce = water_capacity;
+                canopy.STATVAR.energy = canopy.STATVAR.energy - excess_water_energy - excess_ice_energy;
                 
-                available_pore_space = stratigraphy2.STATVAR.layerThick(1).*stratigraphy2.STATVAR.area(1) - stratigraphy2.STATVAR.waterIce(1) - stratigraphy2.STATVAR.mineral(1) - stratigraphy2.STATVAR.organic(1);
+                % Add canopy drip to surface (snow/ground)
+                available_pore_space = ground.STATVAR.layerThick(1).*ground.STATVAR.area(1) - ground.STATVAR.waterIce(1) - ground.STATVAR.mineral(1) - ground.STATVAR.organic(1);
                 if excess_water > 0 % only water can enter top cell for ground
-                    stratigraphy2.STATVAR.waterIce(1) = stratigraphy2.STATVAR.waterIce(1) + min(excess_water, available_pore_space);
-                    stratigraphy2.STATVAR.energy(1) = stratigraphy2.STATVAR.energy(1) + excess_water_energy.*min(excess_water, available_pore_space)./excess_water;
+                    ground.STATVAR.waterIce(1) = ground.STATVAR.waterIce(1) + min(excess_water, available_pore_space);
+                    ground.STATVAR.energy(1) = ground.STATVAR.energy(1) + excess_water_energy.*min(excess_water, available_pore_space)./excess_water;
                 end
-                stratigraphy2.STATVAR.excessWater = stratigraphy2.STATVAR.excessWater + excess_ice + max(0,excess_water-available_pore_space); % excess ice is routed directly here
+                ground.STATVAR.excessWater = ground.STATVAR.excessWater + excess_ice + max(0,excess_water-available_pore_space); % excess ice is routed directly here
 
-                stratigraphy1 = get_T_water_vegetation(stratigraphy1);
-                stratigraphy2 = compute_diagnostic(stratigraphy2, tile);
+                % Update T, water phase etc.
+                canopy = get_T_water_vegetation(canopy);
+                ground = compute_diagnostic(ground, tile);
+            end
+        end
+
+        function ia_seb_water = canopy_drip_simple_SNOW_CHILD(ia_seb_water, tile)
+            % Equivalent to canopy_drip_Xsimple, but with SNOW in CHILD phase
+            canopy = ia_seb_water.PREVIOUS; %canopy
+            ground = ia_seb_water.NEXT; %ground
+            snow   = ia_seb_water.NEXT.CHILD; % snow
+            snow_fraction = snow.STATVAR.area./ground.STATVAR.area(1);
+
+            water_capacity = canopy.PARA.Wmax*canopy.STATVAR.area.*(canopy.STATVAR.LAI+canopy.STATVAR.SAI);
+            if canopy.STATVAR.waterIce > water_capacity
+                water_fraction = canopy.STATVAR.water./canopy.STATVAR.waterIce;
+                ice_fraction = canopy.STATVAR.ice./canopy.STATVAR.waterIce;
+                excess_waterIce = max(0,canopy.STATVAR.waterIce - water_capacity);
+                excess_water = excess_waterIce.*water_fraction;
+                excess_ice = excess_waterIce.*ice_fraction;
+                excess_water_energy = excess_water.*canopy.CONST.c_w.*canopy.STATVAR.T(1);
+                excess_ice_energy = excess_ice.*(canopy.CONST.c_i.*canopy.STATVAR.T(1)-ground.CONST.L_f);
+                
+                % Remove excess water from canopy
+                canopy.STATVAR.waterIce = water_capacity;
+                canopy.STATVAR.energy = canopy.STATVAR.energy - excess_water_energy - excess_ice_energy;
+
+                % add canopy drip to SNOW CHILD
+                available_pore_space = snow.STATVAR.layerThick.*snow.STATVAR.area - snow.STATVAR.waterIce;
+                if excess_water > 0 % currently only water can enter top cell of SNOW 
+                    snow.STATVAR.waterIce(1) = snow.STATVAR.waterIce(1) + min(excess_water.*snow_fraction, available_pore_space);
+                    snow.STATVAR.energy(1) = snow.STATVAR.energy(1) + excess_water_energy.*snow_fraction.*min(excess_water.*snow_fraction, available_pore_space)./(excess_water.*snow_fraction);
+                end
+                snow.STATVAR.excessWater = snow.STATVAR.excessWater + excess_ice.*snow_fraction + max(0,excess_water.*snow_fraction-available_pore_space); % excess ice is routed directly here
+                
+                % Add canopy drip to ground
+                available_pore_space = ground.STATVAR.layerThick(1).*ground.STATVAR.area(1) - ground.STATVAR.waterIce(1) - ground.STATVAR.mineral(1) - ground.STATVAR.organic(1);
+                if excess_water > 0 % only water can enter top cell for ground
+                    ground.STATVAR.waterIce(1) = ground.STATVAR.waterIce(1) + min(excess_water.*(1-snow_fraction), available_pore_space);
+                    ground.STATVAR.energy(1) = ground.STATVAR.energy(1) + excess_water_energy.*(1-snow_fraction).*min(excess_water.*(1-snow_fraction), available_pore_space)./(excess_water.*(1-snow_fraction));
+                end
+                ground.STATVAR.excessWater = ground.STATVAR.excessWater + excess_ice + max(0,excess_water-available_pore_space); % excess ice is routed directly here
+                
+                % Update T, water phase etc.
+                canopy = get_T_water_vegetation(canopy);
+                ground = compute_diagnostic(ground, tile);
+                snow = compute_diagnostic(snow, tile);
+            end
+        end
+
+        function ia_seb_water = canopy_drip_Xice(ia_seb_water, tile)
+            canopy = ia_seb_water.PREVIOUS; 
+            ground = ia_seb_water.NEXT; 
+            
+            water_capacity = canopy.PARA.Wmax*canopy.STATVAR.area*(canopy.STATVAR.LAI+canopy.STATVAR.SAI);
+            if canopy.STATVAR.waterIce > water_capacity
+                water_fraction = canopy.STATVAR.water./canopy.STATVAR.waterIce;
+                ice_fraction = canopy.STATVAR.ice./canopy.STATVAR.waterIce;
+                excess_waterIce = max(0,canopy.STATVAR.waterIce - water_capacity);
+                excess_water = excess_waterIce.*water_fraction;
+                excess_ice = excess_waterIce.*ice_fraction;
+                excess_water_energy = excess_water.*canopy.CONST.c_w.*canopy.STATVAR.T(1);
+                excess_ice_energy = excess_ice.*(canopy.CONST.c_i.*canopy.STATVAR.T(1)-ground.CONST.L_f);
+                
+                % Remove excess water from canopy
+                canopy.STATVAR.waterIce = water_capacity;
+                canopy.STATVAR.energy = canopy.STATVAR.energy - excess_water_energy - excess_ice_energy;
+                
+                % Add canopy drip to GROUND
+                ground.STATVAR.XwaterIce(1,1) = ground.STATVAR.XwaterIce(1,1) + excess_water + excess_ice;
+                ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + (excess_water + excess_ice)./ground.STATVAR.area(1,1);
+                ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + excess_water_energy + excess_ice_energy;
+                
+                % Update T, water phase etc.
+                canopy = get_T_water_vegetation(canopy);
+                ground = compute_diagnostic(ground, tile);
             end
         end
         
+        function ia_seb_water = canopy_drip_Xice_SNOW_CHILD(ia_seb_water, tile)
+            % Equivalent to canopy_drip_Xice, but with SNOW in CHILD phase
+            canopy = ia_seb_water.PREVIOUS; %canopy
+            ground = ia_seb_water.NEXT; %ground
+            snow   = ia_seb_water.NEXT.CHILD; % snow
+            snow_fraction = snow.STATVAR.area./ground.STATVAR.area(1);
+            
+            water_capacity = canopy.PARA.Wmax*canopy.STATVAR.area*(canopy.STATVAR.LAI+canopy.STATVAR.SAI);
+            if canopy.STATVAR.waterIce > water_capacity
+                water_fraction = canopy.STATVAR.water./canopy.STATVAR.waterIce;
+                ice_fraction = canopy.STATVAR.ice./canopy.STATVAR.waterIce;
+                excess_waterIce = max(0,canopy.STATVAR.waterIce - water_capacity);
+                excess_water = excess_waterIce.*water_fraction;
+                excess_ice = excess_waterIce.*ice_fraction;
+                excess_water_energy = excess_water.*canopy.CONST.c_w.*canopy.STATVAR.T(1);
+                excess_ice_energy = excess_ice.*(canopy.CONST.c_i.*canopy.STATVAR.T(1)-ground.CONST.L_f);
+                
+                % Remove excess water from canopy
+                canopy.STATVAR.waterIce = water_capacity;
+                canopy.STATVAR.energy = canopy.STATVAR.energy - excess_water_energy - excess_ice_energy;
+
+                % add canopy drip to SNOW CHILD
+                available_pore_space = snow.STATVAR.layerThick.*snow.STATVAR.area - snow.STATVAR.waterIce;
+                if excess_water > 0 % currently only water can enter top cell of SNOW 
+                    snow.STATVAR.waterIce(1) = snow.STATVAR.waterIce(1) + min(excess_water.*snow_fraction, available_pore_space);
+                    snow.STATVAR.energy(1) = snow.STATVAR.energy(1) + excess_water_energy.*snow_fraction.*min(excess_water.*snow_fraction, available_pore_space)./(excess_water.*snow_fraction);
+                end
+                snow.STATVAR.excessWater = snow.STATVAR.excessWater + excess_ice.*snow_fraction + max(0,excess_water.*snow_fraction-available_pore_space); % excess ice is routed directly here
+
+                % Add canopy drip to GROUND
+                ground.STATVAR.XwaterIce(1,1) = ground.STATVAR.XwaterIce(1,1) + (excess_water + excess_ice).*(1-snow_fraction);
+                ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + (excess_water + excess_ice).*(1-snow_fraction)./ground.STATVAR.area(1,1);
+                ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + (excess_water_energy + excess_ice_energy).*(1-snow_fraction);
+                
+                % Update T, water phace etc.
+                canopy = get_T_water_vegetation(canopy);
+                ground = compute_diagnostic(ground, tile);
+                snow = compute_diagnostic_CHILD(snow, tile);
+            end
+        end
     end
 end
 

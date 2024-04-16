@@ -1,31 +1,31 @@
 %========================================================================
-% CryoGrid INTERACTION (IA) class for surface energy balance of a GROUND
-% class with snow CHILD below a shading VEGETATION class
+% CryoGrid INTERACTION (IA) class handling interactions between
+% VEGETATION_CLM5_seb and
+% GROUND (RichardsEqW, no Xice)
+% with CHILD SNOW_crocus_bucketW_seb
 % R. B. Zwegiel, February 2022
 %========================================================================
 
 classdef IA_SEB_vegetation_CLM5_GROUND_snow < IA_SEB_vegetation_CLM5
-   
+
     methods
-        
+
         function ia_seb_water = get_boundary_condition_m(ia_seb_water, tile)
-            % Roughly equivalent to
-            % get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_snow,
-            % but with no radiation
+            % below-canopy equivalent of get_boundary_condition_u in GROUND_freezeC_RichardsEqW_seb_snow
             ground = ia_seb_water.NEXT; % for easy acces
-            
+
             if ground.CHILD == 0 % No CHILD exists
-                ia_seb_water = get_boundary_condition_m@IA_SEB_vegetation_CLM5(ia_seb_water, tile);
-                
+                ia_seb_water = get_boundary_condition_m_GROUND(ia_seb_water, tile);
+
                 if tile.FORCING.TEMP.snowfall > 0 % Create CHILD
                     ground.CHILD = copy(tile.STORE.SNOW);
                     ground.CHILD.PARENT = ground;
-                    ground.CHILD.NEXT = ground; 
+                    ground.CHILD.NEXT = ground;
                     ground.IA_CHILD = get_IA_class(class(ground.CHILD), class(ground));
                     ground.IA_CHILD.PREVIOUS = ground.CHILD;
                     ground.IA_CHILD.NEXT = ground; %SNOW CHILD created
-                    
-                    ground.CHILD = get_boundary_condition_u_create_CHILD(ground.CHILD, tile);  %initialize with fresh snowfall
+
+                    ground.CHILD = get_boundary_condition_m_create_CHILD(ia_seb_water, tile);  %initialize with fresh snowfall
                 end
             else % CHILD exists
                 total.area = ground.STATVAR.area;
@@ -34,7 +34,7 @@ classdef IA_SEB_vegetation_CLM5_GROUND_snow < IA_SEB_vegetation_CLM5
                 total.ice = ground.STATVAR.ice;
                 total.mineral = ground.STATVAR.mineral;
                 total.organic = ground.STATVAR.organic;
-                
+
                 ground.STATVAR.area = ground.STATVAR.area - ground.CHILD.STATVAR.area(1); % use snow free area from now on
                 reduction = ground.STATVAR.area(1) ./ total.area(1);
                 ground.STATVAR.waterIce = ground.STATVAR.waterIce .* reduction;
@@ -42,21 +42,21 @@ classdef IA_SEB_vegetation_CLM5_GROUND_snow < IA_SEB_vegetation_CLM5
                 ground.STATVAR.ice = ground.STATVAR.ice .* reduction;
                 ground.STATVAR.mineral = ground.STATVAR.mineral .* reduction;
                 ground.STATVAR.organic = ground.STATVAR.organic .* reduction;
-                
+
                 %-------------
-                
+
                 ground.CHILD.STATVAR.Lstar = ground.STATVAR.Lstar;
-                
+
                 ia_seb_water = get_boundary_condition_m_CHILD(ia_seb_water, tile); %@IA_SEB; snowfall, throughfall, Qh, Qe & d_energy
-                
-                ia_seb_water = get_boundary_condition_m@IA_SEB_vegetation_CLM5(ia_seb_water, tile); % throughfall, Qh, Qe & d_energy
-                
+
+                ia_seb_water = get_boundary_condition_m_GROUND(ia_seb_water, tile); % throughfall, Qh, Qe & d_energy
+
                 get_IA_CHILD_boundary_condition_u(ground.IA_CHILD, tile); %call designated mandatory function for CHILD-PARENT interactions in the IA class governing IA between SNOW and GROUND
-                
+
                 % Mix the SEB fluxes from snow and ground
                 ground.STATVAR.Qh = (ground.STATVAR.area(1,1) .* ground.STATVAR.Qh + ground.CHILD.STATVAR.area .* ground.CHILD.STATVAR.Qh) ./ total.area(1,1);
                 ground.STATVAR.Qe = (ground.STATVAR.area(1,1) .* ground.STATVAR.Qe + ground.CHILD.STATVAR.area .* ground.CHILD.STATVAR.Qe) ./ total.area(1,1);
-                
+
                 %reassign the true totals of ground
                 ground.STATVAR.area = total.area;
                 ground.STATVAR.waterIce = total.waterIce;
@@ -65,18 +65,32 @@ classdef IA_SEB_vegetation_CLM5_GROUND_snow < IA_SEB_vegetation_CLM5
                 ground.STATVAR.mineral = total.mineral;
                 ground.STATVAR.organic = total.organic;
             end
-        
+
         end
-        
-        function q_g = get_humidity_surface(ia_seb_water, tile)
-            q_g = get_humidity_surface@IA_SEB_vegetation_CLM5(ia_seb_water, tile);
+
+        function ia_seb_water = canopy_drip(ia_seb_water, tile)
             if ia_seb_water.NEXT.CHILD ~= 0
-                q_snow = get_humidity_surface_SNOW_CHILD(ia_seb_water, tile);
-                snow_fraction = ia_seb_water.NEXT.CHILD.STATVAR.area./ia_seb_water.NEXT.STATVAR.area(1);
-                q_g = q_g*(1-snow_fraction) + q_snow*snow_fraction;
+                ia_seb_water = canopy_drip_simple_SNOW_CHILD(ia_seb_water, tile);
+            else
+                ia_seb_water = canopy_drip_simple(ia_seb_water, tile);
             end
-        end        
-    
-    end 
-    
+        end
+
+        function r_soil = ground_resistance_evap(ia_seb_water, tile)
+            ground = ia_seb_water.NEXT;
+            vol_water_first_cell = ground.STATVAR.waterIce(1,1) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1));
+            reduce_yes_no = vol_water_first_cell < ground.STATVAR.field_capacity(1,1);
+            betaCLM4_5 = 1 +  double(reduce_yes_no) .* (-1 +  0.25 .* (1-(cos(pi() .* vol_water_first_cell ./ ground.STATVAR.field_capacity(1,1)))).^2);
+
+            r_soil = min(1e10, 250.*((1./betaCLM4_5).^0.5 -1));
+            if ground.CHILD ~= 0
+                if ground.CHILD.STATVAR.area/ground.STATVAR.area(1) > 0.5
+                    % Simple swich for now - use r_soil for ground until child covers 50%
+                    r_soil = 0;
+                end
+            end
+        end
+
+    end
+
 end

@@ -514,15 +514,6 @@ classdef SNOW < BASE
             end
         end
         
-        %---------Vegetation----------
-        function snow = get_boundary_condition_allSNOW_rain_canopy_m(snow, tile) %snow from entire area (PARENT+CHILD), rain only from snow-covered part (CHILD)
-            forcing = tile.FORCING;
-            snow.TEMP.snowfall = forcing.TEMP.snowfall ./1000 ./(24.*3600) .* (snow.PARENT.STATVAR.area(1,1) + snow.STATVAR.area); %snowfall is in mm/day -> [m3/sec]
-            snow.TEMP.rainfall = snow.PARENT.PREVIOUS.TEMP.rain_thru .* snow.STATVAR.area;
-            snow.TEMP.snow_energy = snow.TEMP.snowfall .* (min(0, forcing.TEMP.Tair) .* snow.CONST.c_i - snow.CONST.L_f);  %[J/sec]
-            snow.TEMP.rain_energy = snow.TEMP.rainfall .* max(0, forcing.TEMP.Tair) .* snow.CONST.c_w;
-        end
-        
     end
 end
 

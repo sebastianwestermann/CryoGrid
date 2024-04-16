@@ -148,7 +148,7 @@ classdef VEGETATION_CLM5_seb_snow < VEGETATION_CLM5_seb
             [vegetation, S_up] = penetrate_SW_PARENT@VEGETATION_CLM5_seb(vegetation, S_down);
         end
         
-        function [vegetation, Lout] = penetrate_LW(vegetation, Lin)  %mandatory function when used with class that features SW penetration
+        function [vegetation, Lout] = penetrate_LW(vegetation, Lin)  %mandatory function when used with class that features LW penetration
             % Lin is in W, not W/m2!
             
              if vegetation.CHILD ~= 0

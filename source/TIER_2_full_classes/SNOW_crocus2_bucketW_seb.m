@@ -559,6 +559,17 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             Ts = snow.STATVAR.T(1);
         end
         
+        function q_g = get_humidity_surface(snow, tile)
+            forcing = tile.FORCING;
+            p = forcing.TEMP.p;
+            Tmfw = snow.CONST.Tmfw;
+            T_surf = snow.STATVAR.T(1);
+            
+            e = double(T_surf>=0).*satPresWater(snow,T_surf+Tmfw) + double(T_surf<0).*satPresIce(snow,T_surf+Tmfw); % saturation water pressure of snow
+            q_g = .622.*e./p; % saturation water vapor specific humidity at snow temperature
+            snow.STATVAR.q_g = q_g;
+        end
+        
         %-----LATERAL-------------------
         
         function gse = get_groundSurfaceElevation(ground)

@@ -280,6 +280,17 @@ classdef SEB < BASE
         function rho = rho_air(seb, p, T) %air density [kg m^(-3)]
             rho = p./(287.058.*T); 
         end
+
+        function rho = rho_air_moist(seb, tile)
+            forcing = tile.FORCING;
+            R_da = seb.CONST.R_spec; % gas constant for dry air = 287.0423 (CLM5 documentation)
+            p = forcing.TEMP.p;
+            Tz= forcing.TEMP.Tair+forcing.CONST.Tmfw;
+            q = forcing.TEMP.q;
+            
+            e = q.*p./(0.622+0.378*q); % atmospheric vapor pressure
+            rho = (p - 0.378*e)./(R_da * Tz);
+        end
         
         function L_w = latent_heat_evaporation(seb, T) %specific latent heat of evaporation of water [J/kg K]
             L_w = 1e3.*(2500.8 - 2.36.*(T - 273.15));  

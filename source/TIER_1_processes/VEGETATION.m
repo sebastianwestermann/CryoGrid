@@ -7,22 +7,7 @@ classdef VEGETATION < BASE
     
     methods
         
-        function canopy = get_heat_capacity_canopy_leaves(canopy)
-            % As in Bonan et al. (2018), Modeling canopy-induced turbulence in the Earth system
-            % Assumes stems have same heat capacity as leaves
-            L = canopy.STATVAR.LAI;
-            S = canopy.STATVAR.SAI;
-            SLA = canopy.PARA.SLA;
-            f_c = canopy.PARA.f_carbon;
-            f_w = canopy.PARA.f_water;
-            c_w = canopy.CONST.c_w./canopy.CONST.rho_w;
-            c_dry = c_w ./ 3; 
-            
-            Ma = 1/SLA; % leaf dry mass per unit area
-            c_leaf_areal = c_dry.*Ma./f_c + c_w.*(f_w./(1-f_w)).*Ma./f_c;
-            canopy.STATVAR.c_canopy = (L+S).*c_leaf_areal.*canopy.STATVAR.area(1); % [J/K]
-        end
-        
+% ------- diagnose canopy properties ------
         function canopy = get_heat_capacity_canopy(canopy)
             % As get_get_heat_capacity_canopy_leaves(..), but with trunk heat
             % capacity from Swenson et al. (2018)
@@ -48,13 +33,19 @@ classdef VEGETATION < BASE
             canopy.STATVAR.c_canopy = (L.*c_leaf_areal + c_stem).*canopy.STATVAR.area(1); % [J/K]
         end
         
-        function canopy = get_T_simpleVegetatation(canopy)
-            % Disregards water in canopy
-            canopy.STATVAR.T = canopy.STATVAR.energy ./ canopy.STATVAR.c_canopy;
-        end
-        
-        function canopy = get_E_simpleVegetation(canopy)
-            canopy.STATVAR.energy = canopy.STATVAR.T .* canopy.STATVAR.c_canopy; % [J]
+        function canopy = get_z0_d_vegetation(canopy) % roughness length of vegetated surface (CLM5)
+            L = canopy.STATVAR.LAI; % Leaf area index
+            S = canopy.PARA.SAI; % Stem area index
+            z0g = get_z0_surface(canopy.NEXT); % Roughness lenght of ground/snow surface
+            R_z0 = canopy.PARA.R_z0; % Ratio of momentum roughness length to canopy height
+            R_d = canopy.PARA.R_d; % Ratio of displacement height to canopy height
+            z_top = sum(canopy.STATVAR.layerThick); % canopy height
+            
+            V = ( 1-exp(-1.*min(L+S,2))) ./ (1-exp(-2)); % Eq. 5.127
+            z0 = exp( V.*log(z_top.*R_z0) + (1-V).*log(z0g) ); % Eq. 5.125
+            d = z_top.*R_d.*V; % Eq. 5.126
+            canopy.STATVAR.z0 = z0;
+            canopy.STATVAR.d = d;
         end
         
         function canopy = get_E_water_vegetation(canopy)
@@ -87,6 +78,17 @@ classdef VEGETATION < BASE
             canopy.STATVAR.f_dry = (1-canopy.STATVAR.f_wet).*L./(L+S);
         end
         
+        % NOT in use now
+        % function canopy = get_T_simpleVegetatation(canopy)
+        %     % Disregards water in canopy
+        %     canopy.STATVAR.T = canopy.STATVAR.energy ./ canopy.STATVAR.c_canopy;
+        % end
+        % 
+        % function canopy = get_E_simpleVegetation(canopy)
+        %     canopy.STATVAR.energy = canopy.STATVAR.T .* canopy.STATVAR.c_canopy; % [J]
+        % end
+
+% -------- GET TIMESTEP FUNCTIONS ---------
         function timestep = get_timestep_canopy_T(canopy)
             d_energy = canopy.TEMP.d_energy;
             c_canopy =  canopy.STATVAR.c_canopy; % [J/m3]
@@ -94,22 +96,20 @@ classdef VEGETATION < BASE
             
             timestep = canopy.PARA.dT_max ./ ( abs(d_energy)./(c_canopy + cp_waterIce) );
         end
-        
-        function canopy = get_z0_d_vegetation(canopy) % roughness length of vegetated surface (CLM5)
-            L = canopy.STATVAR.LAI; % Leaf area index
-            S = canopy.PARA.SAI; % Stem area index
-            z0g = get_z0_surface(canopy.NEXT); % Roughness lenght of ground/snow surface
-            R_z0 = canopy.PARA.R_z0; % Ratio of momentum roughness length to canopy height
-            R_d = canopy.PARA.R_d; % Ratio of displacement height to canopy height
-            z_top = sum(canopy.STATVAR.layerThick); % canopy height
-            
-            V = ( 1-exp(-1.*min(L+S,2))) ./ (1-exp(-2)); % Eq. 5.127
-            z0 = exp( V.*log(z_top.*R_z0) + (1-V).*log(z0g) ); % Eq. 5.125
-            d = z_top.*R_d.*V; % Eq. 5.126
-            canopy.STATVAR.z0 = z0;
-            canopy.STATVAR.d = d;
+
+        function timestep = get_timestep_snow_vegetation(canopy)
+            timestep = canopy.STATVAR.ice ./ -canopy.TEMP.d_snow;
+            timestep(canopy.TEMP.d_snow == 0) = canopy.PARA.dt_max;
         end
         
+        function timestep = get_timestep_water_vegetation(canopy)
+            timestep(canopy.TEMP.d_water ~= 0) = double(canopy.TEMP.d_water < 0).* canopy.STATVAR.waterIce ./ -canopy.TEMP.d_water + ...
+                double(canopy.TEMP.d_water > 0).* 0.1 .* canopy.PARA.Wmax.*canopy.STATVAR.area ./ canopy.TEMP.d_water;
+            timestep(canopy.TEMP.d_water == 0) = canopy.PARA.dt_max;
+            timestep(timestep<=0) = canopy.PARA.dt_max;
+        end
+        
+% ------- modify canopy structure ------ % 
         function canopy = add_canopy(canopy)
             canopy.STATVAR.LAI = canopy.PARA.LAI;
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
@@ -148,25 +148,7 @@ classdef VEGETATION < BASE
             canopy = get_heat_capacity_canopy(canopy);
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
         end
-%         function canopy = distribute_roots(canopy)
-%             beta = canopy.PARA.beta_root;
-%             dz = canopy.GROUND.STATVAR.layerThick;
-%             z = cumsum(dz);
-%            
-%             % Root fraction per soil layer
-%             f_root = beta.^([0; z(1:end-1)].*100) - beta.^(z*100); % Eq. 11.1
-%             
-%             canopy.GROUND.STATVAR.f_root = f_root;
-%         end
-%         
-%         function stresses = get_soil_moisture_stress(canopy)
-%             psi = canopy.GROUND.STATVAR.waterPotential;
-%             f_root = canopy.GROUND.STATVAR.f_root;
-% %             layerThick = ia_seb_water.NEXT.STATVAR.layerThick;
-%             psi_wilt = canopy.PARA.psi_wilt;
-%             
-%             stresses = sum(f_root.*min(1,(psi./psi_wilt)));
-%         end
+
     end
 end
 

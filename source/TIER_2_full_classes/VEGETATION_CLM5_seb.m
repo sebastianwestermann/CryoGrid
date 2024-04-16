@@ -47,12 +47,9 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.PARA.R_d = [];
             canopy.PARA.Dmax = [];
             canopy.PARA.Wmax = []; % Assume one water holding capacity for snow and water for now
-            canopy.PARA.beta_root = [];
             canopy.PARA.C_leaf_max = [];
             canopy.PARA.k_shelter = [];
             canopy.PARA.psi_wilt = [];
-            canopy.PARA.zeta_m = [];
-            canopy.PARA.zeta_h = [];
             canopy.PARA.LW_enhancement = [];
         end
         
@@ -81,9 +78,7 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.STATVAR.z0 = []; % roughness length [m]
             canopy.STATVAR.d = []; % displacement height
             canopy.STATVAR.f_wet = []; % wetted fraction of canopy
-            canopy.STATVAR.f_dry = []; % dry and transpiring fraction of canopy
-            %             canopy.STATVAR.f_snow = []; % snow-covered fraction of canopy
-            
+            canopy.STATVAR.f_dry = []; % dry and transpiring fraction of canopy            
         end
         
         function canopy = provide_CONST(canopy)
@@ -112,7 +107,7 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.STATVAR.area = tile.PARA.area + canopy.STATVAR.layerThick .* 0;
             canopy.STATVAR.SAI = canopy.PARA.SAI;
             
-            % Construct canopy -  add/remove LAI, calc. energy, heat capacity, z0, etc. accordingly
+            % 1. Construct canopy -  add/remove LAI, calc. energy, heat capacity, z0, etc. accordingly
             doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
             if doy_start >= canopy.PARA.t_leafsprout && doy_start < canopy.PARA.t_leaffall
                 canopy = add_canopy(canopy);
@@ -122,14 +117,13 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             
             canopy.PARA.airT_height = tile.FORCING.PARA.airT_height; % why tranfer this parameter to ground/canopy, and not use forcing directly?
             
-            % assign ground for canopy-soil interactions
+            % 2. assign ground for canopy-soil interactions
             canopy.GROUND = canopy.NEXT;
-            canopy.IA_GROUND = IA_VEGETATION_CLM5();
+            canopy.IA_GROUND = IA_VEGETATION_subsurface();
             canopy.IA_GROUND.PREVIOUS = canopy;
             canopy.IA_GROUND.NEXT = canopy.NEXT;
-            canopy.IA_GROUND = distribute_roots_CLM5(canopy.IA_GROUND);
+            canopy.IA_GROUND = distribute_roots_simple(canopy.IA_GROUND);
             
-            %             canopy.TEMP.beta_t = 0;
             canopy.STATVAR.Lstar = -100;
             canopy.STATVAR.u_star = 0.1;
             canopy.STATVAR.q_s = .622*satPresWater(canopy,canopy.STATVAR.T+canopy.CONST.Tmfw)/101300;
@@ -152,12 +146,12 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         %==================================================================
         
         function canopy = get_boundary_condition_u(canopy, tile)
-            canopy = canopy_energy_balance(canopy,tile); % change to tile
+            canopy = canopy_energy_balance(canopy,tile); 
             canopy = canopy_water_balance(canopy,tile);
         end
         
         function [canopy, L_up] = penetrate_LW(canopy, L_down)  %mandatory function when used with class that features LW penetration
-            [canopy, L_up] = penetrate_LW_CLM5(canopy, L_down);
+            [canopy, L_up] = penetrate_LW_canopy(canopy, L_down);
         end
         
         function [canopy, S_up] = penetrate_SW(canopy, S_down)  %mandatory function when used with class that features SW penetration
@@ -229,33 +223,21 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         function canopy = canopy_energy_balance(canopy,tile)
             forcing = tile.FORCING;
             
-            % LW enhancement: https://tc.copernicus.org/articles/13/3077/2019/
+            % 0. LW enhancement, if active
             if canopy.PARA.LW_enhancement == 1
-                b_day = [0.673476793605971;0.397159572686006;-4.700356406147842e-05;1.385553999208223e-04];
-                b_night = [0.791947291666270;0.240525096024668;0;0];
-                sky_emissivity = forcing.TEMP.Lin./(canopy.CONST.sigma.*(forcing.TEMP.Tair + canopy.CONST.Tmfw)^4);
-                if forcing.TEMP.Sin > 1
-                    canopy.TEMP.f_corr = 1./(b_day(1) + b_day(2).*sky_emissivity + b_day(3).*forcing.TEMP.Sin + b_day(4).*sky_emissivity.*forcing.TEMP.Sin);
-                else
-                    canopy.TEMP.f_corr = 1./(b_night(1) + b_night(2).*sky_emissivity);
-                end
+                canopy.TEMP.f_corr = longwave_enhancement(canopy, tile);
             else
                 canopy.TEMP.f_corr = 1;
             end
             
             % 1. Longwave penetration
             [canopy, L_up] = penetrate_LW(canopy, forcing.TEMP.Lin .* canopy.STATVAR.area(1));
-            %             canopy.STATVAR.Lout = L_up./canopy.STATVAR.area(1);
             
             % 2. Shortwave penetration
             canopy.TEMP.sun_angle = forcing.TEMP.sunElevation * double(forcing.TEMP.sunElevation > 0);
             canopy.TEMP.Sin_dir_fraction = forcing.TEMP.Sin_dir ./ forcing.TEMP.Sin;
             canopy.TEMP.Sin_dir_fraction(isnan(canopy.TEMP.Sin_dir_fraction)) = 0;
             [canopy, S_up] = penetrate_SW(canopy, forcing.TEMP.Sin .* canopy.STATVAR.area(1));
-            %             canopy.STATVAR.Sout = sum(S_up) ./ canopy.STATVAR.area(1);
-            %
-            %             canopy.STATVAR.Sin = forcing.TEMP.Sin;
-            %             canopy.STATVAR.Lin = forcing.TEMP.Lin;
             
             % 3. Sensible and latent heat
             canopy = canopy_resistances_CLM5_Stewart(canopy, tile);
@@ -372,9 +354,6 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.PARA.comment.Wmax = {'water holding capacity of canopy per unit area (L+S)'};
             canopy.PARA.default_value.Wmax = {0.0001};
             
-            canopy.PARA.comment.beta_root = {'root distribution parameter (CLM5)'};
-            canopy.PARA.default_value.beta_root = {0.943};
-            
             canopy.PARA.comment.C_leaf_max = {'maximum leaf conductance'};
             canopy.PARA.default_value.C_leaf_max = {0.01};
             
@@ -383,12 +362,6 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             
             canopy.PARA.comment.psi_wilt = {'water potential at permanent wilting point (-15 bar)'};
             canopy.PARA.default_value.psi_wilt = {-150};
-            
-            canopy.PARA.comment.zeta_m = {'threshold for very unstable atm. Conditions wrt. Heat/vapor fluxes'};
-            canopy.PARA.default_value.zeta_m = {-0.465};
-            
-            canopy.PARA.comment.zeta_h = {'threshold for very unstable atm. Conditions wrt. mass fluxes'};
-            canopy.PARA.default_value.zeta_h = {-1.574};
             
         end
     end
