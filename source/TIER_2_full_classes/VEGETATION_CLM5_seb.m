@@ -19,6 +19,7 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.PARA.leafsprout_period = [];
             canopy.PARA.t_leaffall = [];
             canopy.PARA.leaffall_period = [];
+            canopy.PARA.heat_capacity_function = [];
             canopy.PARA.kv = [];
             canopy.PARA.D_bh = [];
             canopy.PARA.N_tree = [];
@@ -109,10 +110,10 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             
             % 1. Construct canopy -  add/remove LAI, calc. energy, heat capacity, z0, etc. accordingly
             doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
-            if doy_start >= canopy.PARA.t_leafsprout && doy_start < canopy.PARA.t_leaffall
-                canopy = add_canopy(canopy);
-            else
+            if doy_start <= canopy.PARA.t_leafsprout && doy_start >= canopy.PARA.t_leaffall
                 canopy = remove_canopy(canopy);
+            else
+                canopy = add_canopy(canopy);
             end
             
             canopy.PARA.airT_height = tile.FORCING.PARA.airT_height; % why tranfer this parameter to ground/canopy, and not use forcing directly?

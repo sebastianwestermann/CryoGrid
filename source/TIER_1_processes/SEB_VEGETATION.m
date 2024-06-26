@@ -353,17 +353,17 @@ function [seb, Lout] = penetrate_LW_canopy(seb,Lin)
             I_out_from_dir = I_out_from_dir*spectral_weights'; % Eq. 3.17
             I_out_from_dif = (h7 + h8)*spectral_weights'; % Eq. 3.18
             
-            Sout_v = Sin_dif.*I_out_from_dif + Sin_dir.*I_out_from_dir;
+            Sout = Sin_dif.*I_out_from_dif + Sin_dir.*I_out_from_dir;
 
-            Sout = (Sout_v+S_up);
+            % Sout = (Sout_v+S_up);
             % Outgoing shortwave above the canopy is Sout_v + Sup, the  
             % layer below absorbs S_down - S_up, so absorbed in canopy is 
             % Sin - (Sout_v + Sup) - (S_down - S_up) = Sin - Sout_v - S_down;
-            seb.TEMP.S_abs = Sin - S_down - Sout_v;
+            seb.TEMP.S_abs = Sin - S_down - Sout + S_up;
             seb.TEMP.d_energy(1) = seb.TEMP.d_energy(1) + seb.TEMP.S_abs;
             seb.TEMP.S_down = S_down./seb.STATVAR.area(1);
             seb.TEMP.S_up = S_up./seb.STATVAR.area(1);
-            seb.TEMP.Sout_v = Sout_v./seb.STATVAR.area(1);
+            % seb.TEMP.Sout_v = Sout_v./seb.STATVAR.area(1);
             seb.STATVAR.Sin = Sin./seb.STATVAR.area(1);
             seb.STATVAR.Sout = Sout./seb.STATVAR.area(1);
          end

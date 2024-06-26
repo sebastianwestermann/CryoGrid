@@ -8,6 +8,23 @@ classdef VEGETATION < BASE
     methods
         
 % ------- diagnose canopy properties ------
+        function canopy = get_heat_capacity_leaves(canopy)
+            % Heat capacities from Bonan 2018, assuming stems have same
+            % heat capacity as leaves.
+            L = canopy.STATVAR.LAI;
+            S = canopy.STATVAR.SAI;
+            SLA = canopy.PARA.SLA;
+            f_c = canopy.PARA.f_carbon;
+            f_w = canopy.PARA.f_water;
+            c_w = canopy.CONST.c_w./canopy.CONST.rho_w; % [J/(kg*K)]
+            c_dry = c_w ./ 3; % specific heat capacity of dry biomass
+            
+            Ma = 1/SLA; % leaf dry mass per unit area
+            c_areal = c_dry.*Ma./f_c + c_w.*(f_w./(1-f_w)).*Ma./f_c;
+
+            canopy.STATVAR.c_canopy = (L+S).*c_areal.*canopy.STATVAR.area(1); % [J/K]
+        end
+
         function canopy = get_heat_capacity_canopy(canopy)
             % As get_get_heat_capacity_canopy_leaves(..), but with trunk heat
             % capacity from Swenson et al. (2018)
@@ -113,7 +130,16 @@ classdef VEGETATION < BASE
         function canopy = add_canopy(canopy)
             canopy.STATVAR.LAI = canopy.PARA.LAI;
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
-            canopy = get_heat_capacity_canopy(canopy);
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
             canopy = get_z0_d_vegetation(canopy);
         end
@@ -121,11 +147,17 @@ classdef VEGETATION < BASE
         function canopy = add_canopy_linear(canopy, doy)
             doy = min(doy, canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period); % Avoid overshoot
             canopy.STATVAR.LAI = canopy.PARA.LAI.* max(canopy.PARA.leafsprout_period, doy - canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period) ./ canopy.PARA.leafsprout_period;
-            if canopy.STATVAR.LAI > canopy.PARA.LAI || canopy.STATVAR.LAI < 0
-                error
-            end
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI);  % my_bar = 1 for longwave!
-            canopy = get_heat_capacity_canopy(canopy);
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
             canopy = get_z0_d_vegetation(canopy);
         end
@@ -133,7 +165,16 @@ classdef VEGETATION < BASE
         function canopy = remove_canopy(canopy)
             canopy.STATVAR.LAI = 0;
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
-            canopy = get_heat_capacity_canopy(canopy);
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature            
             canopy = get_z0_d_vegetation(canopy);
         end
@@ -141,11 +182,17 @@ classdef VEGETATION < BASE
         function canopy = remove_canopy_linear(canopy, doy)
             doy = min(doy,canopy.PARA.t_leaffall + canopy.PARA.leaffall_period);
             canopy.STATVAR.LAI = canopy.PARA.LAI.* max(0,canopy.PARA.t_leaffall - doy) ./ canopy.PARA.leaffall_period;
-            if canopy.STATVAR.LAI > canopy.PARA.LAI || canopy.STATVAR.LAI < 0
-                error
-            end
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
-            canopy = get_heat_capacity_canopy(canopy);
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
         end
 
