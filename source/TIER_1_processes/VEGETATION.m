@@ -4,8 +4,66 @@
 %========================================================================
 
 classdef VEGETATION < BASE
-    
+
     methods
+
+        function canopy = PFT_PARA(canopy)
+            % Assign PFT specific parameters from: https://www2.cesm.ucar.edu/models/cesm2/land/CLM50_Tech_Note.pdf
+            if strcmp(canopy.PARA.PFT,'NDT boreal') || strcmp(canopy.PARA.PFT,'NET boreal')
+                canopy.PARA.Khi_L           = 0.01;
+                canopy.PARA.alpha_leaf_vis  = 0.07;
+                canopy.PARA.alpha_leaf_nir  = 0.35;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.10;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.055;
+                canopy.PARA.R_d             = 0.67;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'BDT boreal')
+                canopy.PARA.Khi_L           = 0.25;
+                canopy.PARA.alpha_leaf_vis  = 0.10;
+                canopy.PARA.alpha_leaf_nir  = 0.45;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.25;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.055;
+                canopy.PARA.R_d             = 0.67;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'BDS boreal')
+                canopy.PARA.Khi_L           = 0.25;
+                canopy.PARA.alpha_leaf_vis  = 0.10;
+                canopy.PARA.alpha_leaf_nir  = 0.45;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.25;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.120;
+                canopy.PARA.R_d             = 0.68;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'C3_grass')
+                canopy.PARA.Khi_L           = -0.30;
+                canopy.PARA.alpha_leaf_vis  = 0.11;
+                canopy.PARA.alpha_leaf_nir  = 0.35;
+                canopy.PARA.alpha_stem_vis  = 0.31;
+                canopy.PARA.alpha_stem_nir  = 0.53;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.34;
+                canopy.PARA.tau_stem_vis    = 0.12;
+                canopy.PARA.tau_stem_nir    = 0.25;
+                canopy.PARA.R_z0            = 0.12;
+                canopy.PARA.R_d             = 0.68;
+                canopy.PARA.d_leaf          = 0.04;
+            end
+
+        end
         
 % ------- diagnose canopy properties ------
         function canopy = get_heat_capacity_leaves(canopy)
@@ -127,6 +185,23 @@ classdef VEGETATION < BASE
         end
         
 % ------- modify canopy structure ------ % 
+        function canopy = build_canopy(canopy, fLAI) 
+            canopy.STATVAR.LAI = canopy.PARA.LAI.*fLAI;
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
+            canopy = get_E_water_vegetation(canopy); % derive energy from temperature
+            canopy = get_z0_d_vegetation(canopy);
+        end
+        
         function canopy = add_canopy(canopy)
             canopy.STATVAR.LAI = canopy.PARA.LAI;
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!

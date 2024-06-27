@@ -15,6 +15,8 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
     methods
         
         function canopy = provide_PARA(canopy)
+            canopy.PARA.PFT = [];
+            canopy.PARA.adjust_timestep = [];
             canopy.PARA.t_leafsprout = [];
             canopy.PARA.leafsprout_period = [];
             canopy.PARA.t_leaffall = [];
@@ -30,23 +32,11 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.PARA.nir_fraction = [];
             canopy.PARA.LAI = [];
             canopy.PARA.SAI = [];
-            canopy.PARA.Khi_L = [];
-            canopy.PARA.alpha_leaf_vis = [];
-            canopy.PARA.alpha_stem_vis = [];
-            canopy.PARA.tau_leaf_vis = [];
-            canopy.PARA.tau_stem_vis = [];
-            canopy.PARA.alpha_leaf_nir = [];
-            canopy.PARA.alpha_stem_nir = [];
-            canopy.PARA.tau_leaf_nir = [];
-            canopy.PARA.tau_stem_nir = [];
             canopy.PARA.dT_max = [];
             canopy.PARA.dt_max = [];
             canopy.PARA.Cv = [];
-            canopy.PARA.d_leaf = [];
             canopy.PARA.Cs_dense = [];
-            canopy.PARA.R_z0 = [];
-            canopy.PARA.R_d = [];
-            canopy.PARA.Dmax = [];
+            % canopy.PARA.Dmax = [];
             canopy.PARA.Wmax = []; % Assume one water holding capacity for snow and water for now
             canopy.PARA.C_leaf_max = [];
             canopy.PARA.k_shelter = [];
@@ -107,18 +97,42 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         function canopy = finalize_init(canopy, tile)
             canopy.STATVAR.area = tile.PARA.area + canopy.STATVAR.layerThick .* 0;
             canopy.STATVAR.SAI = canopy.PARA.SAI;
-            
-            % 1. Construct canopy -  add/remove LAI, calc. energy, heat capacity, z0, etc. accordingly
-            doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
-            if doy_start <= canopy.PARA.t_leafsprout && doy_start >= canopy.PARA.t_leaffall
-                canopy = remove_canopy(canopy);
-            else
-                canopy = add_canopy(canopy);
+
+            % 1. Assign PFT-specific parameters
+            canopy = PFT_PARA(canopy);
+
+            % 2. Set canopy adjustment time
+            if isempty(canopy.PARA.adjust_timestep)
+                canopy.PARA.adjust_timestep = 0.5; % adjust 2 times per day
             end
+            canopy.TEMP.adjust_time = tile.FORCING.PARA.start_time + canopy.PARA.adjust_timestep; % RBZ: different from out.OUTPUT_TIME, which is a class property
+            
+            % 3. Construct canopy -  ser LAI and calculate energy, heat capacity, z0, etc. accordingly
+            doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
+            if ~isempty(canopy.PARA.t_leafsprout) 
+                if doy_start <= canopy.PARA.t_leafsprout || doy_start >= canopy.PARA.t_leaffall
+                    fLAI = 0; % outside growing season -> no leaves
+                else
+                    fLAI = 1; % first guess, adjusted in check_trigger if necessary
+                end
+            else
+                fLAI = 1; % No t_leafsprout assigned -> use assigned LAI
+            end
+            canopy = build_canopy(canopy,fLAI);
+            canopy.PARA.leafsprout_period( isnan(canopy.PARA.leafsprout_period) | isempty(canopy.PARA.leafsprout_period) ) = 0; % If period is not given in nr. days, assume transition to take 0 days
+            canopy.PARA.leaffall_period( isnan(canopy.PARA.leaffall_period) | isempty(canopy.PARA.leaffall_period)) = 0;
+
+            % Old code
+            % doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
+            % if doy_start <= canopy.PARA.t_leafsprout && doy_start >= canopy.PARA.t_leaffall
+            %     canopy = remove_canopy(canopy);
+            % else
+            %     canopy = add_canopy(canopy);
+            % end
             
             canopy.PARA.airT_height = tile.FORCING.PARA.airT_height; % why tranfer this parameter to ground/canopy, and not use forcing directly?
             
-            % 2. assign ground for canopy-soil interactions
+            % 4. assign ground for canopy-soil interactions
             canopy.GROUND = canopy.NEXT;
             canopy.IA_GROUND = IA_VEGETATION_subsurface();
             canopy.IA_GROUND.PREVIOUS = canopy;
@@ -201,20 +215,39 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         
         function canopy = check_trigger(canopy, tile)
             
-            doy = tile.t - datenum(year(tile.t),1,1);
-            if doy > canopy.PARA.t_leafsprout - canopy.PARA.leafsprout_period && doy <= canopy.PARA.t_leafsprout +1 && canopy.STATVAR.LAI < canopy.PARA.LAI
-                if canopy.PARA.leafsprout_period > 0
-                    add_canopy_linear(canopy, doy); % Linear growth of LAI
-                else
-                    add_canopy(canopy);
+            if tile.t >= canopy.TEMP.adjust_time % Make adjustments to canopy structure
+                canopy.TEMP.adjust_time = canopy.TEMP.adjust_time + canopy.PARA.adjust_timestep;
+                
+                % Leaf growth/scenesence
+                doy = tile.t - datenum(year(tile.t),1,1);
+                if doy >= canopy.PARA.t_leafsprout-canopy.PARA.leafsprout_period && doy <= canopy.PARA.t_leafsprout % Within leaf growing period
+                    fLAI = 1-(canopy.PARA.t_leafsprout-doy) / canopy.PARA.leafsprout_period;
+                    fLAI(canopy.PARA.leafsprout_period==0) = 1; % in case of discrete growth
+                    canopy = build_canopy(canopy, fLAI);
+                elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && doy <= canopy.PARA.t_leaffall % Within leaf fall period
+                    fLAI = (canopy.PARA.t_leaffall-doy) / canopy.PARA.leaffall_period;
+                    fLAI(canopy.PARA.leaffall_period==0) = 0;
+                    canopy = build_canopy(canopy, fLAI);
                 end
-            elseif doy > canopy.PARA.t_leaffall - canopy.PARA.leaffall_period && canopy.STATVAR.LAI > 0
-                if canopy.PARA.leaffall_period > 0
-                    remove_canopy_linear(canopy, doy); % Linear decrease of LAI
-                else
-                    remove_canopy(canopy);
-                end
+                
+                class()
             end
+
+            % Old code
+            % doy = tile.t - datenum(year(tile.t),1,1);
+            % if doy > canopy.PARA.t_leafsprout - canopy.PARA.leafsprout_period && doy <= canopy.PARA.t_leafsprout +1 && canopy.STATVAR.LAI < canopy.PARA.LAI
+            %     if canopy.PARA.leafsprout_period > 0
+            %         add_canopy_linear(canopy, doy); % Linear growth of LAI
+            %     else
+            %         add_canopy(canopy);
+            %     end
+            % elseif doy > canopy.PARA.t_leaffall - canopy.PARA.leaffall_period && canopy.STATVAR.LAI > 0
+            %     if canopy.PARA.leaffall_period > 0
+            %         remove_canopy_linear(canopy, doy); % Linear decrease of LAI
+            %     else
+            %         remove_canopy(canopy);
+            %     end
+            % end
             
         end
         
