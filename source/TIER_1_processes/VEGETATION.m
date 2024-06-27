@@ -48,7 +48,7 @@ classdef VEGETATION < BASE
                 canopy.PARA.R_z0            = 0.120;
                 canopy.PARA.R_d             = 0.68;
                 canopy.PARA.d_leaf          = 0.04;
-            elseif strcmp(canopy.PARA.PFT,'C3_grass')
+            elseif strcmp(canopy.PARA.PFT,'C3 grass')
                 canopy.PARA.Khi_L           = -0.30;
                 canopy.PARA.alpha_leaf_vis  = 0.11;
                 canopy.PARA.alpha_leaf_nir  = 0.35;
@@ -61,6 +61,8 @@ classdef VEGETATION < BASE
                 canopy.PARA.R_z0            = 0.12;
                 canopy.PARA.R_d             = 0.68;
                 canopy.PARA.d_leaf          = 0.04;
+            else
+                error('PFT-specific parameters must be assigned')
             end
 
         end
@@ -185,8 +187,7 @@ classdef VEGETATION < BASE
         end
         
 % ------- modify canopy structure ------ % 
-        function canopy = build_canopy(canopy, fLAI) 
-            canopy.STATVAR.LAI = canopy.PARA.LAI.*fLAI;
+        function canopy = build_canopy(canopy) 
             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
             if isfield(canopy.PARA, 'heat_capacity_function')
                 if ~isempty(canopy.PARA.heat_capacity_function)

@@ -17,6 +17,7 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         function canopy = provide_PARA(canopy)
             canopy.PARA.PFT = [];
             canopy.PARA.adjust_timestep = [];
+            canopy.PARA.z_base = [];
             canopy.PARA.t_leafsprout = [];
             canopy.PARA.leafsprout_period = [];
             canopy.PARA.t_leaffall = [];
@@ -111,14 +112,14 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             doy_start = tile.FORCING.PARA.start_time - datenum(year(tile.FORCING.PARA.start_time),1,1); % DayOfYear
             if ~isempty(canopy.PARA.t_leafsprout) 
                 if doy_start <= canopy.PARA.t_leafsprout || doy_start >= canopy.PARA.t_leaffall
-                    fLAI = 0; % outside growing season -> no leaves
+                    canopy.STATVAR.LAI = 0; % outside growing season -> no leaves
                 else
-                    fLAI = 1; % first guess, adjusted in check_trigger if necessary
+                    canopy.STATVAR.LAI = canopy.PARA.LAI; % first guess, adjusted in check_trigger if necessary
                 end
             else
-                fLAI = 1; % No t_leafsprout assigned -> use assigned LAI
+                canopy.STATVAR.LAI = canopy.PARA.LAI; % No t_leafsprout assigned -> use assigned LAI
             end
-            canopy = build_canopy(canopy,fLAI);
+            canopy = build_canopy(canopy);
             canopy.PARA.leafsprout_period( isnan(canopy.PARA.leafsprout_period) | isempty(canopy.PARA.leafsprout_period) ) = 0; % If period is not given in nr. days, assume transition to take 0 days
             canopy.PARA.leaffall_period( isnan(canopy.PARA.leaffall_period) | isempty(canopy.PARA.leaffall_period)) = 0;
 
@@ -220,17 +221,21 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
                 
                 % 1. Leaf growth/scenesence
                 doy = tile.t - datenum(year(tile.t),1,1);
-                if doy >= canopy.PARA.t_leafsprout-canopy.PARA.leafsprout_period && canopy.STATVAR.LAI < canopy.PARA.LAI % Within leaf growing period
+                if doy >= canopy.PARA.t_leafsprout-canopy.PARA.leafsprout_period && doy <= canopy.PARA.t_leafsprout + canopy.PARA.adjust_timestep % Within leaf growing period
                     fLAI = min(1, 1-(canopy.PARA.t_leafsprout-doy) / canopy.PARA.leafsprout_period );
                     fLAI(canopy.PARA.leafsprout_period==0) = 1; % in case of discrete growth
-                    canopy = build_canopy(canopy, fLAI);
-                elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && canopy.STATVAR.LAI > 0 % Within leaf fall period
+                    canopy.STATVAR.LAI = canopy.PARA.LAI*fLAI;
+                    canopy = build_canopy(canopy);
+                elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && doy <= canopy.PARA.t_leaffall + canopy.PARA.adjust_timestep % Within leaf fall period
                     fLAI = max(0, (canopy.PARA.t_leaffall-doy) / canopy.PARA.leaffall_period );
                     fLAI(canopy.PARA.leaffall_period==0) = 0;
-                    canopy = build_canopy(canopy, fLAI);
+                    canopy.STATVAR.LAI = canopy.PARA.LAI*fLAI;
+                    canopy = build_canopy(canopy);
                 end
                 
                 % 2. Snow burial
+
+                
             end
 
             % Old code
