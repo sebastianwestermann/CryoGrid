@@ -218,19 +218,19 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             if tile.t >= canopy.TEMP.adjust_time % Make adjustments to canopy structure
                 canopy.TEMP.adjust_time = canopy.TEMP.adjust_time + canopy.PARA.adjust_timestep;
                 
-                % Leaf growth/scenesence
+                % 1. Leaf growth/scenesence
                 doy = tile.t - datenum(year(tile.t),1,1);
-                if doy >= canopy.PARA.t_leafsprout-canopy.PARA.leafsprout_period && doy <= canopy.PARA.t_leafsprout % Within leaf growing period
-                    fLAI = 1-(canopy.PARA.t_leafsprout-doy) / canopy.PARA.leafsprout_period;
+                if doy >= canopy.PARA.t_leafsprout-canopy.PARA.leafsprout_period && canopy.STATVAR.LAI < canopy.PARA.LAI % Within leaf growing period
+                    fLAI = min(1, 1-(canopy.PARA.t_leafsprout-doy) / canopy.PARA.leafsprout_period );
                     fLAI(canopy.PARA.leafsprout_period==0) = 1; % in case of discrete growth
                     canopy = build_canopy(canopy, fLAI);
-                elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && doy <= canopy.PARA.t_leaffall % Within leaf fall period
-                    fLAI = (canopy.PARA.t_leaffall-doy) / canopy.PARA.leaffall_period;
+                elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && canopy.STATVAR.LAI > 0 % Within leaf fall period
+                    fLAI = max(0, (canopy.PARA.t_leaffall-doy) / canopy.PARA.leaffall_period );
                     fLAI(canopy.PARA.leaffall_period==0) = 0;
                     canopy = build_canopy(canopy, fLAI);
                 end
                 
-                class()
+                % 2. Snow burial
             end
 
             % Old code
