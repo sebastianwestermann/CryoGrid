@@ -9,6 +9,7 @@ classdef VEGETATION < BASE
 
         function canopy = PFT_PARA(canopy)
             % Assign PFT specific parameters from: https://www2.cesm.ucar.edu/models/cesm2/land/CLM50_Tech_Note.pdf
+            % More PFTs can be added to the list
             if strcmp(canopy.PARA.PFT,'NDT boreal') || strcmp(canopy.PARA.PFT,'NET boreal')
                 canopy.PARA.Khi_L           = 0.01;
                 canopy.PARA.alpha_leaf_vis  = 0.07;
@@ -45,7 +46,7 @@ classdef VEGETATION < BASE
                 canopy.PARA.tau_leaf_nir    = 0.25;
                 canopy.PARA.tau_stem_vis    = 0.001;
                 canopy.PARA.tau_stem_nir    = 0.001;
-                canopy.PARA.R_z0            = 0.120;
+                canopy.PARA.R_z0            = 0.12;
                 canopy.PARA.R_d             = 0.68;
                 canopy.PARA.d_leaf          = 0.04;
             elseif strcmp(canopy.PARA.PFT,'C3 grass')
@@ -272,6 +273,32 @@ classdef VEGETATION < BASE
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
         end
 
+        function canopy = make_VEGETATION_CHILD(canopy, tile)
+            
+                surface = canopy.NEXT; % Can be GROUND or SNOW
+                classname = class(surface);
+                if strcmp(classname(1:4),'SNOW')
+                    ground = canopy.NEXT.NEXT;
+                else
+                    ground = surface;
+                end
+                
+                surface.PREVIOUS = canopy.PREVIOUS; %reassign surface
+                surface.PREVIOUS.NEXT = surface;
+                ground.VEGETATION = canopy; % VEGETATION can only be stored in GROUND
+
+                ia_class = get_IA_class(class(canopy.PREVIOUS),class(surface));
+                surface.IA_PREVIOUS = ia_class;
+                surface.PREVIOUS.IA_NEXT = ia_class;
+                surface.IA_PREVIOUS.NEXT = surface;
+                surface.IA_PREVIOUS.PREVIOUS = canopy.PREVIOUS;
+
+                % canopy.NEXT = []; % Needs to continue pointing to below
+                % class, otherwise check_trigger cannot finish while-loop
+                canopy.PREVIOUS = [];
+                canopy.IA_NEXT = [];
+                canopy.IA_PREVIOUS = [];
+        end
     end
 end
 

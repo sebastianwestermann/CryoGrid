@@ -17,6 +17,7 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
         function canopy = provide_PARA(canopy)
             canopy.PARA.PFT = [];
             canopy.PARA.adjust_timestep = [];
+            canopy.PARA.PAI_threshold = [];
             canopy.PARA.z_base = [];
             canopy.PARA.t_leafsprout = [];
             canopy.PARA.leafsprout_period = [];
@@ -156,6 +157,8 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.TEMP.d_water_energy = canopy.STATVAR.area.*0;
             canopy.TEMP.d_water_ET = canopy.STATVAR.area.*0;
             canopy.TEMP.d_water_ET_energy = canopy.STATVAR.area.*0;
+
+            canopy.TEMP.full_z_veg = tile.RUN_INFO.PPROVIDER.CLASSES.GRID_user_defined{1, 1}.PARA.grid.spacing(1);
         end
         
         %--------------- time integration ---------------------------------
@@ -225,16 +228,43 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
                     fLAI = min(1, 1-(canopy.PARA.t_leafsprout-doy) / canopy.PARA.leafsprout_period );
                     fLAI(canopy.PARA.leafsprout_period==0) = 1; % in case of discrete growth
                     canopy.STATVAR.LAI = canopy.PARA.LAI*fLAI;
-                    canopy = build_canopy(canopy);
                 elseif doy >= canopy.PARA.t_leaffall-canopy.PARA.leaffall_period && doy <= canopy.PARA.t_leaffall + canopy.PARA.adjust_timestep % Within leaf fall period
                     fLAI = max(0, (canopy.PARA.t_leaffall-doy) / canopy.PARA.leaffall_period );
                     fLAI(canopy.PARA.leaffall_period==0) = 0;
                     canopy.STATVAR.LAI = canopy.PARA.LAI*fLAI;
-                    canopy = build_canopy(canopy);
                 end
                 
                 % 2. Snow burial
+                classname = class(canopy.NEXT);
+                if strcmp(classname(1:4),'SNOW') % No snow burial unless SNOW is full class
+                    z_snow = sum(canopy.NEXT.STATVAR.layerThick);
+                    if strcmp(canopy.PARA.PFT(end-4:end),'grass')
+                        f_snow_veg = min(z_snow,0.2)/0.2; % Eq. 2.2
+                        canopy.STATVAR.LAI = canopy.STATVAR.LAI*(1-f_snow_veg);
+                        canopy.STATVAR.SAI = canopy.PARA.SAI*(1-f_snow_veg); 
+                        canopy.STATVAR.layerThick = canopy.TEMP.full_z_veg* canopy.STATVAR.SAI./canopy.PARA.SAI; % Adjust vegetation height
+                    else
+                        z_top = sum(canopy.STATVAR.layerThick); % Canopy height
+                        z_bot = canopy.PARA.z_base; % bottom of canopy
+                        f_snow_veg = max(0,z_snow-z_bot)/(z_top-z_bot); % Eq. 2.2
+                        f_snow_veg = min(1,f_snow_veg); % limit to [0, 1]
+                        canopy.STATVAR.LAI = canopy.STATVAR.LAI*(1-f_snow_veg); 
+                        canopy.STATVAR.SAI = canopy.PARA.SAI*(1-f_snow_veg); 
+                        canopy.STATVAR.layerThick = canopy.TEMP.full_z_veg-z_snow; % Adjust vegetation height
+                    end
+                else
+                    canopy.STATVAR.SAI = canopy.PARA.SAI; 
+                    canopy.STATVAR.layerThick = canopy.TEMP.full_z_veg;
+                end
 
+                % 3. Get properties (energy, heat capacity, waterIce, z0
+                % etc.) of adjusted canopy
+                canopy = build_canopy(canopy);
+            
+                % 4. Make vegetation child if below threshold
+                if canopy.STATVAR.LAI+canopy.STATVAR.SAI < canopy.PARA.PAI_threshold
+                    canopy = make_VEGETATION_CHILD(canopy, tile);
+                end
                 
             end
 
