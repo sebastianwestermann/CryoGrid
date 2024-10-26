@@ -60,6 +60,20 @@ classdef set_min_max < FORCING_base
         end
         
         
+        %----------------------------------------------
+        %perturb
+        function proc = preprocess(proc, forcing, tile)
+            
+        end
+        
+        function forcing = perturb_forcing(proc, forcing, tile)
+            
+            for i=1:size(proc.PARA.variables,1)
+               forcing.TEMP.(proc.PARA.variables{i,1}) = max(min(forcing.TEMP.(proc.PARA.variables{i,1}), proc.PARA.maximum(i,1)), proc.PARA.minimum(i,1));
+            end
+
+        end
+        
                 %-------------param file generation-----
 %         function post_proc = param_file_info(post_proc)
 %             post_proc = provide_PARA(post_proc);

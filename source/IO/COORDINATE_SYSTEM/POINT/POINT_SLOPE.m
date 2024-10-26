@@ -47,14 +47,14 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
             point.STATVAR.aspect = point.PARA.aspect;     
             point.STATVAR.skyview_factor = point.PARA.skyview_factor;
             
-%             point.PARA.horizon_angles = point.PARA.horizon_angles';
-            %append 360 degree
-            point.STATVAR.horizon_bins = [point.PARA.horizon_angles(:,1); 360];
-            point.STATVAR.horizon_angles = [point.PARA.horizon_angles(:,1); point.PARA.horizon_angles(1,1)];
-            
             if isempty(point.PARA.horizon_angles) || sum(isnan(point.PARA.horizon_angles(:)))>0
                 point.STATVAR.horizon_bins = [0; 360];
                 point.STATVAR.horizon_angles = [0; 0];
+            else
+                point.PARA.horizon_angles = point.PARA.horizon_angles';
+                %append 360 degree
+                point.STATVAR.horizon_bins = [point.PARA.horizon_angles(:,1); 360];
+                point.STATVAR.horizon_angles = [point.PARA.horizon_angles(:,2); point.PARA.horizon_angles(1,2)];
             end
             if isempty(point.PARA.skyview_factor) || sum(isnan(point.PARA.skyview_factor))>0
                 
@@ -86,6 +86,7 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
                 point.STATVAR.skyview_factor = trapz(azmRadian,qIntegrand)./pi;
                 
             end
+            
             
             
         end

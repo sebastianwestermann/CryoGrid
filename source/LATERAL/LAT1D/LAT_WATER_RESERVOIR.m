@@ -28,6 +28,7 @@ classdef LAT_WATER_RESERVOIR < BASE_LATERAL
             lateral.PARA.hardBottom_cutoff = []; %hard bottom if saturated and water content below
             lateral.PARA.distance_reservoir = []; 
             lateral.PARA.reservoir_contact_length = [];
+            lateral.PARA.relative2surface = 0;
         end
         
         function lateral = provide_STATVAR(lateral)
@@ -42,6 +43,17 @@ classdef LAT_WATER_RESERVOIR < BASE_LATERAL
         
         %only push function needed
         function lateral = push(lateral, tile)
+            
+            if lateral.PARA.relative2surface
+                CURRENT = lateral.PARENT.TOP.NEXT;
+                while ~(strcmp(class(CURRENT), 'Bottom')) && ~is_ground_surface(CURRENT)
+                    CURRENT = CURRENT.NEXT;
+                end
+                relative_reservoir_elevation = lateral.PARA.reservoir_elevation;
+                lateral.PARA.reservoir_elevation = lateral.PARA.reservoir_elevation + CURRENT.STATVAR.upperPos;
+            end
+            
+            
             CURRENT = lateral.PARENT.TOP.NEXT;
             lateral.TEMP.open_system = 1; %start with open system
             while ~(strcmp(class(CURRENT), 'Bottom'))
@@ -49,6 +61,11 @@ classdef LAT_WATER_RESERVOIR < BASE_LATERAL
                 CURRENT = compute_diagnostic(CURRENT, tile);
                 CURRENT = CURRENT.NEXT;
             end
+            
+            if lateral.PARA.relative2surface
+                 lateral.PARA.reservoir_elevation = relative_reservoir_elevation;
+            end
+            
         end
         
         function lateral = set_ACTIVE(lateral, i, t)

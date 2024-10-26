@@ -18,7 +18,7 @@ classdef LAT3D_HEAT < BASE_LATERAL
         end
         
         function lateral = provide_PARA(lateral)
-            lateral.PARA.ia_time_increment = []; %0.25; %must be a multiple of the time increment of the main lateral class
+            lateral.PARA.ia_time_increment = []; %must be a multiple of the time increment of the main lateral class
             %lateral.PARA.ia_time_next = [];
         end
         

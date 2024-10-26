@@ -83,7 +83,7 @@ classdef RUN_3D_POINT_SPINUP < matlab.mixin.Copyable
                         fn = fieldnames(run_info.SPATIAL.STATVAR);
                         for i=1:size(fn,1)
                             if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
-                                new_tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1})(run_info.PARA.worker_number,1);
+                                new_tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1})(:,run_info.PARA.worker_number);
                             end
                         end
 

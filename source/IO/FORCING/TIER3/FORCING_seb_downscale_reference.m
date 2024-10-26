@@ -28,7 +28,7 @@
 %
 %========================================================================
 
-classdef FORCING_seb_downscale_with_reference < FORCING_base_carrier_reference
+classdef FORCING_seb_downscale_reference < FORCING_base_carrier_reference
     
     methods
         

@@ -114,7 +114,11 @@ classdef IA_WATER < IA_BASE
                 (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
             
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
-            
+            %added SW April 2024 -prevent small timesteps when porosity is near zero 
+            saturation_previous(remaining_pore_space<1e-3) = 0;
+            % water =  ia_heat_water.PREVIOUS.STATVAR.water(end)./ia_heat_water.PREVIOUS.STATVAR.area(end);
+            % saturation_previous(water<1e-9) = 0;
+            %end added
 
             saturation_next = (ia_heat_water.NEXT.STATVAR.waterIce(1) - ia_heat_water.NEXT.STATVAR.field_capacity(1) .* ia_heat_water.NEXT.STATVAR.layerThick(1).*ia_heat_water.NEXT.STATVAR.area(1))./ ...
                 (ia_heat_water.NEXT.STATVAR.layerThick(1).*ia_heat_water.NEXT.STATVAR.area(1) - ia_heat_water.NEXT.STATVAR.mineral(1) - ia_heat_water.NEXT.STATVAR.organic(1) - ...

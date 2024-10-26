@@ -145,6 +145,16 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+        %---LAT3D_MASS_GLACIER------------------------------------------
+        function ground = lateral3D_pull_mass_GLACIER(ground, lateral)
+            
+        end
+        
+        function ground = lateral3D_push_mass_GLACIER(ground, lateral)
+            
+        end
+        
+        
         function ground = reset_timestamps(ground, tile)
             
         end

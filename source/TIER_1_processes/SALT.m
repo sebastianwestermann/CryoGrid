@@ -65,7 +65,7 @@ classdef SALT < BASE
             mineral = ground.STATVAR.mineral ./ ground.STATVAR.area ./ ground.STATVAR.layerThick;
             organic = ground.STATVAR.organic ./ ground.STATVAR.area ./ ground.STATVAR.layerThick;
             energy = ground.STATVAR.energy ./ ground.STATVAR.area ./ ground.STATVAR.layerThick ;
-            N = ground.STATVAR.saltConc./ ground.STATVAR.area ./ground.STATVAR.layerThick; %concentration per grid cell volume [mol/m3]
+            N = ground.STATVAR.saltConc./ ground.STATVAR.area ./ground.STATVAR.layerThick; %concentration per grid cell volume [mol/m3] CHECK, this should be mol ions per m3, not mol NaCl; so molarity of sea wter must be doubled
             
             A = 1 + c_i.*deltaT.*freeWaterIce./(waterIce.*L_f);            
             A1 = c_w.*waterIce + c_m.*mineral + c_o.*organic;            
@@ -131,7 +131,7 @@ classdef SALT < BASE
             organic = ground.STATVAR.organic ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
             waterIce = ground.STATVAR.waterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
 
-%             waterIce = ground.STATVAR.waterIce; % in volumetric fractions as provided byy the initialization 
+%             waterIce = ground.STATVAR.waterIce; % in volumetric fractions as provided by the initialization 
 %             mineral = ground.STATVAR.mineral;
 %             organic = ground.STATVAR.organic;
             area = ground.STATVAR.area;

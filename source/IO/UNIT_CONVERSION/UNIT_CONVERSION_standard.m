@@ -24,6 +24,20 @@ classdef UNIT_CONVERSION_standard < matlab.mixin.Copyable
             ground.STATVAR.organic = ground.STATVAR.organic .* ground.STATVAR.layerThick .* ground.STATVAR.area ./ (1 + ground.STATVAR.Xice);
             ground.STATVAR.XwaterIce = ground.STATVAR.Xice./ (1 + ground.STATVAR.Xice) .* ground.STATVAR.layerThick .* ground.STATVAR.area;
         end
+        
+        function ground = convert_Xice_GLACIER(unit_converter, ground, tile)
+            ground.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
+            ground.PARA.airT_height = tile.FORCING.PARA.airT_height;
+            ground.STATVAR.area = tile.PARA.area + ground.STATVAR.layerThick .* 0;
+
+            ground.STATVAR.layerThick_glacier = ground.STATVAR.glacier_fraction .* ground.STATVAR.layerThick;
+            ground.STATVAR.layerThick_sediment = ground.STATVAR.layerThick - ground.STATVAR.layerThick_glacier;
+
+            ground.STATVAR.waterIce = ground.STATVAR.ice_fraction .* ground.STATVAR.layerThick_glacier .* ground.STATVAR.area + ...
+                (1 - ground.STATVAR.mineral - ground.STATVAR.organic ) .*  ground.STATVAR.layerThick_sediment .* ground.STATVAR.area;
+            ground.STATVAR.mineral = ground.STATVAR.mineral .* ground.STATVAR.layerThick_sediment .* ground.STATVAR.area;
+            ground.STATVAR.organic = ground.STATVAR.organic .* ground.STATVAR.layerThick_sediment .* ground.STATVAR.area;              
+        end
 
         function ground = convert_normal_pressure(unit_converter, ground, tile)
             ground.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;

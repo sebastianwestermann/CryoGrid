@@ -1,5 +1,5 @@
 %========================================================================
-% CryoGrid SPATIAL_REFERENCE class POINT_3D_SIMPLE
+% CryoGrid SPATIAL_REFERENCE class POINT_3D_DEM
 % 3D POINT class designed to provide information for several 
 % coupled TILE classes that are run in parallel with the RUN_INFO class 
 % RUN_3D_POINT. The topological relationships between the TILE classes are
@@ -8,38 +8,28 @@
 % S. Westermann, Dec 2022
 %========================================================================
 
-classdef POINT_3D_SIMPLE < matlab.mixin.Copyable
+classdef POINT_3D_DEM < POINT_DEM
 
-    properties
-        RUN_INFO
-        PARA
-        CONST
-        STATVAR
-        TEMP
-        ACTION
-    end
     
     methods
         function point = provide_PARA(point)
-            point.PARA.number_of_tiles = []; %3;
+            point.PARA.number_of_tiles = [];     
             point.PARA.latitude = [];
             point.PARA.longitude = [];
-            point.PARA.altitude = []; 
             point.PARA.area = [];
             point.PARA.param_file_number = []; %[1;2;3];
-
+            
             point.PARA.connected = [];
             point.PARA.contact_length = [];
             point.PARA.distance = [];
             
-            %can be provided optionally
-%             %provide default values
-%             point.PARA.slope_angle = 0;     
-%             point.PARA.aspect = 0;     
-%             point.PARA.skyview_factor = 0;     
-%             point.PARA.horizon_bins = 0;
-%             point.PARA.horizon_angles = 0;
+            point.PARA.variables = []; % altitude or altitude, slope_angle, aspect or altitude, slope_angle, aspect, horizon_angles
             
+            point.PARA.number_of_horizon_bins = []; %multiples of 4!
+            point.PARA.DEM_folder = [];
+            point.PARA.DEM_filename = [];
+            point.PARA.reproject2utm = 1; %select 1 when using a geographic coordinate system and computing more than just altitude; select 0 to speed up altitde computation in big DEMs
+
         end
         
         function point = provide_STATVAR(point)
@@ -58,51 +48,64 @@ classdef POINT_3D_SIMPLE < matlab.mixin.Copyable
             point.PARA.horizon_bins = 0;
             point.PARA.horizon_angles = 0;
             
-            if size(point.PARA.latitude,1) == 1
+            point = read_DEM_raster(point);
+            
+            if size(point.PARA.latitude,1) == 1 && size(point.PARA.longitude,1) == 1
                 point.STATVAR.latitude = repmat(point.PARA.latitude, 1, point.PARA.number_of_tiles);
+                point.STATVAR.longitude = repmat(point.PARA.longitude, 1, point.PARA.number_of_tiles);
+                
+                %do the DEM analysis once and assign the values to all
+                %tiles
+                point = project_target_coordinates(point);
+                point = compute_global_offset_from_north(point);
+                
+                for i=1:size(point.PARA.variables,1)
+                    a = str2func(['get_' point.PARA.variables{i,1}]);
+                    point = a(point);
+                end
+                %then duplicate as normal
+                point.STATVAR.slope_angle = repmat(point.STATVAR.slope_angle, 1, point.PARA.number_of_tiles);
+                point.STATVAR.aspect = repmat(point.STATVAR.aspect, 1, point.PARA.number_of_tiles);
+                point.STATVAR.skyview_factor = repmat(point.STATVAR.skyview_factor, 1, point.PARA.number_of_tiles);
+                point.STATVAR.horizon_angles = repmat(point.STATVAR.horizon_angles, 1, point.PARA.number_of_tiles);
+                point.STATVAR.horizon_bins = repmat(point.STATVAR.horizon_bins, 1, point.PARA.number_of_tiles);
             else
                 point.STATVAR.latitude = point.PARA.latitude';
-            end
-            if size(point.PARA.longitude,1) == 1
-                point.STATVAR.longitude = repmat(point.PARA.longitude, 1, point.PARA.number_of_tiles);
-            else
                 point.STATVAR.longitude = point.PARA.longitude';
+                point.STATVAR.altitude = [];
+                point.STATVAR.slope_angle = [];
+                point.STATVAR.aspect = [];
+                point.STATVAR.skyview_factor = [];
+                point.STATVAR.horizon_angles = [];
+                point.STATVAR.horizon_bins = [];
+                
+                %do the DEM analysis for each worker
+                for j=1:size(point.STATVAR.latitude,2)
+                    point2 = copy(point);
+                    point2.PARA.latitude = point.PARA.latitude(j,1);
+                    point2.PARA.longitude = point.PARA.longitude(j,1);
+                    point2 = project_target_coordinates(point2);
+                    point2 = compute_global_offset_from_north(point2);
+                    for i=1:size(point2.PARA.variables,1)
+                        a = str2func(['get_' point2.PARA.variables{i,1}]);
+                        point2 = a(point2);
+                    end
+                    %assign from poin to point2
+                    point.STATVAR.altitude = [point.STATVAR.altitude point2.STATVAR.altitude];
+                    point.STATVAR.slope_angle = [point.STATVAR.slope_angle point2.STATVAR.slope_angle];
+                    point.STATVAR.aspect = [point.STATVAR.aspect point2.STATVAR.aspect];
+                    point.STATVAR.skyview_factor = [point.STATVAR.skyview_factor point2.STATVAR.skyview_factor];
+                    point.STATVAR.horizon_angles = [point.STATVAR.horizon_angles point2.STATVAR.horizon_angles];
+                    point.STATVAR.horizon_bins = [point.STATVAR.horizon_bins point2.STATVAR.horizon_bins];
+                end
             end
-            if size(point.PARA.altitude,1) == 1
-                point.STATVAR.altitude = repmat(point.PARA.altitude, 1, point.PARA.number_of_tiles);
-            else
-                point.STATVAR.altitude = point.PARA.altitude';
-            end
+
             if size(point.PARA.area,1) == 1
                 point.STATVAR.area = repmat(point.PARA.area, 1, point.PARA.number_of_tiles);
             else
                 point.STATVAR.area = point.PARA.area';
             end
-            if size(point.PARA.slope_angle,1) == 1
-                point.STATVAR.slope_angle = repmat(point.PARA.slope_angle, 1, point.PARA.number_of_tiles);
-            else
-                point.PARA.slope_angle = point.PARA.slope_angle';
-            end
-            if size(point.PARA.aspect,1) == 1
-                point.STATVAR.aspect = repmat(point.PARA.aspect, 1, point.PARA.number_of_tiles);
-            else
-                point.STATVAR.aspect = point.PARA.aspect';
-            end
-            if size(point.PARA.skyview_factor,1) == 1
-                point.STATVAR.skyview_factor = repmat(point.PARA.skyview_factor, 1, point.PARA.number_of_tiles);
-            else
-                point.STATVAR.skyview_factor = point.PARA.skyview_factor';
-            end
-            if size(point.PARA.horizon_angles,1) == 1
-                point.STATVAR.horizon_angles = repmat(point.PARA.horizon_angles, 1, point.PARA.number_of_tiles);
-            else
-                point.STATVAR.horizon_angles = point.PARA.horizon_angles';
-            end
-            if size(point.PARA.horizon_bins,1) == 1
-                point.STATVAR.horizon_bins = repmat(point.PARA.horizon_bins, 1, point.PARA.number_of_tiles);
-            else
-                point.STATVAR.horizon_bins = point.PARA.horizon_bins';
-            end
+            
         end
         
         

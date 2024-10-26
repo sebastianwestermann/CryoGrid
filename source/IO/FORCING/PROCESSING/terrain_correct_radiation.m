@@ -38,7 +38,9 @@ classdef terrain_correct_radiation < process_BASE
                         
             forcing = SolarAzEl(proc, forcing, tile);
             forcing = check_S_TOA(proc, forcing, tile);
-            forcing = split_Sin(proc, forcing, tile); % split Sin in dir and dif
+            if ~isfield(forcing.DATA, 'Sin_dir')
+                forcing = split_Sin(proc, forcing, tile); % split Sin in dir and dif
+            end
             forcing = terrain_corr_Sin_dif(proc, forcing, tile);
             forcing = reproject_Sin_dir(proc, forcing, tile);
             forcing = terrain_shade(proc, forcing, tile);

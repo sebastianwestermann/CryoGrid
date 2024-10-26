@@ -26,6 +26,16 @@ classdef WATER_FLUXES_LATERAL < BASE
             ground.STATVAR.Xwater(1) = 0;
         end
         
+        function ground = lateral_push_remove_surfaceWater_GLACIER_GROUND(ground, lateral)
+            lateral.STATVAR.surface_run_off = lateral.STATVAR.surface_run_off + ground.STATVAR.Xwater(1);
+            ground.STATVAR.XwaterIce(1) = ground.STATVAR.XwaterIce(1) - ground.STATVAR.Xwater(1);
+            ground.STATVAR.waterIce(1) = ground.STATVAR.waterIce(1) - ground.STATVAR.Xwater(1);
+            ground.STATVAR.energy(1) = ground.STATVAR.energy(1) - ground.STATVAR.Xwater(1) .*  ground.CONST.c_w .* ground.STATVAR.T(1);
+            ground.STATVAR.layerThick(1) = ground.STATVAR.layerThick(1) - ground.STATVAR.Xwater(1) ./ ground.STATVAR.area(1);
+            ground.STATVAR.Xwater(1) = 0;
+        end
+        
+        
         %--LAT_REMOVE_SUBSURFACE_WATER - removes subsurface water exceeding filed capacity, also works for Xice
         function ground = lateral_push_remove_subsurfaceWater_simple(ground, lateral)
             exceeding_field_capacity = ground.STATVAR.water > ground.STATVAR.field_capacity .* ground.STATVAR.layerThick .* ground.STATVAR.area;
@@ -130,6 +140,50 @@ classdef WATER_FLUXES_LATERAL < BASE
                 end
             end
 
+        end
+        
+        function ground = lateral_push_remove_water_seepage_GLACIER_GROUND(ground, lateral)
+            water_volumetric = ground.STATVAR.water ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            porosity = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.ice)./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            mobile = water_volumetric  > ground.STATVAR.field_capacity;
+            saturated = (ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic) ./ (ground.STATVAR.layerThick .* ground.STATVAR.area) > 0.999; %avoid rounding errors
+            hardBottom = (water_volumetric <= lateral.PARA.hardBottom_cutoff) & saturated;
+            
+            saturated = [saturated; 0]; %change later, so that first cell of next class is checked -> next class assumed to be hard-bottom now
+            hardBottom = [hardBottom; 1];
+            
+            depths = ground.STATVAR.upperPos - cumsum([0; ground.STATVAR.layerThick]);
+            fraction_above_out = min(1,max(0,(depths(1:end-1,1) - lateral.PARA.upperElevation) ./ ground.STATVAR.layerThick)); %fraction of cell above or below the seepage face
+            fraction_below_out = min(1,max(0, (lateral.PARA.lowerElevation - depths(2:end,1))  ./ ground.STATVAR.layerThick));
+
+            for i=1:size(ground.STATVAR.layerThick,1)
+                
+                %conditions: water in cell must be mobile AND next cell must be either saturated or hardBottom or threshold is reached
+                %head
+                if (mobile(i,1) && ~hardBottom(i,1)) && (saturated(i+1,1) || hardBottom(i+1,1) || fraction_below_out(i,1) > 0)
+                    saturated_height = (water_volumetric(i,1) - ground.STATVAR.field_capacity(i,1)) ./ (porosity(i,1) - ground.STATVAR.field_capacity(i,1)) .* ground.STATVAR.layerThick(i,1);
+                    saturated_height = max(0, saturated_height - fraction_below_out(i,1) .* ground.STATVAR.layerThick(i,1)); %seepage face threshold below
+                    lateral.TEMP.head = lateral.TEMP.head + saturated_height;                 
+                end
+                if hardBottom(i,1) %set head to zero if hard layer is reached
+                    lateral.TEMP.head = 0;
+                end
+
+                %flow
+                if lateral.TEMP.head >0  %avoid unnecessary computation 
+                    saturated_height = min(saturated_height , (1-fraction_above_out(i,1)) .* ground.STATVAR.layerThick(i,1)); %seepage face threshold above
+                    cross_section = lateral.PARA.seepage_contact_length .* saturated_height;
+                    
+                    
+                    flux = ground.STATVAR.hydraulicConductivity(i,1) .* (lateral.TEMP.head ./ lateral.PARA.distance_seepageFace .* cross_section);
+                    water_removed = min(max(0,ground.STATVAR.water(i,1) - ground.STATVAR.field_capacity(i,1) .* ground.STATVAR.layerThick(i,1) .* ground.STATVAR.area(i,1)), flux .* lateral.PARENT.IA_TIME_INCREMENT .* lateral.CONST.day_sec);
+                    ground.STATVAR.waterIce(i,1) = ground.STATVAR.waterIce(i,1) - water_removed;
+                    ground.STATVAR.energy(i,1) = ground.STATVAR.energy(i,1) - water_removed .* ground.STATVAR.T(i,1).* ground.CONST.c_w;
+                    ground.STATVAR.water(i,1) = ground.STATVAR.water(i,1) - water_removed;
+                    
+                    lateral.STATVAR.subsurface_run_off = lateral.STATVAR.subsurface_run_off + water_removed;
+                end
+            end
         end
         
         function ground = lateral_push_remove_water_seepage_snow(ground, lateral)
@@ -707,6 +761,98 @@ classdef WATER_FLUXES_LATERAL < BASE
             ground.STATVAR.layerThick(saturated) = ground.STATVAR.layerThick(saturated) - fluxes(saturated) ./ ground.STATVAR.area(saturated);
         end
         
+        function ground = lateral_push_water_reservoir_GLACIER_GROUND(ground, lateral)
+            water_volumetric = ground.STATVAR.water ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            porosity = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.ice)./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            mobile = water_volumetric  > ground.STATVAR.field_capacity;
+            saturated = (ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic) ./ (ground.STATVAR.layerThick .* ground.STATVAR.area) > 0.999; %avoid rounding errors
+            hardBottom = (water_volumetric <= lateral.PARA.hardBottom_cutoff) & saturated;
+            
+            saturated = [saturated; 0]; %change later, so that first cell of next class is checked -> next class assumed to be hard-bottom now
+            hardBottom = [hardBottom; 1];
+            
+            depths = ground.STATVAR.upperPos - cumsum([0; ground.STATVAR.layerThick]);
+
+            pore_space_below_reservoir = 0; %m3 - water than can be added 
+
+            %go down until hitting the water table or a hard bottom
+            i = 1;
+            while i <= size(ground.STATVAR.layerThick,1)
+                if ~hardBottom(i,1)
+                    fraction_below = min(1, max(0, (lateral.PARA.reservoir_elevation - depths(i+1,1)) ./ ground.STATVAR.layerThick(i,1)));
+               %     target_water = fraction_below .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1) - ground.STATVAR.ice(i,1)) + ...
+                %        (1-fraction_below) .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.mineral(i,1) - ground.STATVAR.organic(i,1) - ground.STATVAR.ice(i,1)) .* ground.PARA.field_capacity;
+                    target_water = fraction_below .* (ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1) - ground.STATVAR.ice(i,1)) + ...
+                        (1-fraction_below) .* max(0, ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1).* ground.STATVAR.field_capacity(i,1) - ground.STATVAR.ice(i,1));
+                    %water if the cell was filled up right to the reservoir elevation
+                    pore_space_below_reservoir = pore_space_below_reservoir + double(fraction_below>0) .* max(0, target_water - ground.STATVAR.water(i,1));
+                    
+                    if (saturated(i+1,1) || hardBottom(i+1,1))  %water table identified
+                        water_table_cell = i;
+                        height_saturated_zone = max(0, (water_volumetric(i,1) - ground.STATVAR.field_capacity(i,1)) ./ ...
+                            (porosity(i,1) - ground.STATVAR.field_capacity(i,1)) .* ground.STATVAR.layerThick(i,1));
+                        water_table_elevation = depths(i+1,1) + height_saturated_zone;  %absolute elevation of the water table
+
+                        delta_head = water_table_elevation - lateral.PARA.reservoir_elevation; %positive flux = outflow
+                        
+                        cross_section = lateral.PARA.reservoir_contact_length .* max(height_saturated_zone, 0.05);
+                        flux = ground.STATVAR.hydraulicConductivity(i,1) .* (delta_head ./ lateral.PARA.distance_reservoir .* cross_section);
+                        mobile_water_saturated_zone = max(0,(ground.STATVAR.water(i,1) - ground.STATVAR.field_capacity(i,1) .* ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1)));
+                        
+                        i=i+1;
+                        while (saturated(i,1) && ~hardBottom(i,1)) % 
+                            cross_section = lateral.PARA.reservoir_contact_length .* ground.STATVAR.layerThick(i,1);
+                            flux = flux + ground.STATVAR.hydraulicConductivity(i,1) .* (delta_head ./ lateral.PARA.distance_reservoir .* cross_section);
+                            mobile_water_saturated_zone = mobile_water_saturated_zone + max(0,(ground.STATVAR.water(i,1) - ground.STATVAR.field_capacity(i,1).* ground.STATVAR.layerThick(i,1).*ground.STATVAR.area(i,1)));
+
+                            i=i+1;
+                        end
+                        i=i-1; %counter at the last cell of the saturated zone
+                        
+                        %add/subtract flux bottom-up or top-down 
+                        flux = flux .* lateral.PARENT.IA_TIME_INCREMENT .* lateral.CONST.day_sec;
+                        flux = max(min(flux, mobile_water_saturated_zone), -pore_space_below_reservoir); %limit the fluxes to account for water or pore space limitation
+                        
+                        lateral.STATVAR.subsurface_run_off = lateral.STATVAR.subsurface_run_off + flux;
+                        
+                        j= water_table_cell;
+                        if flux > 0
+                            while flux>0 && j <= size(ground.STATVAR.water,1)
+                                water_removed = min(max(0,ground.STATVAR.water(j,1) - ground.STATVAR.field_capacity(j,1) .* ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1)), ...
+                                flux);
+                                flux = flux - water_removed;
+                                                    
+                                ground.STATVAR.waterIce(j,1) = ground.STATVAR.waterIce(j,1) - water_removed;
+                                ground.STATVAR.energy(j,1) = ground.STATVAR.energy(j,1) - water_removed .* ground.STATVAR.T(j,1).* ...
+                                    (ground.CONST.c_w .* double(ground.STATVAR.T(j,1)>=0) + ground.CONST.c_i .* double(ground.STATVAR.T(j,1)<0)) ;
+                                ground.STATVAR.water(j,1) = ground.STATVAR.water(j,1) - water_removed;
+
+                                j=j+1;
+                            end
+                        elseif flux <0
+                            while flux<0 && j>=1
+                                water_added = min(max(0,ground.STATVAR.layerThick(j,1) .* ground.STATVAR.area(j,1) - ground.STATVAR.waterIce(j,1)), -flux);
+                                flux = flux + water_added; %flux negative
+                                ground.STATVAR.waterIce(j,1) = ground.STATVAR.waterIce(j,1) + water_added;
+                                ground.STATVAR.energy(j,1) = ground.STATVAR.energy(j,1) + water_added .* ground.STATVAR.T(j,1).* ...
+                                    (ground.CONST.c_w .* double(ground.STATVAR.T(j,1)>=0) + ground.CONST.c_i .* double(ground.STATVAR.T(j,1)<0)) ;
+                                ground.STATVAR.water(j,1) = ground.STATVAR.water(j,1) + water_added;
+                                
+                                j=j-1;
+                            end
+                        end
+                        
+                        lateral.TEMP.open_system = 0;
+                        pore_space_below_reservoir = 0;
+                    end
+                else
+                    lateral.TEMP.open_system = 0;
+                    pore_space_below_reservoir = 0;
+                end
+                i = i+1;
+            end
+        end
+        
         function ground = lateral_push_water_reservoir_snow(ground, lateral)
             water_volumetric = ground.STATVAR.water ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             porosity = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.ice)./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
@@ -840,9 +986,9 @@ classdef WATER_FLUXES_LATERAL < BASE
         end
         
         function ground = lateral_push_water_overland_flow_SNOW_crocus2(ground, lateral)
-            if ground.STATVAR.T(1,1) == 0
+            if ground.STATVAR.T(1,1) >= 0
                 lateral.STATVAR.water_depth = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell);
-                lateral.STATVAR.max_flow = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell) .* ground.STATVAR.area(1,1) .* 0.25;
+                lateral.STATVAR.max_flow = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell) .* ground.STATVAR.area(1,1) .* 0.9;
                 lateral = gaucklerManningFlow(ground, lateral);
                 
                 ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) + lateral.STATVAR.flow;
@@ -856,9 +1002,9 @@ classdef WATER_FLUXES_LATERAL < BASE
         end
         
         function ground = lateral_push_water_overland_flow_XICE(ground, lateral)
-            if ground.STATVAR.Xice(1,1) <= 0
+            %if ground.STATVAR.Xice(1,1) <= 0
                 lateral.STATVAR.water_depth = max(0, ground.STATVAR.Xwater(1,1) ./ ground.STATVAR.area(1,1));
-                lateral.STATVAR.max_flow = max(0, ground.STATVAR.Xwater(1,1) .* 0.25);
+                lateral.STATVAR.max_flow = max(0, ground.STATVAR.Xwater(1,1) .* 0.9);
                 lateral = gaucklerManningFlow(ground, lateral);
                 
                 ground.STATVAR.XwaterIce(1,1) = max(0, ground.STATVAR.XwaterIce(1,1) + lateral.STATVAR.flow);
@@ -868,7 +1014,23 @@ classdef WATER_FLUXES_LATERAL < BASE
                 ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy;
                 
                 lateral.STATVAR.surface_flow = lateral.STATVAR.surface_flow - lateral.STATVAR.flow;
-            end
+          %  end
+        end
+        
+        function ground = lateral_push_water_overland_flow_GLACIER_GROUND(ground, lateral)
+            lateral.STATVAR.water_depth = max(0, ground.STATVAR.Xwater(1,1) ./ ground.STATVAR.area(1,1));
+            lateral.STATVAR.max_flow = max(0, ground.STATVAR.Xwater(1,1) .* 0.9);
+            lateral = gaucklerManningFlow(ground, lateral);
+            
+            ground.STATVAR.XwaterIce(1,1) = max(0, ground.STATVAR.XwaterIce(1,1) + lateral.STATVAR.flow);
+            ground.STATVAR.Xwater(1,1) = max(0, ground.STATVAR.Xwater(1,1) + lateral.STATVAR.flow);
+            ground.STATVAR.waterIce(1,1) = max(0, ground.STATVAR.waterIce(1,1) + lateral.STATVAR.flow);
+            
+            ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + lateral.STATVAR.flow ./ ground.STATVAR.area(1,1);
+            ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.STATVAR.flow_energy;
+            
+            lateral.STATVAR.surface_flow = lateral.STATVAR.surface_flow - lateral.STATVAR.flow;
+          
         end
         
         function ground = lateral_push_water_overland_flow_RichardsEq_pressure(ground, lateral)
@@ -1893,7 +2055,7 @@ classdef WATER_FLUXES_LATERAL < BASE
         function ground = lateral3D_pull_water_overland_flow_SNOW_crocus2(ground, lateral)
             if ground.STATVAR.T(1,1) == 0
                 lateral.PARENT.STATVAR.water_depth = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell);
-                lateral.PARENT.STATVAR.max_flow = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell) .* ground.STATVAR.area(1,1) .* 0.25;
+                lateral.PARENT.STATVAR.max_flow = max(0, ground.STATVAR.layerThick(1,1) - ground.STATVAR.layerThickSnowFirstCell) .* ground.STATVAR.area(1,1) .* 0.9;
                 lateral.PARENT.STATVAR.area_flow = ground.STATVAR.area(1,1);
             else
                 lateral.PARENT.STATVAR.water_depth = 0;
@@ -1906,7 +2068,7 @@ classdef WATER_FLUXES_LATERAL < BASE
         function ground = lateral3D_pull_water_overland_flow_XICE(ground, lateral)
             if ground.STATVAR.Xwater(1,1) > 0
                 lateral.PARENT.STATVAR.water_depth = max(0, ground.STATVAR.Xwater(1,1) ./ ground.STATVAR.area(1,1));
-                lateral.PARENT.STATVAR.max_flow = max(0, ground.STATVAR.XwaterIce(1,1) .* 0.25);
+                lateral.PARENT.STATVAR.max_flow = max(0, ground.STATVAR.Xwater(1,1) .* 0.9);
                 lateral.PARENT.STATVAR.area_flow = ground.STATVAR.area(1,1);
             else
                 lateral.PARENT.STATVAR.water_depth = 0;

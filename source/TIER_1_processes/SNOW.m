@@ -354,7 +354,7 @@ classdef SNOW < BASE
             rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*1000);
             gs = snow.STATVAR.gs;
             D = snow.STATVAR.layerThick;
-            W_liq = snow.STATVAR.water*1000;
+            W_liq = snow.STATVAR.water ./ snow.STATVAR.area .*1000; 
             T = snow.STATVAR.T;
             
             %sigma=9.81.*cosd(snow.PARA.slope).*rho.*D;
@@ -370,6 +370,26 @@ classdef SNOW < BASE
             eta=f1.*f2.*7.62237e6./250.*rho.*exp(-T.*0.1+ 0.023.*rho);
             
             snow.TEMP.compact_d_D = - sigma./eta.*D;
+        end
+        
+        function snow = compaction_firn(snow)
+            rho = max(50, snow.STATVAR.ice_fraction .*1000);
+            D = snow.STATVAR.layerThick_glacier;
+            W_liq = snow.STATVAR.water ./ snow.STATVAR.area ./ snow.STATVAR.layerThick; 
+            T = snow.STATVAR.T;
+            
+            sigma=9.81.*(snow.STATVAR.waterIce+snow.STATVAR.mineral+snow.STATVAR.organic) ./ snow.STATVAR.area .*1000;
+            sigma(end)=sum(sigma(1:end-1));
+            for i=size(sigma,1)-1:-1:2
+                sigma(i)=sigma(i+1)-sigma(i);
+            end
+            sigma(1)=0.5.*sigma(1);
+            
+            f1=(1+60.*W_liq).^(-1);
+            f2= 4;
+            eta=f1.*f2.*7.62237e6./250.*rho.*exp(-T.*0.1+ 0.023.*rho);
+            
+            snow.TEMP.compact_d_D = - sigma./eta.*D .* double(snow.STATVAR.ice_fraction < 1) ;
         end
         
         %advance prognostic variable for new snow falling during a timestep

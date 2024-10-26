@@ -46,6 +46,7 @@ classdef GROUND_freeW_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             ground.STATVAR.ice = []; %total volume of ice [m3]
             ground.STATVAR.air = [];  % total volume of air [m3] - NOT USED
             ground.STATVAR.thermCond = []; %thermal conductivity [W/mK]
+            ground.STATVAR.satHydraulicConductivity = []; %
             ground.STATVAR.hydraulicConductivity = []; % hydraulic conductivity [m/sec]
             
             ground.STATVAR.Lstar = []; %Obukhov length [m]

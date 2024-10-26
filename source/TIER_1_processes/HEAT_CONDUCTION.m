@@ -32,6 +32,14 @@ classdef HEAT_CONDUCTION < BASE
             timestep = ground.PARA.dE_max ./ (max(abs(ground.TEMP.d_energy) ./ ground.STATVAR.layerThick./ ground.STATVAR.area));
         end
         
+        function timestep = get_timestep_heat_conduction_ice(ground)
+            timestep = ground.PARA.dE_max ./ (abs(ground.TEMP.d_energy) ./ ground.STATVAR.layerThick./ ground.STATVAR.area);
+            melting = ground.STATVAR.T==0 & ground.TEMP.d_energy > 0;
+            timestep(melting) = max(timestep(melting), 0.25 .* ground.STATVAR.ice(melting) .* ground.CONST.L_f ./ abs(ground.TEMP.d_energy(melting)));
+            timestep = min(timestep);
+            
+        end
+        
         %----diagnostic functions---------
         %free water freeze curve
         function ground = get_T_water_freeW(ground)
@@ -162,11 +170,11 @@ classdef HEAT_CONDUCTION < BASE
             
             %additional term from Sun et al., 1999, increasing k for high
             %snow T
-            k1 = -0.06023;
-            k2 = 2.5425;
-            k3 = 289.99-273.15;
-            snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
-            
+%             k1 = -0.06023;
+%             k2 = 2.5425;
+%             k3 = 289.99-273.15;
+%             snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
+%             
         end
         
         function snow = conductivity_snow_Sturm(snow)

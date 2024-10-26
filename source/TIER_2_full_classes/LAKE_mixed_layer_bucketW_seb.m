@@ -4,10 +4,14 @@
 % energy balance, penetration of SW radiation (single band)
 % representation of frozen water body, works in concert with 
 % LAKE_simple_unfrozen_bucketW_seb for unfrozen water body
+% based on
+% https://gmd.copernicus.org/articles/12/473/2019/gmd-12-473-2019.pdf  and
+% https://hess.copernicus.org/articles/23/4969/2019/hess-23-4969-2019.pdf
+% (shear mixing enhancement of thermal conductivity)
 % S. Westermann, October 2020
 %========================================================================
 
-classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES & REGRID & HEAT_FLUXES_LATERAL 
+classdef LAKE_mixed_layer_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES & REGRID & HEAT_FLUXES_LATERAL 
 
     
     methods
@@ -16,15 +20,6 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         %----initialization--------------------
         
 
-         %initializes class when switching from unfrozen to frozen conditions
-         function ground = initialize_from_LAKE_previous_season(ground, LAKE_simple_unfrozen)
-            ground.PARA = LAKE_simple_unfrozen.PARA;
-            ground.CONST = LAKE_simple_unfrozen.CONST;
-            ground.STATVAR = LAKE_simple_unfrozen.STATVAR;
-            %change the STATVAR
-            ground = create_stratigraphy_from_STATVAR(ground);
-            ground.PARA.next_season_lake_class = class(LAKE_simple_unfrozen);
-         end
         
         function ground = provide_PARA(ground)
             
@@ -38,7 +33,6 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
             ground.PARA.dt_max = [];  %maximum possible timestep [sec]
             ground.PARA.dE_max = [];  %maximum possible energy change per timestep [J/m3]
             
-            ground.PARA.next_season_lake_class = [];  %LAKE class that is called by check_trigger, in this case unfozen LAKE class
             ground.PARA.threshold_water = []; %lake depth below which a trigger is called. LAKE is generally removed, depending on GROUND class below 
         end
         
@@ -87,14 +81,14 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
             
             ground.CONST.rho_w = []; % water density
             ground.CONST.rho_i = []; %ice density
+            
+            ground.CONST.coeff_mix_conv = 0.125;
+            ground.CONST.coeff_wind_stir = 0.23;
+            ground.CONST.coeff_mix_turb = 0.51;
+            ground.CONST.coef_wind_drag = 0.0013;
         end
         
         
-%         function ground = provide_variables(ground)  %initializes the subvariables as empty arrays
-%             ground = provide_PARA(ground); 
-%             ground = provide_CONST(ground);
-%             ground = provide_STATVAR(ground);
-%         end
 
         function ground = convert_units(ground, tile)
             unit_converter = str2func(tile.PARA.unit_conversion_class);
@@ -103,15 +97,13 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         end
         
         function ground = finalize_init(ground, tile)
-%             ground.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
-%             ground.PARA.airT_height = tile.FORCING.PARA.airT_height;
-%             ground.STATVAR.area = tile.PARA.area + ground.STATVAR.T .* 0;
-%             
+          
             ground = get_E_freeW(ground);            
             
             ground.STATVAR.Lstar = -100;
             ground.STATVAR.Qh = 0;
             ground.STATVAR.Qe = 0;
+            ground.TEMP.energy_avail_mix = 0;
             
             ground.TEMP.d_energy = ground.STATVAR.energy.*0;
             ground.TEMP.d_water = ground.STATVAR.energy.*0;
@@ -124,29 +116,6 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
 
         end
         
-        function ground = create_stratigraphy_from_STATVAR(ground)  %create stratigraphy of ice-covered water body, with ice layer on top and cells belwo at 0 degree C 
-
-            ground = regrid_full(ground, {'layerThick'; 'waterIce'; 'mineral'; 'organic'});
-            
-            ground.STATVAR.area = ground.STATVAR.area + ground.STATVAR.layerThick .*0;
-            
-            energy_total = ground.STATVAR.energy; 
-            ground.STATVAR.energy = ground.STATVAR.layerThick .*0;
-            %assign energy top-down to separate ice from water
-            i=1;
-            while energy_total < 0
-                ground.STATVAR.energy(i,1) = max(energy_total, -ground.STATVAR.waterIce(i,1).*ground.CONST.L_f);
-                energy_total = energy_total - ground.STATVAR.energy(i,1);
-                i=i+1;
-            end
-        
-            ground = get_T_water_freeW(ground);
-            ground = conductivity(ground);  %thermal conductivity of water
-            
-            ground.TEMP.d_energy = ground.STATVAR.energy.*0;
-            ground.TEMP.d_water = ground.STATVAR.energy.*0;
-            ground.TEMP.d_water_energy = ground.STATVAR.energy.*0;
-        end
         
         
         %---time integration------
@@ -154,7 +123,8 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         function ground = get_boundary_condition_u(ground, tile)
             forcing = tile.FORCING;
             ground = surface_energy_balance(ground, forcing);
-            ground = get_boundary_condition_u_water_LAKE_frozen(ground, forcing);
+            ground = get_boundary_condition_u_water_LAKE_mixed_layer(ground, forcing); %CHECK AND CHANGE HERE
+            ground.TEMP.wind = forcing.TEMP.wind;
         end
         
         function [ground, S_up] = penetrate_SW(ground, S_down)  %mandatory function when used with class that features SW penetration
@@ -199,12 +169,34 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         end
        
         function ground = compute_diagnostic(ground, tile)
-            
-            ground = move_ice_up(ground);
-            ground = stratify_simple(ground);
-            ground = regrid_merge(ground, {'layerThick'; 'energy'; 'waterIce'; 'mineral'; 'organic'}, {'area'; 'thermCond'}, 'waterIce');
+            a=sum(ground.STATVAR.energy);
+            eold = ground.STATVAR;
+            ground = move_ice_up2(ground);
+            if abs(a-sum(ground.STATVAR.energy))>10
+               dkfellkerg 
+            end
             ground = get_T_water_freeW(ground);
-            ground = conductivity(ground);
+            ground = stratify_surface_mixed_layer(ground, tile);
+            if abs(a-sum(ground.STATVAR.energy))>10
+               dkfellkerg 
+            end
+            ground = regrid_merge(ground, {'layerThick'; 'energy'; 'waterIce'; 'mineral'; 'organic'}, {'area'; 'thermCond'}, 'waterIce');   
+            if abs(a-sum(ground.STATVAR.energy))>10
+               dkfellkerg 
+            end
+            ground = regrid_split_first_cell(ground, {'energy'; 'layerThick'; 'waterIce'; 'mineral'; 'organic'}, {'area'; 'thermCond'});
+            if abs(a-sum(ground.STATVAR.energy))>10
+               dkfellkerg 
+            end
+            
+            ground = get_T_water_freeW(ground);
+            ground = conductivity(ground); %molecular condution
+            ground = shear_mixing(ground, tile); %enhances diffusivity in case of wind
+           
+
+            if abs(a-sum(ground.STATVAR.energy))>10
+               dkfellkerg 
+            end
             
             ground.TEMP.d_energy = ground.STATVAR.energy.*0;
             ground.TEMP.d_water = ground.STATVAR.energy.*0;
@@ -213,42 +205,8 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         
         
         function ground = check_trigger(ground, tile)
-            trigger_yes_no = 0;
-            if sum(double(ground.STATVAR.energy<0),1)==0  && strcmp(class(ground.PREVIOUS), 'Top')  %all cells unfrozen and no more snow cover on top, switch to LAKE_unfrozen class
-                %Change second condition, so that snow is combined with lake
-                trigger_yes_no = 1;
-                ia_create_next_season_lake = get_IA_class(class(ground), ground.PARA.next_season_lake_class); %delivers IA-class that creates and initializes the next season LAKE class
-                lake_next_season = create_annihilate(ia_create_next_season_lake, ground);
-                
-                %get the interaction classes from above and below
-                lake_next_season.NEXT = ground.NEXT;
-                lake_next_season.PREVIOUS = ground.PREVIOUS;
-                lake_next_season.PREVIOUS.NEXT = lake_next_season;
-                lake_next_season.NEXT.PREVIOUS = lake_next_season;
-                %ground (CURRENT) still points to NEXT, so CURRENT.NEXT
-                %will advance to the next - then it should be
-                %automatically handled by the garbage collection, since
-                %there is no more pointer from any active variable to it
-                
-                %assemble new INTERACTIONS
-                if ~strcmp(class(lake_next_season.PREVIOUS), 'Top')
-                    ia_class = get_IA_class(class(lake_next_season.PREVIOUS), class(lake_next_season));
-                    lake_next_season.IA_PREVIOUS = ia_class;
-                    lake_next_season.IA_PREVIOUS.NEXT = lake_next_season;
-                    lake_next_season.IA_PREVIOUS.PREVIOUS = lake_next_season.PREVIOUS;
-                    lake_next_season.PREVIOUS.IA_NEXT = ia_class;
-                end
-                if ~strcmp(class(lake_next_season.NEXT), 'Bottom')
-                    ia_class = get_IA_class(class(lake_next_season), class(lake_next_season.NEXT));
-                    lake_next_season.IA_NEXT = ia_class;
-                    lake_next_season.IA_NEXT.PREVIOUS = lake_next_season;
-                    lake_next_season.IA_NEXT.NEXT = lake_next_season.NEXT;
-                    lake_next_season.NEXT.IA_PREVIOUS = ia_class;
-                end
-            end
             
-            if ~trigger_yes_no & sum(ground.STATVAR.waterIce./ground.STATVAR.area ,1) < ground.PARA.threshold_water 
-                trigger_yes_no = 1;
+            if sum(ground.STATVAR.waterIce./ground.STATVAR.area ,1) < ground.PARA.threshold_water 
                 trigger_remove_LAKE(ground.IA_NEXT, tile);
             end
 
@@ -288,52 +246,7 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         end
 
         
-        %----inherited Tier 1 functions ------------
-        
-        function ground = get_derivative_energy(ground)
-           ground = get_derivative_energy@HEAT_CONDUCTION(ground); 
-        end
-        
-        function ground = conductivity_mixing_squares(ground)
-            ground = conductivity_mixing_squares@HEAT_CONDUCTION(ground);
-        end
-        
-        function flux = Q_h(ground, forcing)
-           flux = Q_h@SEB(ground, forcing);
-        end
-    
-        function flux = Q_eq(ground, forcing)
-            flux = Q_eq@SEB(ground, forcing);
-        end
-        
-        function [ground, S_up] = penetrate_SW_transmission_bulk(ground, S_down)
-            [ground, S_up] = penetrate_SW_transmission_bulk@SEB(ground, S_down);
-        end
-        
-        function timestep = get_timestep_heat_coduction(ground)
-            timestep = get_timestep_heat_coduction@HEAT_CONDUCTION(ground);
-        end
-        
-        function ground = L_star(ground, forcing)
-           ground = L_star@SEB(ground, forcing); 
-        end
-        
-        function ground = get_T_water_freeW(ground)
-            ground = get_T_water_freeW@HEAT_CONDUCTION(ground);
-        end
-        
-        function ground = stratify_simple(ground)
-            ground = stratify_simple@LAKE(ground);
-        end
-        
-        function ground = regrid_full(ground, variable_list)
-            ground = regrid_full@REGRID(ground, variable_list);
-        end
-        
-%         function ground = regrid_split(ground, variable_list)
-%             ground = regrid_split@REGRID(ground, variable_list);
-%         end
-        
+
         
         %-------------param file generation-----
         function ground = param_file_info(ground)

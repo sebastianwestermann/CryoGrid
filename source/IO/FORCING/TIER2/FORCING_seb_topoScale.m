@@ -51,7 +51,6 @@ classdef FORCING_seb_topoScale < FORCING_base
             forcing.PARA.snow_fraction = [];  %snowfall fraction assumed in sumulations (snowfall from the forcing data file is multiplied by this parameter)
             forcing.PARA.all_rain_T = [];     % Temperature above which all precipitation is considered as rain
             forcing.PARA.all_snow_T = [];     % Temperature below which all precipitation is considered as snow
-            forcing.PARA.albedo_surrounding_terrain = [];
             forcing.PARA.heatFlux_lb = [];  % heat flux at the lower boundary [W/m2] - positive values correspond to energy gain
             forcing.PARA.airT_height = [];  % height above ground at which air temperature (and wind speed!) from the forcing data are applied.
             
@@ -81,7 +80,7 @@ classdef FORCING_seb_topoScale < FORCING_base
             forcing.PARA.proc_class_index = [];
             forcing = finalize_init@FORCING_base(forcing,tile);
             
-            proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
+            proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale2'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             
             for i=1:size(proc_functions,1)
                 proc = str2func(proc_functions{i,1});

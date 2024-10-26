@@ -252,6 +252,19 @@ classdef WATER_FLUXES < BASE
             ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
         end
         
+        function ground = get_boundary_condition_u_water_LAKE_mixed_layer(ground, forcing)
+            rainfall = forcing.TEMP.rainfall ./ 1000 ./ 24 ./3600 .* ground.STATVAR.area(1);  
+            snowfall = (forcing.TEMP.snowfall ./ 1000 ./ 24 ./3600 .* ground.STATVAR.area(1)) .* double(ground.STATVAR.energy(1,1)>=0);
+            ground.TEMP.F_ub_water = rainfall + snowfall;
+            
+            T_rainWater =  max(0,forcing.TEMP.Tair);
+            T_snow = min(0,forcing.TEMP.Tair);
+            ground.TEMP.F_ub_water_energy = rainfall .* ground.CONST.c_w .* T_rainWater + snowfall .* (ground.CONST.c_i .* T_snow - ground.CONST.L_f); 
+            
+            ground.TEMP.d_water(1) = ground.TEMP.d_water(1) + ground.TEMP.F_ub_water;
+            ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
+        end
+        
         %zero water flux lower boundary condition
         function ground = get_boundary_condition_l_water2(ground)
             ground.TEMP.F_lb_water = 0;
@@ -324,9 +337,7 @@ classdef WATER_FLUXES < BASE
             
             guaranteed_flow = ground.TEMP.d_water_ET;  %add other external fluxes here
             guaranteed_flow_energy = ground.TEMP.d_water_ET_energy;
-            
-            %saturation(10)-1
-            
+                        
             %outflow
             d_water_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; % area cancels out; make this depended on both involved cells? 
             guaranteed_inflow = guaranteed_flow.* double(guaranteed_flow > 0); 
@@ -400,6 +411,29 @@ classdef WATER_FLUXES < BASE
             ground.TEMP.d_Xwater_energy = ground.TEMP.d_Xwater_energy - d_Xwater_out_energy + d_Xwater_in_energy;
             %ground.TEMP.d_Xwater_energy(1) = ground.TEMP.d_Xwater_energy(1) + ground.TEMP.F_ub_Xwater_energy;
         end
+
+        function ground = get_derivative_Xwater_GLACIER_GROUND(ground)  %routes Xwater up when Xice has melted
+            %saturation = ground.STATVAR.Xwater ./ ground.STATVAR.area ./ (ground.PARA.hydraulicConductivity .* ground.PARA.dt_max);
+            %saturation = max(0,min(1,saturation)); % 0 no Xwater, 1: water routed up within maximum timestep
+            d_Xwater_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; %  .* reduction_factor_out(saturation, ground); 
+            d_Xwater_out(1,1) = 0; %Xwater stays in uppermost cell, must be removed elesewhere
+            
+            d_Xwater_out(d_Xwater_out > 0) = min(d_Xwater_out(d_Xwater_out > 0), ground.STATVAR.Xwater(d_Xwater_out > 0) ./ ground.PARA.dt_max); %makes explicit timestep check unnecessary
+
+            d_Xwater_in = d_Xwater_out .*0;
+            d_Xwater_in(1:end-1) = d_Xwater_out(2:end); % .* double(ground.STATVAR.T(1:end-1)>0); % water can only be taken up by unfrozen cells, important for lateral Xice melt (e.g. palsa case)
+            
+            d_Xwater_out(2:end) = d_Xwater_in(1:end-1); %reduce outflow if inflow is impossible
+            
+            d_Xwater_out_energy = d_Xwater_out .* ground.CONST.c_w .* ground.STATVAR.T;
+            d_Xwater_in_energy = d_Xwater_out .*0;
+            d_Xwater_in_energy(1:end-1) = d_Xwater_out_energy(2:end);
+            
+            ground.TEMP.d_Xwater = ground.TEMP.d_Xwater - d_Xwater_out + d_Xwater_in; 
+            %ground.TEMP.d_Xwater(1) = ground.TEMP.d_Xwater(1) + ground.TEMP.F_ub_Xwater;
+            ground.TEMP.d_Xwater_energy = ground.TEMP.d_Xwater_energy - d_Xwater_out_energy + d_Xwater_in_energy;
+            %ground.TEMP.d_Xwater_energy(1) = ground.TEMP.d_Xwater_energy(1) + ground.TEMP.F_ub_Xwater_energy;
+        end
         
         %bucketW hydrological scheme for SNOW classes
         function ground = get_derivative_water_SNOW(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
@@ -416,8 +450,15 @@ classdef WATER_FLUXES < BASE
             d_water_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; % area cancels out; make this depended on both involved cells?
             d_water_out = d_water_out .* reduction_factor_out(saturation, ground); %this is positive when flowing out
             d_water_out(end,1) = 0; % lower boundary handled elsewhere
-            %d_water_out(end,1) = -ground.TEMP.F_lb_water; %positive
             
+            %New SW - no outflow if overall water content is small, this
+            %matters only when the pore space is very small, since the
+            %saturation can still be high in this case, which would lead to very small
+            %timesteps
+            vol_water = ground.STATVAR.water ./ (ground.STATVAR.layerThick.*ground.STATVAR.area);
+            d_water_out(vol_water <= 1e-4) = 0;
+            % end new
+
             %inflow
             d_water_in = d_water_out .*0;
             d_water_in(2:end) = d_water_out(1:end-1);
@@ -1268,7 +1309,7 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
             saturation = max(0,min(1,saturation));
             ice_saturation = ground.STATVAR.ice ./ (ground.STATVAR.layerThick.*ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic);
             ice_saturation = max(0,min(1,ice_saturation));
-            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico     
+            ground.STATVAR.hydraulicConductivity = ground.STATVAR.satHydraulicConductivity .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico     
         end
         
         %bucketW
@@ -1326,10 +1367,30 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
 
         end
         
-        %SNOW classes
+        
+        function ground = hydraulic_conductivity_GLACIER_GROUND(ground)
+            
+            ground.STATVAR.hydraulicConductivity = ground.STATVAR.layerThick .* 0;
+            glacier = ground.STATVAR.layerThick_glacier > 0;
+            pore_space = 1 - (ground.STATVAR.ice(glacier) + ground.STATVAR.mineral(glacier) + ground.STATVAR.organic(glacier)) ./ ground.STATVAR.layerThick(glacier) ./ ground.STATVAR.area(glacier);
+            pore_space = pore_space .* double(pore_space > 0.05);
+%             ground.STATVAR.hydraulicConductivity(glacier) = ground.PARA.hydraulicConductivity_glacier .* (0.95 - min(0.95,ground.STATVAR.ice_fraction(glacier)))./0.95;
+            ground.STATVAR.hydraulicConductivity(glacier) = ground.PARA.hydraulicConductivity_glacier .* pore_space;
+            
+            saturation = ground.STATVAR.water(~glacier) ./ (ground.STATVAR.layerThick(~glacier).*ground.STATVAR.area(~glacier) - ground.STATVAR.mineral(~glacier) - ground.STATVAR.organic(~glacier));
+            saturation = max(0,min(1,saturation));
+            ice_saturation = ground.STATVAR.ice(~glacier) ./ (ground.STATVAR.layerThick(~glacier).*ground.STATVAR.area(~glacier) - ground.STATVAR.mineral(~glacier) - ground.STATVAR.organic(~glacier));
+            ice_saturation = max(0,min(1,ice_saturation));
+            ground.STATVAR.hydraulicConductivity(~glacier) = ground.STATVAR.satHydraulicConductivity_sediment(~glacier) .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico
+            
+         end
+        
+         %SNOW classes
         function ground = calculate_hydraulicConductivity_SNOW(ground)
-            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* ground.STATVAR.water./ground.STATVAR.layerThick./ground.STATVAR.area;   
+            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* max(0.1, ground.STATVAR.water./ground.STATVAR.layerThick./ground.STATVAR.area);   
         end
+        
+        
         
         %viscosity
         function ground = calculate_viscosity_water(ground)
