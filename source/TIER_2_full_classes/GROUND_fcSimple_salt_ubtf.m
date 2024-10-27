@@ -91,7 +91,7 @@ classdef GROUND_fcSimple_salt_ubtf < HEAT_CONDUCTION & SALT & HEAT_FLUXES_LATERA
             ground.STATVAR.area = tile.PARA.area + ground.STATVAR.T .* 0;
             
             % calculate energy, water and ice contents and brine salt concentration
-            ground = get_E_water_salt_FreezeDepress_Xice(ground); 
+            ground = get_E_water_salt_freeW(ground); 
 
             ground = conductivity(ground); % calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
@@ -142,7 +142,7 @@ classdef GROUND_fcSimple_salt_ubtf < HEAT_CONDUCTION & SALT & HEAT_FLUXES_LATERA
             forcing = tile.FORCING;
             
             % calculate temperature, water and ice contents and brine salt concentration 
-            ground = get_T_water_salt_fcSimple_Xice(ground); 
+            ground = get_T_water_salt_freeW(ground); 
             
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 

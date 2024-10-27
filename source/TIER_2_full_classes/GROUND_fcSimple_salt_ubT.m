@@ -82,7 +82,7 @@ classdef GROUND_fcSimple_salt_ubT < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL 
                 ground.PARA.conductivity_function = 'conductivity_mixing_squares';
             end
             
-            ground = get_E_water_salt_FreezeDepress_Xice(ground); %calculate energy, water and ice contents and brine salt concentration
+            ground = get_E_water_salt_freeW(ground); %calculate energy, water and ice contents and brine salt concentration
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
 
@@ -94,7 +94,7 @@ classdef GROUND_fcSimple_salt_ubT < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL 
         
         function ground = finalize_init2(ground, tile)
 
-            ground = get_E_water_salt_FreezeDepress_Xice(ground); %calculate energy, water and ice contents and brine salt concentration
+            ground = get_E_water_salt_freeW(ground); %calculate energy, water and ice contents and brine salt concentration
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
 
@@ -142,7 +142,7 @@ classdef GROUND_fcSimple_salt_ubT < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL 
         end
        
         function ground = compute_diagnostic(ground, tile)
-            ground = get_T_water_salt_fcSimple_Xice(ground); % calculate temperature, water and ice contents and brine salt concentration 
+            ground = get_T_water_salt_freeW(ground); % calculate temperature, water and ice contents and brine salt concentration 
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
 

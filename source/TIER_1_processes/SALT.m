@@ -114,6 +114,63 @@ classdef SALT < BASE
             ground.STATVAR.salt_c_brine = salt_c_brine;
         end
         
+        function ground = get_T_water_salt_freeW(ground)
+            
+            L_f = ground.CONST.L_f;
+            c_w = ground.CONST.c_w;
+            c_i = ground.CONST.c_i;
+            c_o = ground.CONST.c_o;
+            c_m = ground.CONST.c_m;
+            R = ground.CONST.R;
+            Tmfw = ground.CONST.Tmfw;
+            
+            waterIce = ground.STATVAR.waterIce ./ ground.STATVAR.area ./ ground.STATVAR.layerThick;
+            mineral = ground.STATVAR.mineral ./ ground.STATVAR.area ./ ground.STATVAR.layerThick;
+            organic = ground.STATVAR.organic ./ ground.STATVAR.area ./ ground.STATVAR.layerThick;
+            energy = ground.STATVAR.energy ./ ground.STATVAR.area ./ ground.STATVAR.layerThick ;
+            n = ground.STATVAR.saltConc./ ground.STATVAR.area ./ground.STATVAR.layerThick; %concentration per grid cell volume [mol/m3] CHECK, this should be mol ions per m3, not mol NaCl; so molarity of sea wter must be doubled
+            
+            A1 = c_w.*waterIce + c_m.*mineral + c_o.*organic;            
+            A2 = c_i.*waterIce + c_m.*mineral + c_o.*organic;            
+            A3 = c_w - c_i;            
+            A4 = waterIce .* L_f;            
+            B = R.* Tmfw.^2;
+            
+            %quadratic equation in Tm, the onset of freezing temperature
+            %a*Tm^2 + b*Tm + c = 0
+            
+            %zero-th order terms
+            c = - n .* B;
+            
+            %first order terms
+            b = - n .* A3 .* B ./ L_f - energy - A4;
+            
+            %second-order terms
+            a = A2;
+            
+            Tm_2 = (-b + sqrt(b.^2 - 4.*a.*c)) ./ (2.*a);
+            Tm_1 = (-b - sqrt(b.^2 - 4.*a.*c)) ./ (2.*a); %this is the right branch of the two solutions
+            
+            E_f = - A1 .* n ./ waterIce .* R.* Tmfw.^2 ./ L_f; %freezing T
+            
+            T = double(energy >= E_f) .* energy ./(c_w .*waterIce + c_m.*mineral + c_o.*organic) + ...
+                double(energy < E_f) .* Tm_1;
+            
+            water = double(energy >= E_f) .* waterIce + double(energy < E_f) .* - n ./ T .* R .* Tmfw.^2 ./ L_f;
+            water(isnan(water)) = waterIce(isnan(water));
+            ice = waterIce - water;
+            
+            ground.STATVAR.T = T;
+            ground.STATVAR.ice = ice .* ground.STATVAR.layerThick .*  ground.STATVAR.area;
+            ground.STATVAR.water = water .* ground.STATVAR.area .* ground.STATVAR.layerThick;
+            
+            salt_c_brine = n ./ water;
+            salt_c_brine(isnan(salt_c_brine))=0;
+            ground.STATVAR.salt_c_brine = salt_c_brine;
+        end
+        
+        
+        
         function ground = get_E_water_salt_FreezeDepress_Xice(ground) %used during initialization to calculate initial state for energy, water, salt concetrations
             
             L_f = ground.CONST.L_f;
@@ -191,6 +248,48 @@ classdef SALT < BASE
             ground.STATVAR.saltConc = N .* ground.STATVAR.layerThick .* ground.STATVAR.area;  % [mol]
             
             salt_c_brine = N ./ water;  % [mol/m3]
+            salt_c_brine(isnan(salt_c_brine))=0;
+            ground.STATVAR.salt_c_brine = salt_c_brine;
+        end
+        
+        
+        function ground = get_E_water_salt_freeW(ground) %used during initialization to calculate initial state for energy, water, salt concetrations
+            
+            L_f = ground.CONST.L_f;
+            c_w = ground.CONST.c_w;
+            c_i = ground.CONST.c_i;
+            c_o = ground.CONST.c_o;
+            c_m = ground.CONST.c_m;
+            R = ground.CONST.R;
+            Tmfw = ground.CONST.Tmfw;
+            
+            mineral= ground.STATVAR.mineral ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            organic = ground.STATVAR.organic ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            waterIce = ground.STATVAR.waterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+
+            T = ground.STATVAR.T;
+            
+            n = ground.STATVAR.saltConc.*waterIce; %salt concentration per grid cell
+            
+            A1 = c_w.*waterIce + c_m.*mineral + c_o.*organic;
+            A2 = c_i.*waterIce + c_m.*mineral + c_o.*organic;
+            
+            T_f = - n ./ waterIce .* R.* Tmfw.^2 ./ L_f;
+            E_f =  A1 .* T_f; %freezing T
+            
+            water = double(T >= T_f) .* waterIce + double(T < T_f) .* - n ./ T .* R.* Tmfw.^2 ./ L_f;
+            ice = waterIce - water;
+            energy = double(T >= T_f) .* A1 .* T + double(T < T_f) .*  (E_f + (T - T_f) .* A2 - L_f .* ice);
+
+            ground.STATVAR.energy = energy .* ground.STATVAR.layerThick .* ground.STATVAR.area;
+            ground.STATVAR.water = water .*  ground.STATVAR.layerThick .* ground.STATVAR.area;
+            ground.STATVAR.ice = ice .* ground.STATVAR.layerThick .* ground.STATVAR.area;
+
+            ground.STATVAR.air = ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.waterIce - ground.STATVAR.mineral - ground.STATVAR.organic;
+            
+            ground.STATVAR.saltConc = n .* ground.STATVAR.layerThick .* ground.STATVAR.area;  % [mol]
+            
+            salt_c_brine = n ./ water;  % [mol/m3]
             salt_c_brine(isnan(salt_c_brine))=0;
             ground.STATVAR.salt_c_brine = salt_c_brine;
         end
