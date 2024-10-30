@@ -135,20 +135,23 @@ classdef extend_carrier_random_months < process_BASE
                     forcing.CARRIER.DATA.(variables{i,1}) = [ forcing_after.(variables{i,1})];
                 end
             else
-                forcing.CARRIER.TEMP.start_time_original_forcing = forcing.CARRIER.DATA.timeForcing(1,1);
-                forcing.CARRIER.TEMP.end_time_original_forcing = forcing.CARRIER.DATA.timeForcing(end,1);
-                end_pos = find(abs(forcing_before.timeForcing(:,1) - (forcing.CARRIER.DATA.timeForcing(1,1)-timestep)) <timestep/100);
-                forcing.CARRIER.TEMP.start_id_original_forcing = end_pos+1;
-                forcing.CARRIER.DATA.true_timeForcing = [forcing_before.true_timeForcing(1:end_pos,1); forcing.CARRIER.DATA.timeForcing];
-                for i=1:size(variables,1)
-                    forcing.CARRIER.DATA.(variables{i,1}) = [forcing_before.(variables{i,1})(1:end_pos,1); forcing.CARRIER.DATA.(variables{i,1})];
+                if ~isempty(forcing_before.timeForcing)
+                    forcing.CARRIER.TEMP.start_time_original_forcing = forcing.CARRIER.DATA.timeForcing(1,1);
+                    forcing.CARRIER.TEMP.end_time_original_forcing = forcing.CARRIER.DATA.timeForcing(end,1);
+                    end_pos = find(abs(forcing_before.timeForcing(:,1) - (forcing.CARRIER.DATA.timeForcing(1,1)-timestep)) <timestep/100);
+                    forcing.CARRIER.TEMP.start_id_original_forcing = end_pos+1;
+                    forcing.CARRIER.DATA.true_timeForcing = [forcing_before.true_timeForcing(1:end_pos,1); forcing.CARRIER.DATA.timeForcing];
+                    for i=1:size(variables,1)
+                        forcing.CARRIER.DATA.(variables{i,1}) = [forcing_before.(variables{i,1})(1:end_pos,1); forcing.CARRIER.DATA.(variables{i,1})];
+                    end
                 end
-                
-                start_pos = find(abs(forcing_after.timeForcing(:,1) - (forcing.CARRIER.DATA.timeForcing(end,1) + timestep)) <timestep/100);
-                forcing.CARRIER.TEMP.end_id_original_forcing = size(forcing.CARRIER.DATA.timeForcing,1);
-                forcing.CARRIER.DATA.true_timeForcing = [forcing.CARRIER.DATA.true_timeForcing; forcing_after.true_timeForcing(start_pos:end,1)];
-                for i=1:size(variables,1)
-                    forcing.CARRIER.DATA.(variables{i,1}) = [forcing.CARRIER.DATA.(variables{i,1}); forcing_after.(variables{i,1})(start_pos:end,1)];
+                if ~isempty(forcing_after.timeForcing)
+                    start_pos = find(abs(forcing_after.timeForcing(:,1) - (forcing.CARRIER.DATA.timeForcing(end,1) + timestep)) <timestep/100);
+                    forcing.CARRIER.TEMP.end_id_original_forcing = size(forcing.CARRIER.DATA.timeForcing,1);
+                    forcing.CARRIER.DATA.true_timeForcing = [forcing.CARRIER.DATA.timeForcing; forcing_after.true_timeForcing(start_pos:end,1)];
+                    for i=1:size(variables,1)
+                        forcing.CARRIER.DATA.(variables{i,1}) = [forcing.CARRIER.DATA.(variables{i,1}); forcing_after.(variables{i,1})(start_pos:end,1)];
+                    end
                 end
             end
             
