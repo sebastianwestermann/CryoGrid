@@ -10,10 +10,7 @@
 classdef clip2start_end_time < process_BASE 
     
     properties
-        CONST
-        PARA
-        STATVAR
-        TEMP
+
     end
     
     methods
@@ -38,10 +35,10 @@ classdef clip2start_end_time < process_BASE
         
         
         function forcing = process(proc, forcing, tile)
-                range = find(forcing_class.DATA.timeForcing>=start_time & forcing_class.DATA.timeForcing <= forcing.PARA.end_time);
-                variable_list = fieldnames(forcing_class.DATA);
+                range = find(forcing.DATA.timeForcing>=forcing.PARA.start_time & forcing.DATA.timeForcing <= forcing.PARA.end_time);
+                variable_list = fieldnames(forcing.DATA);
                 for i=1:size(variable_list,1)
-                    forcing.DATA.(variable_list{i,1}) = forcing_class.DATA.(variable_list{i,1})(range,1);
+                    forcing.DATA.(variable_list{i,1}) = forcing.DATA.(variable_list{i,1})(range,1);
                 end  
         end
         

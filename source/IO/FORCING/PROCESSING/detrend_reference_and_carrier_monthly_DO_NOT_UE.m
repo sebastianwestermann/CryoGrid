@@ -1,4 +1,3 @@
-
 %========================================================================
 % CryoGrid FORCING processing class detrend_reference_and_carrier
 %
@@ -13,7 +12,7 @@ classdef detrend_reference_and_carrier_monthly < process_BASE
     methods
         function proc = provide_PARA(proc)
 %            proc.PARA.number_of_segments_carrier = []; 
-          
+            proc.PARA.detrend_interval = [];
             proc.PARA.variables = [];
             proc.PARA.relative_correction = [];
         end
@@ -41,13 +40,31 @@ classdef detrend_reference_and_carrier_monthly < process_BASE
                 forcing.CARRIER.STATVAR.(proc.PARA.variables{i,1}).year_points = [];
                 forcing.CARRIER.STATVAR.(proc.PARA.variables{i,1}).variable_points = [];
                 forcing.CARRIER.STATVAR.(proc.PARA.variables{i,1}).variable_trend = [];
-                monthly_averages = zeros(year(forcing.CARRIER.DATA.timeForcing(end,1))-year(forcing.CARRIER.DATA.timeForcing(1,1))+1,12).*NaN;
-                monthly_averages_detrended = zeros(year(forcing.CARRIER.DATA.timeForcing(end,1))-year(forcing.CARRIER.DATA.timeForcing(1,1))+1,12).*NaN;
-                year_vector = [year(forcing.CARRIER.DATA.timeForcing(1,1)):year(forcing.CARRIER.DATA.timeForcing(end,1))]';
-                y = year(forcing.CARRIER.DATA.timeForcing(1,1));
-                m = month(forcing.CARRIER.DATA.timeForcing(1,1));
+%                 monthly_averages = zeros(year(forcing.CARRIER.DATA.timeForcing(end,1))-year(forcing.CARRIER.DATA.timeForcing(1,1))+1,12).*NaN;
+%                 monthly_averages_detrended = zeros(year(forcing.CARRIER.DATA.timeForcing(end,1))-year(forcing.CARRIER.DATA.timeForcing(1,1))+1,12).*NaN;
+%                 year_vector = [year(forcing.CARRIER.DATA.timeForcing(1,1)):year(forcing.CARRIER.DATA.timeForcing(end,1))]';
+%                 y = year(forcing.CARRIER.DATA.timeForcing(1,1));
+%                 m = month(forcing.CARRIER.DATA.timeForcing(1,1));
+%                 year_count = 1;
+%                 while datenum(y,m,1) <= datenum(year(forcing.CARRIER.DATA.timeForcing(end,1)), month(forcing.CARRIER.DATA.timeForcing(end,1)),1)
+%                     monthly_averages(year_count,m) = mean(forcing.CARRIER.DATA.(proc.PARA.variables{i,1})(forcing.CARRIER.DATA.timeForcing>=datenum(y,m,1) & forcing.CARRIER.DATA.timeForcing<datenum(y,m+1,1),1));
+%                     
+%                     m=m+1;
+%                     if m==13
+%                         y=y+1;
+%                         year_count = year_count+1;
+%                         m=1;
+%                     end
+%                 end
+                
+                %changed Nov 
+                monthly_averages = zeros(proc.PARA.detrend_interval(2)-proc.PARA.detrend_interval(1)+1,12).*NaN;
+                monthly_averages_detrended = zeros(proc.PARA.detrend_interval(2)-proc.PARA.detrend_interval(1)+1,12).*NaN;
+                year_vector = [proc.PARA.detrend_interval(1):proc.PARA.detrend_interval(2)]';
+                y = proc.PARA.detrend_interval(1);
+                m = 1;
                 year_count = 1;
-                while datenum(y,m,1) <= datenum(year(forcing.CARRIER.DATA.timeForcing(end,1)), month(forcing.CARRIER.DATA.timeForcing(end,1)),1)
+                while datenum(y,m,1) <= datenum(proc.PARA.detrend_interval(2), 12, 31)
                     monthly_averages(year_count,m) = mean(forcing.CARRIER.DATA.(proc.PARA.variables{i,1})(forcing.CARRIER.DATA.timeForcing>=datenum(y,m,1) & forcing.CARRIER.DATA.timeForcing<datenum(y,m+1,1),1));
                     
                     m=m+1;
@@ -94,7 +111,8 @@ classdef detrend_reference_and_carrier_monthly < process_BASE
                 y = year(forcing.CARRIER.DATA.timeForcing(1,1));
                 m = month(forcing.CARRIER.DATA.timeForcing(1,1));
                 year_count = 1;
-                while datenum(y,m,1) <= datenum(year(forcing.CARRIER.DATA.timeForcing(end,1)), month(forcing.CARRIER.DATA.timeForcing(end,1)),1)
+                while datenum(y,m,1) <= datenum(proc.PARA.detrend_interval(2), 12, 31)
+%                                     while datenum(y,m,1) <= datenum(year(forcing.CARRIER.DATA.timeForcing(end,1)), month(forcing.CARRIER.DATA.timeForcing(end,1)),1)
                     if ~proc.PARA.relative_correction(i,1)
                     forcing.CARRIER.DATA.(proc.PARA.variables{i,1})(forcing.CARRIER.DATA.timeForcing>=datenum(y,m,1) & forcing.CARRIER.DATA.timeForcing<datenum(y,m+1,1),1) = ...
                         forcing.CARRIER.DATA.(proc.PARA.variables{i,1})(forcing.CARRIER.DATA.timeForcing>=datenum(y,m,1) & forcing.CARRIER.DATA.timeForcing<datenum(y,m+1,1),1) - forcing.CARRIER.STATVAR.(proc.PARA.variables{i,1}).variable_trend(year_count,m);
@@ -245,3 +263,4 @@ classdef detrend_reference_and_carrier_monthly < process_BASE
     end
     
 end
+

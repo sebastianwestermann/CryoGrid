@@ -101,6 +101,10 @@ classdef FORCING_seb_downscale_reference < FORCING_base_carrier_reference
             carrier_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.carrier_forcing_class){forcing.PARA.carrier_forcing_class_index,1});
             carrier_class = finalize_init(carrier_class, tile);
             carrier_class.DATA.timeForcing = carrier_class.DATA.timeForcing - forcing.PARA.offset_from_GMT_carrier ./ 24;
+%             carrier_class.PARA.start_time = datenum(forcing.PARA.overlap_interval(1), 1,1);
+%             carrier_class.PARA.end_time = datenum(forcing.PARA.overlap_interval(2)+1, 1,1)-0.01;
+%             proc = clip2start_end_time(); %clip carrier to overlap interval
+%             carrier_class = process(proc, carrier_class, tile);
             forcing.CARRIER = carrier_class;
             
             reference_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.reference_forcing_class){forcing.PARA.reference_forcing_class_index,1});
@@ -134,6 +138,9 @@ classdef FORCING_seb_downscale_reference < FORCING_base_carrier_reference
                     proc.PARA.variables = {'Tair'; 'precip'; 'Lin'; 'wind'; 'Sin'; 'RH'};
                     proc.PARA.relative_correction =[0; 1; 0; 1;	1; 1];
                 end
+%                  if strcmp(proc_functions{i,1}, 'detrend_reference_and_carrier_monthly') 
+%                     proc.PARA.detrend_interval = forcing.PARA.overlap_interval;
+%                 end
                 if strcmp(proc_functions{i,1}, 'fit_TRANSFORM')
                     proc.PARA.variables	={'Tair'; 'precip'; 'Lin'; 'RH'; 'Sin'; 'wind'};
                     proc.PARA.overlap_target_interval = {'month';'month'; 'month'; 'month'; 'month'; 'month'};
