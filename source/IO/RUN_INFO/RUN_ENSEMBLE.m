@@ -19,7 +19,7 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
 
             
             run_info.PARA.ensemble_size = []; 
-
+            run_info.PARA.parallel = [];
             run_info.PARA.tile_class = [];
             run_info.PARA.tile_class_index = [];
 
@@ -58,32 +58,59 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
         
         
         function [run_info, tile] = run_model(run_info)
-
-            parpool(run_info.PARA.ensemble_size)
-            spmd
-                run_info.PARA.worker_number = labindex;
-                                
-                %read worker-specific parameter file
-                %run_info.PPROVIDER = read_parameters(run_info.PPROVIDER);
-                                
-                tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
-                tile.RUN_INFO = run_info;
-                run_info.TILE = tile;
-                
-                fn = fieldnames(run_info.SPATIAL.STATVAR);
-                for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
-                    if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
-                        tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+            
+            if run_info.PARA.parallel
+                parpool(run_info.PARA.ensemble_size)
+                spmd
+                    run_info.PARA.worker_number = labindex;
+                    
+                    %read worker-specific parameter file
+                    %run_info.PPROVIDER = read_parameters(run_info.PPROVIDER);
+                    
+                    tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
+                    tile.RUN_INFO = run_info;
+                    run_info.TILE = tile;
+                    
+                    fn = fieldnames(run_info.SPATIAL.STATVAR);
+                    for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+                        if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
+                            tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+                        end
                     end
+                    
+                    tile.PARA.worker_number = run_info.PARA.worker_number;
+                    tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+                    tile = finalize_init(tile);
+                    
+                    tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+                    
+                    tile = run_model(tile);  %time integration
                 end
                 
-                tile.PARA.worker_number = run_info.PARA.worker_number;
-                tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
-                tile = finalize_init(tile);
+            else
                 
-                tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
-                
-                tile = run_model(tile);  %time integration
+                for i=1:run_info.PARA.ensemble_size
+                    run_info.PARA.worker_number = i;
+                    
+                    tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
+                    tile.RUN_INFO = run_info;
+                    run_info.TILE = tile;
+                    
+                    fn = fieldnames(run_info.SPATIAL.STATVAR);
+                    for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+                        if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
+                            tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+                        end
+                    end
+                    
+                    tile.PARA.worker_number = run_info.PARA.worker_number;
+                    tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+                    tile = finalize_init(tile);
+                    
+                    tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+                    
+                    tile = run_model(tile);  %time integration
+                end
             end
         end
  

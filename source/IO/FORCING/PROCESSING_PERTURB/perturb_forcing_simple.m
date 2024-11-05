@@ -30,7 +30,18 @@ classdef perturb_forcing_simple < matlab.mixin.Copyable
         end
         
         function forcing = process(proc, forcing, tile)
-            %fill in with below for forcing.DATA correction!
+            sky_emissivity = forcing.DATA.Lin ./ (forcing.DATA.Tair+273.15).^4 ./ proc.CONST.sigma;
+            forcing.DATA.Tair = forcing.DATA.Tair + proc.PARA.Tair_bias;
+            forcing.DATA.Lin = sky_emissivity .* proc.CONST.sigma .* (forcing.DATA.Tair+273.15).^4;
+            forcing.DATA.Sin = forcing.DATA.Sin .* (1 + proc.PARA.Sin_rel_error);
+            
+            total_precip = forcing.DATA.rainfall + forcing.DATA.snowfall;
+            forcing.DATA.rainfall = total_precip .* (double(forcing.DATA.Tair >= proc.PARA.all_rain_T) + ...
+                double(forcing.DATA.Tair > proc.PARA.all_snow_T & forcing.DATA.Tair < proc.PARA.all_rain_T) .* ...
+                (forcing.DATA.Tair - proc.PARA.all_snow_T) ./ max(1e-12, (proc.PARA.all_rain_T - proc.PARA.all_snow_T)));
+            forcing.DATA.snowfall = total_precip - forcing.DATA.rainfall;
+            forcing.DATA.snowfall = forcing.DATA.snowfall .* proc.PARA.snow_fraction;
+            forcing.DATA.rainfall = forcing.DATA.rainfall .* proc.PARA.rain_fraction;
         end
         
         %----------------------------------------------
