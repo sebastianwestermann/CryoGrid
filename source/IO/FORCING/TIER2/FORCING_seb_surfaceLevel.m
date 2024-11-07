@@ -86,6 +86,8 @@ classdef FORCING_seb_surfaceLevel < FORCING_base
                 proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'interpolate_sl_ERA'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             elseif strcmp(forcing.PARA.data_product, 'MET_NORDIC')
                 proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'interpolate_sl_MET'; 'calculate_q_from_RH'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
+            elseif strcmp(forcing.PARA.data_product, 'NORA3')
+                proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'interpolate_sl_NORA3'; 'calculate_q_from_RH'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             end
             
             for i=1:size(proc_functions,1)

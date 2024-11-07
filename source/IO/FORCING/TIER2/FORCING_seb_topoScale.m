@@ -53,7 +53,7 @@ classdef FORCING_seb_topoScale < FORCING_base
             forcing.PARA.all_snow_T = [];     % Temperature below which all precipitation is considered as snow
             forcing.PARA.heatFlux_lb = [];  % heat flux at the lower boundary [W/m2] - positive values correspond to energy gain
             forcing.PARA.airT_height = [];  % height above ground at which air temperature (and wind speed!) from the forcing data are applied.
-            
+            forcing.PARA.data_product = []; %ERA5 (default when left empty) and NORA3
             forcing.PARA.post_proc_class = [];  %optional post-processing classes
             forcing.PARA.post_proc_class_index = [];
         end
@@ -72,6 +72,10 @@ classdef FORCING_seb_topoScale < FORCING_base
         
         function forcing = finalize_init(forcing, tile)
 
+            if isempty(forcing.PARA.data_product) || sum(isnan(forcing.PARA.data_product))>0
+                forcing.PARA.data_product = 'ERA5';
+            end
+            
             forcing.PARA.is_slope = 0;
             forcing.PARA.overwrite = 0;
             forcing.PARA.spatial_class = [];
@@ -79,8 +83,12 @@ classdef FORCING_seb_topoScale < FORCING_base
             forcing.PARA.proc_class = [];
             forcing.PARA.proc_class_index = [];
             forcing = finalize_init@FORCING_base(forcing,tile);
+            if strcmp(forcing.PARA.data_product, 'ERA5')
+                proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale2'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
+            elseif strcmp(forcing.PARA.data_product, 'NORA3')
+                proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale_NORA3'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
+            end
             
-            proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale2'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             
             for i=1:size(proc_functions,1)
                 proc = str2func(proc_functions{i,1});
