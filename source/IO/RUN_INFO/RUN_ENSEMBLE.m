@@ -22,6 +22,7 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
             run_info.PARA.parallel = [];
             run_info.PARA.tile_class = [];
             run_info.PARA.tile_class_index = [];
+            run_info.PARA.number_of_runs_per_tile = []; %vector
 
             run_info.PARA.point_class = [];
             run_info.PARA.point_class_index = [];
@@ -56,6 +57,16 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
         end
         
         
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         function [run_info, tile] = run_model(run_info)
             
@@ -65,26 +76,52 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
                     run_info.PARA.worker_number = labindex;
                     
                     %read worker-specific parameter file
-                    %run_info.PPROVIDER = read_parameters(run_info.PPROVIDER);
                     
-                    tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
-                    tile.RUN_INFO = run_info;
-                    run_info.TILE = tile;
-                    
-                    fn = fieldnames(run_info.SPATIAL.STATVAR);
-                    for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
-                        if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
-                            tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+                    for i=1:size(run_info.PARA.tile_class,1)
+                        disp(['running tile number ' num2str(i)])
+                        for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
+                            disp(['running round ' num2str(j)])
+                            
+                            new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
+                            fn = fieldnames(run_info.SPATIAL.STATVAR);
+                            for k=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+                                if ~isempty(run_info.SPATIAL.STATVAR.(fn{k,1}))
+                                    new_tile.PARA.(fn{k,1}) = run_info.SPATIAL.STATVAR.(fn{k,1});
+                                end
+                            end
+                            new_tile.RUN_INFO = run_info;
+                            new_tile.PARA.worker_number = run_info.PARA.worker_number;
+                            new_tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+                            new_tile = finalize_init(new_tile);
+                            
+                            new_tile.PARA.run_name = [new_tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+                            
+                            tile = new_tile;
+                            run_info.TILE = tile;
+                            
+                            tile = run_model(tile);  %time integration
                         end
                     end
                     
-                    tile.PARA.worker_number = run_info.PARA.worker_number;
-                    tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
-                    tile = finalize_init(tile);
                     
-                    tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
-                    
-                    tile = run_model(tile);  %time integration
+%                     tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
+%                     tile.RUN_INFO = run_info;
+%                     run_info.TILE = tile;
+%                     
+%                     fn = fieldnames(run_info.SPATIAL.STATVAR);
+%                     for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+%                         if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
+%                             tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+%                         end
+%                     end
+%                     
+%                     tile.PARA.worker_number = run_info.PARA.worker_number;
+%                     tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+%                     tile = finalize_init(tile);
+%                     
+%                     tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+%                     
+%                     tile = run_model(tile);  %time integration
                 end
                 
             else
@@ -92,24 +129,51 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
                 for i=1:run_info.PARA.ensemble_size
                     run_info.PARA.worker_number = i;
                     
-                    tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
-                    tile.RUN_INFO = run_info;
-                    run_info.TILE = tile;
-                    
-                    fn = fieldnames(run_info.SPATIAL.STATVAR);
-                    for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
-                        if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
-                            tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+                    for i=1:size(run_info.PARA.tile_class,1)
+                        disp(['running tile number ' num2str(i)])
+                        for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
+                            disp(['running round ' num2str(j)])
+                            
+                            new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
+                            fn = fieldnames(run_info.SPATIAL.STATVAR);
+                            for k=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+                                if ~isempty(run_info.SPATIAL.STATVAR.(fn{k,1}))
+                                    new_tile.PARA.(fn{k,1}) = run_info.SPATIAL.STATVAR.(fn{k,1});
+                                end
+                            end
+                            new_tile.RUN_INFO = run_info;
+                            new_tile.PARA.worker_number = run_info.PARA.worker_number;
+                            new_tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+                            new_tile = finalize_init(new_tile);
+                            
+                            new_tile.PARA.run_name = [new_tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+                            
+                            tile = new_tile;
+                            run_info.TILE = tile;
+                            
+                            tile = run_model(tile);  %time integration
                         end
                     end
                     
-                    tile.PARA.worker_number = run_info.PARA.worker_number;
-                    tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
-                    tile = finalize_init(tile);
                     
-                    tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
-                    
-                    tile = run_model(tile);  %time integration
+%                     tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class){run_info.PARA.tile_class_index,1});
+%                     tile.RUN_INFO = run_info;
+%                     run_info.TILE = tile;
+%                     
+%                     fn = fieldnames(run_info.SPATIAL.STATVAR);
+%                     for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+%                         if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
+%                             tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
+%                         end
+%                     end
+%                     
+%                     tile.PARA.worker_number = run_info.PARA.worker_number;
+%                     tile.PARA.ensemble_size = run_info.PARA.ensemble_size;
+%                     tile = finalize_init(tile);
+%                     
+%                     tile.PARA.run_name = [tile.PARA.run_name '_' num2str(run_info.PARA.worker_number)];
+%                     
+%                     tile = run_model(tile);  %time integration
                 end
             end
         end
