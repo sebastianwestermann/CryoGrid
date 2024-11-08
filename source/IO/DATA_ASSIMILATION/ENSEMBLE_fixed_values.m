@@ -48,25 +48,25 @@ classdef ENSEMBLE_fixed_values < ENSEMBLE_general
             
             index=[];
             if isempty(ensemble.PARA.variables2_names) || sum(isnan(ensemble.PARA.variables2_values(:)))>0
-                for i=1:size(ensemble.PARA.variables1_names,1)
+                for i=1:size(ensemble.PARA.variables1_values,1)
                     index=[index; [i]];
                 end
             elseif isempty(ensemble.PARA.variables3_names) || sum(isnan(ensemble.PARA.variables3_values(:)))>0
-                for i=1:size(ensemble.PARA.variables1_names,1)
-                    for j=1:size(ensemble.PARA.variables2_names,1)
+                for i=1:size(ensemble.PARA.variables1_values,1)
+                    for j=1:size(ensemble.PARA.variables2_values,1)
                         index=[index; [i j]];
                     end
                 end
             else
-                for i=1:size(ensemble.PARA.variables1_names,1)
-                    for j=1:size(ensemble.PARA.variables2_names,1)
-                        for k=1:size(ensemble.PARA.variables3_names,1)
+                for i=1:size(ensemble.PARA.variables1_values,1)
+                    for j=1:size(ensemble.PARA.variables2_values,1)
+                        for k=1:size(ensemble.PARA.variables3_values,1)
                             index=[index; [i j k]];
                         end
                     end
                 end
             end
-
+            
             index = index(tile.PARA.worker_number,:);
 
             for i=1:size(ensemble.PARA.variables1_names,1)
