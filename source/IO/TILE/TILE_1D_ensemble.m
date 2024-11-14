@@ -9,6 +9,7 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
         RUN_INFO
         FORCING
         CONST
+        TEMP
         GRID
         OUT 
         STORE
@@ -517,7 +518,12 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.BOTTOM_CLASS = tile.RUN_INFO.TILE.BOTTOM_CLASS;
             tile.TOP_CLASS = tile.RUN_INFO.TILE.TOP_CLASS;
             tile.timestep = tile.RUN_INFO.TILE.timestep;
-            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL;            
+            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL;     
+            tile.STORE = tile.RUN_INFO.TILE.STORE;     
+            tile.ENSEMBLE = tile.RUN_INFO.TILE.ENSEMBLE;     
+            tile.DA = tile.RUN_INFO.TILE.DA;
+
+            
             
             %use old PARA, but overwrite all newly set values
             PARA_new = tile.PARA;
@@ -530,17 +536,33 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.FORCING = finalize_init(tile.FORCING, tile); 
             tile.OUT = finalize_init(tile.OUT, tile);           
             %10. assign time, etc.
+            tile.TEMP.time_difference = tile.RUN_INFO.TILE.t - tile.FORCING.PARA.start_time; %Used to correct time variables in subsurface classes
             tile.t = tile.FORCING.PARA.start_time;
             
             %reset IA time
             tile.LATERAL.IA_TIME = tile.t + tile.LATERAL.IA_TIME_INCREMENT;
             
+            %reset time for BGC class (do mothing if no BGC class exists)
+            %-> MAKE THIS A GENERAL RESET_TIME OR ADJUST_TIME FUNCTION THAT
+            %IS DEFINED IN BASE AND OVERWRITTEN IN ALL FUNCTIONS THAT
+            %ACTUALLY HAVE A TIME VARIABLE - CALCULATE TIME OFFSET BETWEEN
+            %OLD AND NEW FORCING, I.E LAST TIMESTAMP OF OLD RUN AND FIRST TIMESTAMP OF NEW RUN 
+            CURRENT = tile.TOP.NEXT;
+            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+                CURRENT = reset_timestamps(CURRENT, tile);
+                CURRENT = CURRENT.NEXT;
+            end
             
             tile.RUN_INFO.TILE = tile;
 
             
             tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
             tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+
+
+
+            
+
         end
         
         

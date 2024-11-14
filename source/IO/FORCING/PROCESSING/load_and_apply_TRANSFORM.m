@@ -60,10 +60,15 @@ classdef load_and_apply_TRANSFORM < matlab.mixin.Copyable %makes the TRANSFORM o
         
         function forcing = process(proc, forcing, tile)
             
+            if isempty(proc.PARA.spatial_variable) || ~iscell(proc.PARA.spatial_variable)
+                proc.PARA.spatial_variable ={'altitude'};
+                proc.PARA.spatial_scale_equal_weight = 50;
+            end
+            
             spatial_scale_variable = [];
             transform_forcing_class = {};
             %load the FORCING transform classes that are used to
-            %biascorrect online
+            %bias correct online
             if ~isempty(proc.PARA.transform_forcing_class_index) && sum(isnan(proc.PARA.transform_forcing_class_index))==0
                 %1. calculate weights for the different transform classes
                 for j=1:size(proc.PARA.transform_forcing_class,1)
@@ -96,7 +101,7 @@ classdef load_and_apply_TRANSFORM < matlab.mixin.Copyable %makes the TRANSFORM o
             
             
             %set the value to spatial_scale_equal_weight if smaller 
-            spatial_scale_variable = (double(spatial_scale_variable>=0) - double(spatial_scale_variable<0)) .*  max(abs(spatial_scale_variable), repmat(proc.PARA.spatial_scale_equal_weight',2,1));
+            spatial_scale_variable = (double(spatial_scale_variable>=0) - double(spatial_scale_variable<0)) .*  max(abs(spatial_scale_variable), repmat(proc.PARA.spatial_scale_equal_weight',size(spatial_scale_variable,1),1));
 
             weights = spatial_scale_variable ./ repmat(proc.PARA.spatial_scale_equal_weight', size(spatial_scale_variable,1),1);
 
