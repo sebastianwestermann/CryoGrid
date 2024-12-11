@@ -86,7 +86,7 @@ classdef FORCING_seb_topoScale < FORCING_base
             if strcmp(forcing.PARA.data_product, 'ERA5')
                 proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale2'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             elseif strcmp(forcing.PARA.data_product, 'NORA3')
-                proc_functions = {'read_mat_ERA'; 'set_start_end_time'; 'process_topoScale_NORA3'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
+                proc_functions = {'read_mat_NORA'; 'set_start_end_time'; 'process_topoScale_NORA3'; 'split_precip_snow_rain'; 'assign_lb_heatflux_airT_height'; 'scale_precip'; 'check_and_correct'};
             end
             
             
