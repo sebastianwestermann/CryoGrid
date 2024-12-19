@@ -210,6 +210,11 @@ classdef GROUND_freeW_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             %ground = thermalConductivity_CLM4_5(ground);
             %ground = conductivity_mixing_squares(ground);
         end
+
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables = {'waterIce'; 'mineral'; 'organic'; 'field_capacity'; 'T'; 'satHydraulicConductivity'; 'energy'; 'area'; 'layerThick';  'air'; 'water'; 'ice'};
+        end
+
         
         %-----LATERAL-------------------
         

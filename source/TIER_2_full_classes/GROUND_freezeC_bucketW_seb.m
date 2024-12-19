@@ -247,6 +247,11 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             ground = conductivity_function(ground);
 %             ground = conductivity_mixing_squares(ground);
         end
+
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables ={'waterIce'; 'mineral'; 'organic'; 'soil_type'; 'field_capacity'; 'satHydraulicConductivity'; 'T'; 'energy'; 'area'; 'layerThick'; 'n'; 'alpha'; 'air'; 'water'; 'ice'; 'waterPotential'};
+        end
+
         
         
         %-----LATERAL-------------------

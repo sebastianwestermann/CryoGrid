@@ -176,6 +176,21 @@ classdef BASE < matlab.mixin.Copyable
         function ground = adjust_stratigraphy(ground, tile)
             
         end
+
+        function ground = truncate_STATVAR(ground, first_truncated_cell, truncate_depth_within_cell)
+            gridcell_variables = get_gridcell_variables(ground);
+            for i=1:size(gridcell_variables,1)
+                ground.STATVAR.(gridcell_variables{i,1})=ground.STATVAR.(gridcell_variables{i,1})(first_truncated_cell:end,:);
+            end
+        end
+
+        function ground = merge_STATVAR(ground, ground_below)
+            gridcell_variables = get_gridcell_variables(ground);
+            for i=1:size(gridcell_variables,1)
+                ground.STATVAR.(gridcell_variables{i,1})=[ground.STATVAR.(gridcell_variables{i,1}); ground_below.STATVAR.(gridcell_variables{i,1})];
+            end
+        end
+
         
         %-------------param file generation-----
         function ground = param_file_info(ground)

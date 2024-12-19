@@ -70,6 +70,10 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.PARA.init_steady_state_class_index = [];
             tile.PARA.T_first_cell = [];
             tile.PARA.start_depth_steady_state = [];
+
+            %update_stratigraphy
+            tile.PARA.truncate_depth = [];
+            tile.PARA.keep_LATERAL = 0;
             
             %restart_OUT_last_timestep
             tile.PARA.restart_file_path = [];
@@ -122,8 +126,6 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
         
         function tile = run_model(tile)
             
-%             TOP_CLASS = tile.TOP_CLASS;
-%             BOTTOM_CLASS = tile.BOTTOM_CLASS;
             TOP = tile.TOP;
             BOTTOM = tile.BOTTOM;
             TOP.LATERAL = tile.LATERAL;
@@ -533,29 +535,27 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             
         end
         
+        function tile = build_tile_update_stratigraphy(tile)
+        
+            old_TILE = tile.RUN_INFO.TILE;   
+            old_TILE = truncate_stratigraphy(old_TILE, tile.PARA.truncate_depth);
+
+            tile = build_tile_new_init(tile);
+            tile = merge_stratigraphies(tile, old_TILE);
+           
+            if tile.PARA.keep_LATERAL
+                tile.LATERAL = old_TILE.LATERAL;
+            end
+
+            tile.RUN_INFO.TILE = tile;
+            
+            tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            
+        end
+        
+        
         function tile = build_tile_update_forcing_out(tile)
-%             PARA2 = tile.PARA;
-%             fields = fieldnames(tile.RUN_INFO.TILE);
-%             for i=1:size(fields,1)
-%                 if ~strcmp(fields{i,1}, 'OUT') || ~strcmp(fields{i,1}, 'FORCING') 
-%                     tile.(fields{i,1}) = tile.RUN_INFO.TILE.(fields{i,1});
-%                 end
-%             end
-%             fields = fieldnames(PARA2);
-%             for i=1:size(fields,1)
-%                 tile.PARA.(fields{i,1}) = PARA2.(fields{i,1});
-%             end
-%             
-%             %1. forcing
-%             tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
-%             tile.FORCING = finalize_init(tile.FORCING, tile);
-% 
-%             %10. assign time, etc.
-%             tile.t = tile.FORCING.PARA.start_time;
-% 
-%             %12. assign OUT classes
-%             tile.OUT = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.out_class){tile.PARA.out_class_index,1});
-%             tile.OUT = finalize_init(tile.OUT, tile);
             
             %2. forcing -> special forcing class required
             tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
@@ -629,6 +629,71 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
         end
         
         
+        %-----------------------------------
+        %service functions at TILE level
+
+        function tile = truncate_stratigraphy(tile, truncate_depth)
+            CURRENT = tile.TOP.NEXT;
+            while ~is_ground_surface(CURRENT)
+                CURRENT = CURRENT.NEXT;
+            end
+            %CURRENT is now class that has ground surface
+            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+
+                i=1;
+                while truncate_depth > 0 && i<=size(CURRENT.STATVAR.layerThick,1)
+                    truncate_depth = truncate_depth - CURRENT.STATVAR.layerThick(i,1);
+                    i=i+1;
+                end
+                i=i-1;
+
+                if truncate_depth <= 0 %truncate inside this class
+                    if i==0
+                        %do nothing, keep entire class
+                    elseif i==size(CURRENT.STATVAR.layerThick,1)
+                        %remove entire class
+                        CURRENT = CURRENT.NEXT;
+                    else
+                        %call function at stratgraphy class level and
+                        %truncate the class
+                        CURRENT= truncate_STATVAR(CURRENT, i, truncate_depth);
+                        CURRENT = compute_diagnostic(CURRENT, tile);
+                    end
+                    break
+                end
+                CURRENT = CURRENT.NEXT;
+            end
+            tile.TOP.NEXT = CURRENT;
+            tile.TOP.NEXT.PREVIOUS = tile.TOP;
+            tile.TOP.NEXT.IA_PREVIOUS = [];
+        end
+
+
+        function tile = merge_stratigraphies(tile, tile_below)
+            if strcmp(class(tile.BOTTOM.PREVIOUS), class(tile_below.TOP.NEXT))
+                %call function at stratgraphy class level and merge classes
+                tile.BOTTOM.PREVIOUS = merge_STATVAR(tile.BOTTOM.PREVIOUS, tile_below.TOP.NEXT);
+                tile.BOTTOM.PREVIOUS = compute_diagnostic(tile.BOTTOM.PREVIOUS, tile);
+                CURRENT_BELOW = tile_below.TOP.NEXT.NEXT;
+            else
+                CURRENT_BELOW = tile_below.TOP.NEXT;
+            end
+            %connect classes in between
+            CURRENT_BELOW.PREVIOUS = tile.BOTTOM.PREVIOUS;
+            CURRENT_BELOW.PREVIOUS.NEXT = CURRENT_BELOW;
+            ia_class = get_IA_class(class(CURRENT_BELOW.PREVIOUS), class(CURRENT_BELOW));
+            CURRENT_BELOW.PREVIOUS.IA_NEXT = ia_class;
+            CURRENT_BELOW.IA_PREVIOUS = ia_class;
+            CURRENT_BELOW.PREVIOUS.IA_NEXT.NEXT = CURRENT_BELOW;
+            CURRENT_BELOW.IA_PREVIOUS.PREVIOUS = CURRENT_BELOW.PREVIOUS;
+
+            finalize_init(CURRENT_BELOW.IA_PREVIOUS, tile); 
+
+            tile.BOTTOM.PREVIOUS = tile_below.BOTTOM.PREVIOUS;
+            tile.BOTTOM.PREVIOUS.NEXT = tile.BOTTOM;
+        end
+
+
         
         %-------------param file generation-----
        function tile = param_file_info(varargin)
