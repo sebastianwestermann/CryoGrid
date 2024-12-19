@@ -638,7 +638,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
                 CURRENT = CURRENT.NEXT;
             end
             %CURRENT is now class that has ground surface
-            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+            while ~isequal(CURRENT, tile.BOTTOM)
 
                 i=1;
                 while truncate_depth > 0 && i<=size(CURRENT.STATVAR.layerThick,1)
