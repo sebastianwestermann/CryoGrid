@@ -7,10 +7,10 @@
 %
 %========================================================================
 
-classdef apply_anomaly < matlab.mixin.Copyable  
+classdef apply_anomaly < FORCING_base
     
     properties
-        
+
     end
     
     methods
@@ -65,7 +65,7 @@ classdef apply_anomaly < matlab.mixin.Copyable
                 %run the actual processing
                 for i=1:size(post_proc.TEMP.post_proc,1)
                     post_proc.TEMP.post_proc{i,1}.TEMP.offset_years = forcing.PARA.number_of_spin_up_years;
-                    forcing = post_process(post_proc.TEMP.post_proc{i,1}, forcing, tile);
+                    forcing = process(post_proc.TEMP.post_proc{i,1}, forcing, tile);
                 end
                 
                 %reassign original values

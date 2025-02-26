@@ -36,9 +36,7 @@ classdef ENSEMBLE_MULTITILE_GRID_AND_SUBGRID < matlab.mixin.Copyable
             tile.PARA.ensemble_size = ensemble.PARA.subgrid_ensemble_size;
             ensemble.TEMP.subgrid_class = finalize_init2(ensemble.TEMP.subgrid_class, tile);
             tile.PARA.ensemble_size = ensemble.PARA.grid_ensemble_size .* ensemble.PARA.subgrid_ensemble_size;
-            
-            
-            
+
             
             variables_grid = fieldnames(ensemble.TEMP.grid_class.STATVAR);
             variables_subgrid = fieldnames(ensemble.TEMP.subgrid_class.STATVAR);

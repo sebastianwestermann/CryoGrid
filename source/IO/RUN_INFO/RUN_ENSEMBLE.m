@@ -126,8 +126,8 @@ classdef RUN_ENSEMBLE < matlab.mixin.Copyable
                 
             else
                 
-                for i=1:run_info.PARA.ensemble_size
-                    run_info.PARA.worker_number = i;
+                for ii=1:run_info.PARA.ensemble_size
+                    run_info.PARA.worker_number = ii;
                     
                     for i=1:size(run_info.PARA.tile_class,1)
                         disp(['running tile number ' num2str(i)])

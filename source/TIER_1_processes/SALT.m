@@ -308,6 +308,15 @@ classdef SALT < BASE
             ground.STATVAR.diffusivitySalt = D0 .* water ./ground.PARA.tortuosity.^2;
         end
         
+        function ground = diffusivity_salt_sea_ice(ground)
+            
+            water = ground.STATVAR.water./ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            
+            D0 = ((6.06 + 9.60)/2  + max(ground.STATVAR.T, 0) .* (0.297  + 0.438)/2) .* 1e-10; %from Boudreau, B., 1997, Diagenetic Models and their implementation, Springer, Berlin.
+            %average between values for Na+ and Cl-
+            
+            ground.STATVAR.diffusivitySalt = D0 .* water ;
+        end
         
     end
 end

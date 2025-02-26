@@ -17,6 +17,17 @@ classdef LAKE < BASE
             %ground.STATVAR.air = reorganize_cells_frozen_melted(ground, ground.STATVAR.air, fully_melted);
             ground.STATVAR.layerThick = reorganize_cells_frozen_melted(ground, ground.STATVAR.layerThick, fully_melted);
         end
+
+        function ground = move_ice_up_salt(ground)
+            fully_melted = (ground.STATVAR.energy >= ground.STATVAR.E_f);
+            ground.STATVAR.energy = reorganize_cells_frozen_melted(ground, ground.STATVAR.energy, fully_melted);
+            ground.STATVAR.waterIce = reorganize_cells_frozen_melted(ground, ground.STATVAR.waterIce, fully_melted);
+            ground.STATVAR.mineral = reorganize_cells_frozen_melted(ground, ground.STATVAR.mineral, fully_melted);
+            ground.STATVAR.organic = reorganize_cells_frozen_melted(ground, ground.STATVAR.organic, fully_melted);
+            ground.STATVAR.saltConc = reorganize_cells_frozen_melted(ground, ground.STATVAR.saltConc, fully_melted);
+
+            ground.STATVAR.layerThick = reorganize_cells_frozen_melted(ground, ground.STATVAR.layerThick, fully_melted);
+        end
         
         function reorganized = reorganize_cells_frozen_melted(ground, variable, fully_melted)
             melted_cells = variable(fully_melted); 
@@ -64,6 +75,50 @@ classdef LAKE < BASE
                 
                 ground.STATVAR.energy(1:end-1,1) = ground.STATVAR.energy(1:end-1,1) - energy_down + energy_up;
                 ground.STATVAR.energy(2:end,1) = ground.STATVAR.energy(2:end,1)  + energy_down - energy_up;
+            end
+        end
+
+        %stratifies the water column, move 1/2 cell up per timestep when water density is lower
+        function ground = stratify_simple_salt(ground, tile)  
+            if size(ground.STATVAR.energy,1) > 1
+                density_water = water_density_saline_UNESCO(ground, ground.STATVAR.T, ground.STATVAR.salt_c_brine);
+                %freezing_cell
+                freezing_cell = find(ground.STATVAR.energy < ground.STATVAR.E_f, 1, 'last');
+                if freezing_cell < size(ground.STATVAR.energy,1)
+                    if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
+                        energy_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1)) ./ ground.STATVAR.waterIce(freezing_cell,1) .* ground.CONST.c_w .* ground.STATVAR.water(freezing_cell,1) .* ground.STATVAR.T(freezing_cell,1);
+                        energy_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.energy(freezing_cell+1,1);
+
+                        salt_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  .* ground.STATVAR.salt_c_brine(freezing_cell,1);
+                        salt_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.saltConc(freezing_cell+1,1);
+                    end
+                end
+                %buoyancy in free water column
+                swap = double(ground.STATVAR.energy(1:end-1,1) >=ground.STATVAR.E_f(1:end-1,1) & ground.STATVAR.energy(2:end,1) >=ground.STATVAR.E_f(2:end,1) & density_water(2:end,1) < density_water(1:end-1,1));
+                
+                %only energy is moved, water not moved physically
+                energy_down = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(1:end-1,1) .* ground.STATVAR.energy(1:end-1,1);
+                energy_up = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(2:end,1) .* ground.STATVAR.energy(2:end,1);
+
+                salt_down = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(1:end-1,1) .* ground.STATVAR.saltConc(1:end-1,1);
+                salt_up = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(2:end,1) .* ground.STATVAR.saltConc(2:end,1);
+                                
+                if freezing_cell < size(ground.STATVAR.energy,1)
+                    if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
+                        ground.STATVAR.energy(freezing_cell,1) = ground.STATVAR.energy(freezing_cell,1) - energy_down_f + energy_up_f;
+                        ground.STATVAR.energy(freezing_cell+1,1) = ground.STATVAR.energy(freezing_cell+1,1)  + energy_down_f - energy_up_f;
+
+                        ground.STATVAR.saltConc(freezing_cell,1) = ground.STATVAR.saltConc(freezing_cell,1) - salt_down_f + salt_up_f;
+                        ground.STATVAR.saltConc(freezing_cell+1,1) = ground.STATVAR.saltConc(freezing_cell+1,1)  + salt_down_f - salt_up_f;
+                    end
+                end
+
+                ground.STATVAR.energy(1:end-1,1) = ground.STATVAR.energy(1:end-1,1) - energy_down + energy_up;
+                ground.STATVAR.energy(2:end,1) = ground.STATVAR.energy(2:end,1)  + energy_down - energy_up;
+
+                ground.STATVAR.saltConc(1:end-1,1) = ground.STATVAR.saltConc(1:end-1,1) - salt_down + salt_up;
+                ground.STATVAR.saltConc(2:end,1) = ground.STATVAR.saltConc(2:end,1)  + salt_down - salt_up;
+
             end
         end
         

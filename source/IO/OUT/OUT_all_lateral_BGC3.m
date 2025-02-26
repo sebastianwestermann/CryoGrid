@@ -191,6 +191,54 @@ classdef OUT_all_lateral_BGC3 < matlab.mixin.Copyable
                 
             end
         end
+
+        function  [uppermost_class, lowermost_class] = restore_stratigraphy_from_OUT(out, restart_time, tile)
+            if ~isempty(restart_time)
+                pos = find(out.TIMESTAMP(1,:) == restart_time);
+            else
+                pos = size(out.TIMESTAMP,2);
+            end
+
+            uppermost_class_name = class(out.STRATIGRAPHY{1,pos}{1,1});
+            if ~strcmp(uppermost_class_name(1:4), 'SNOW')
+                uppermost_class = reset_from_OUT(out.STRATIGRAPHY{1,pos}{1,1}, tile);
+                next_cell = 2;
+            else
+                uppermost_class = reset_from_OUT(out.STRATIGRAPHY{1,pos}{2,1}, tile);
+                next_cell = 3;
+            end
+            CURRENT = uppermost_class;
+            for i=next_cell:size(out.STRATIGRAPHY{1,pos},1)
+                CURRENT.NEXT = reset_from_OUT(out.STRATIGRAPHY{1,pos}{i,1}, tile);
+                CURRENT.NEXT.PREVIOUS = CURRENT;
+                CURRENT = CURRENT.NEXT;
+            end
+            lowermost_class = CURRENT;
+
+            %restore BGC 
+            CURRENT = uppermost_class;
+            for i=next_cell:size(out.STRATIGRAPHY{1,pos},1)
+                variables = fieldnames(CURRENT);
+                if any(strcmp(variables, 'BGC'))
+                    a=str2func(CURRENT.PARA.BGC_CLASS);
+                    CURRENT.BGC = a();
+                    CURRENT.BGC = provide_PARA(CURRENT.BGC);
+                    CURRENT.BGC = provide_CONST(CURRENT.BGC);
+                    CURRENT.BGC = finalize_init(CURRENT.BGC, tile);
+                    CURRENT.BGC.STATVAR = CURRENT.STATVAR.BGC;
+
+                    CURRENT.STATVAR.BGC = [];
+                    CURRENT.IA_BGC = IA_BGC_RichardsEqW_Xice();
+                    CURRENT.IA_BGC.BGC = CURRENT.BGC;
+                    CURRENT.IA_BGC.GROUND = CURRENT;
+                    CURRENT.BGC.IA_BGC = CURRENT.IA_BGC;
+                    finalize_init(CURRENT.IA_BGC, tile);
+                end
+                CURRENT = CURRENT.NEXT;
+            end
+        end
+
+
         
                 %-------------param file generation-----
         function out = param_file_info(out)

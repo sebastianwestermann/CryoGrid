@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef statistical_downscaling_MODIS < matlab.mixin.Copyable  
+classdef statistical_downscaling_MODIS < FORCING_base
     
     properties
         

@@ -100,7 +100,7 @@ classdef REGRID < BASE
         
         %complete regridding to the orginal grid  provided in initialization
         function ground = regrid_full(ground, variable_list) 
-            a= sum(ground.STATVAR.layerThick)
+            a= sum(ground.STATVAR.layerThick);
             top_pos = ground.STATVAR.top_depth_rel2groundSurface;
             target_grid = ground.PARA.target_grid;
                         

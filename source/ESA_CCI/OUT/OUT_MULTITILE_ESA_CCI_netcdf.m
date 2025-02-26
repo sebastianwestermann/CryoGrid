@@ -31,9 +31,6 @@ classdef OUT_MULTITILE_ESA_CCI_netcdf < matlab.mixin.Copyable
         
         
         function out = finalize_init(out, tile)
-% 
-%                       tile.RUN_INFO.PARA.run_name = '';
-%                       tile.PARA.range =[1; 2];
 
             if ~(exist([out.PARA.out_folder tile.RUN_INFO.PARA.run_name])==7)
                 mkdir([out.PARA.out_folder tile.RUN_INFO.PARA.run_name]);

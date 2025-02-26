@@ -8,11 +8,7 @@
 classdef FORCING_MULTITILE_seb_CCI < FORCING_base
     
     properties
-        PARA
-        CONST
-        TEMP
-        DATA
-        POST_PROC
+
     end
     
     
@@ -485,7 +481,22 @@ classdef FORCING_MULTITILE_seb_CCI < FORCING_base
             
         end
         
+
+        function forcing = reset_time(forcing, tile)
+            forcing.TEMP = []; %delete all TEMP used in the post_processing
+            
+            forcing.TEMP.index = 1;
+            forcing.TEMP.fraction = 0;
+            while forcing.DATA.timestamp(1, forcing.TEMP.index) <= forcing.PARA.start_time
+                forcing.TEMP.index = forcing.TEMP.index + 1;
+            end
+            forcing.TEMP.index = max(1, forcing.TEMP.index - 1);
+            forcing.TEMP.number_of_substeps  =  round((forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.CONST.day_sec ./ tile.timestep) ;
+            forcing.TEMP.fraction = round((forcing.PARA.start_time - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ ...
+                (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.TEMP.number_of_substeps); 
+        end
         
+  
         %interpolate the actual forcing field DATA based on tile.t
         function forcing = interpolate_forcing(forcing, tile)
             

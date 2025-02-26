@@ -100,6 +100,14 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+        function ground = lateral_push_lake_water_exchange(ground, lateral)
+
+        end
+        
+        function ground = lateral_push_lake_adjust_water_depth(ground, lateral)
+
+        end
+
         function ground = lateral_push_heat(ground, lateral)
             
         end

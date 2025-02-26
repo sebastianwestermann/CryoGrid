@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef time_average_temperature < matlab.mixin.Copyable  
+classdef time_average_temperature < FORCING_base
     
     properties
         

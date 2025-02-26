@@ -242,6 +242,9 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
             [ground, S_up] = penetrate_SW_no_transmission@SEB(ground, S_down);
         end
         
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables ={'waterIce'; 'mineral'; 'organic'; 'T'; 'energy'; 'area'; 'layerThick';  'water'; 'ice'; 'saltConc'; 'salt_c_brine'};
+        end
         
         %-------------param file generation-----
         function ground = param_file_info(ground)

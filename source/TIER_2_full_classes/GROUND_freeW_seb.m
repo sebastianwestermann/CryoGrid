@@ -177,6 +177,11 @@ classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & ADJUST
             gridcell_variables = {'waterIce'; 'mineral'; 'organic'; 'T'; 'energy'; 'area'; 'layerThick';  'air'; 'water'; 'ice'};
 
         end
+
+        %-------------restore_from_out-----
+        function ground = reset_from_OUT(ground, tile)
+            ground.TEMP.d_energy = ground.TEMP.d_energy.*0; 
+        end
         
         
         %-----LATERAL-------------------

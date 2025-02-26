@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable 
+classdef get_snowfall_sublimation_melt < FORCING_base
     
     properties
         
@@ -23,8 +23,8 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
             
 %            post_proc.PARA.threshold_T_snowmelt = [];
             
-            post_proc.PARA.Tr=274.15; % Threshold temperature for rainfall.
-            post_proc.PARA.Ts=272.15; % Threshold tempearture for snowfall.
+            post_proc.PARA.Tr=273.25;%274.15; % Threshold temperature for rainfall.
+            post_proc.PARA.Ts=273.05; %272.15; % Threshold tempearture for snowfall.
             
  
 
@@ -32,7 +32,7 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
             
             post_proc.PARA.taus=0.0025; % Threshold snowfall for resetting to maximum [m w.e.].
             post_proc.PARA.taua=0.008; % Time constant for snow albedo change in non-melting conditions [/day].
-            post_proc.PARA.tauf=0.24; % Time constant for snow albedo change in melting conditions [/day].
+            post_proc.PARA.tauf=0.24/2; % Time constant for snow albedo change in melting conditions [/day]. "normal" value is 0.24, set to 1/2 to see whether snow melts slower 
             
             post_proc.PARA.albsmax_bare=0.85; % Maximum snow albedo.
             post_proc.PARA.albsmin_bare=0.5; % Minimum snow albedo.
@@ -97,6 +97,8 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
                 sublimation = [];
                 melt_depth_bare = [];
                 melt_depth_forest = [];
+
+                
             end
         end
         
@@ -126,6 +128,7 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
 
             %convert to mm/day!
             sublimation = sublimation .* 1000 .* 24 .* 3600;
+            sublimation = sublimation./3; %reduce to prevent unphysically high values (is multiplied by windspeed per class, so up to 5!)
         end
         
         function [melt_depth_bare, melt_depth_forest] = get_melt_SEB(post_proc, tile)
@@ -175,10 +178,10 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
                 post_proc.STATVAR.albedo_bare(accumulation,1) = post_proc.STATVAR.albedo_bare(accumulation,1) + min(1,net_acc(accumulation,1)./(post_proc.PARA.taus .* 1000)) .* ...
                     (post_proc.PARA.albsmax_bare - post_proc.STATVAR.albedo_bare(accumulation,1));
 
-                no_melting = (net_acc==0); % "Steady" case (linear decay)
+                no_melting = (net_acc<=0 & net_acc >-10); % "Steady" case (linear decay)
                 post_proc.STATVAR.albedo_bare(no_melting,1) = post_proc.STATVAR.albedo_bare(no_melting,1) - post_proc.PARA.taua;
                 
-                melting = net_acc<0; % Ablating case (exponential decay)
+                melting = net_acc<=-10; % Ablating case (exponential decay)
                 post_proc.STATVAR.albedo_bare(melting,1) = (post_proc.STATVAR.albedo_bare(melting,1) - post_proc.PARA.albsmin_bare) .* exp(-post_proc.PARA.tauf) + post_proc.PARA.albsmin_bare;
                 post_proc.STATVAR.albedo_bare(post_proc.STATVAR.albedo_bare < post_proc.PARA.albsmin_bare) = post_proc.PARA.albsmin_bare;
                 
@@ -188,10 +191,10 @@ classdef get_snowfall_sublimation_melt < matlab.mixin.Copyable
                 post_proc.STATVAR.albedo_forest(accumulation,1) = post_proc.STATVAR.albedo_forest(accumulation,1) + min(1,net_acc(accumulation,1)./(post_proc.PARA.taus.*1000)) .* ...
                     (post_proc.PARA.albsmax_forest - post_proc.STATVAR.albedo_forest(accumulation,1));
                 
-                no_melting = (net_acc==0); % "Steady" case (linear decay)
+                no_melting = (net_acc<=0 &net_acc >-1); % "Steady" case (linear decay)
                 post_proc.STATVAR.albedo_forest(no_melting,1) = post_proc.STATVAR.albedo_forest(no_melting,1) - post_proc.PARA.taua;
                 
-                melting = net_acc<0; % Ablating case (exponential decay)
+                melting = net_acc<=-1; % Ablating case (exponential decay)
                 post_proc.STATVAR.albedo_forest(melting,1) = (post_proc.STATVAR.albedo_forest(melting,1) - post_proc.PARA.albsmin_forest) .* exp(-post_proc.PARA.tauf) + post_proc.PARA.albsmin_forest;
                 post_proc.STATVAR.albedo_forest(post_proc.STATVAR.albedo_forest < post_proc.PARA.albsmin_forest) = post_proc.PARA.albsmin_forest;
                 

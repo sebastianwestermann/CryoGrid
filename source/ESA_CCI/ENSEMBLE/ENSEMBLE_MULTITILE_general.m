@@ -1,3 +1,4 @@
+
 classdef ENSEMBLE_MULTITILE_general < matlab.mixin.Copyable
 
 
@@ -330,31 +331,63 @@ classdef ENSEMBLE_MULTITILE_general < matlab.mixin.Copyable
         
         %called by DA
         function result = get_best_fitting_parameters(ensemble, tile, variable_list, weights)
+            clipping_threshold = 0.95;
             
-
-            [~, pos] = max(weights,[],2);
+            % [~, pos] = max(weights,[],2);
             not_valid = sum(double(isnan(weights)),2)>0;
             for i=1:size(variable_list,1)
                 pos_in_var_list = find(strcmp(ensemble.TEMP.variable_name, variable_list{i,1}));
                 if ensemble.TEMP.variable_type(pos_in_var_list,1)==1
                     parameter = reshape(ensemble.TEMP.value_gaussian(pos_in_var_list,:), tile.PARA.number_of_realizations, size(ensemble.TEMP.value_gaussian,2) ./ tile.PARA.number_of_realizations);
-                    result.(variable_list{i,1}) = diag(parameter(:,pos));
+                    %result.(variable_list{i,1}) = diag(parameter(:,pos));
+                    result.(variable_list{i,1}) = get_weighted_average_of_parameter(ensemble, parameter, weights, clipping_threshold);
                 elseif ensemble.TEMP.variable_type(pos_in_var_list,1)==2
                     parameter = reshape(ensemble.TEMP.value_gaussian(pos_in_var_list,:), tile.PARA.number_of_realizations, size(ensemble.TEMP.value_gaussian,2) ./ tile.PARA.number_of_realizations);
+                    optim_param = get_weighted_average_of_parameter(ensemble, parameter, weights, clipping_threshold);
+
                     parameter_transformed=[];
                     for j=1:size(pos,1)
-                        parameter_transformed=[parameter_transformed; expit(ensemble, parameter(pos(j,1),1), ensemble.PARA.boxcar_variables_lower_bound(pos_in_var_list,j), ensemble.PARA.boxcar_variables_upper_bound(pos_in_var_list,j))];
+                        %parameter_transformed=[parameter_transformed; expit(ensemble, parameter(pos(j,1),1), ensemble.PARA.boxcar_variables_lower_bound(pos_in_var_list,j), ensemble.PARA.boxcar_variables_upper_bound(pos_in_var_list,j))];
+                        parameter_transformed=[parameter_transformed; expit(ensemble, optim_param(j,1), ensemble.PARA.boxcar_variables_lower_bound(pos_in_var_list,j), ensemble.PARA.boxcar_variables_upper_bound(pos_in_var_list,j))];
                     end
                     result.(variable_list{i,1}) = parameter_transformed;
                 elseif ensemble.TEMP.variable_type(pos_in_var_list,1)==3
                     parameter = reshape(ensemble.TEMP.value_gaussian(pos_in_var_list,:), tile.PARA.number_of_realizations, size(ensemble.TEMP.value_gaussian,2) ./ tile.PARA.number_of_realizations);
-                    result.(variable_list{i,1}) = exp(diag(parameter(:,pos)));
+                    %result.(variable_list{i,1}) = exp(diag(parameter(:,pos)));
+                    result.(variable_list{i,1}) = exp(get_weighted_average_of_parameter(ensemble, parameter, weights, clipping_threshold));
                 end
                 result.(variable_list{i,1})(not_valid,1) = NaN;
             end
            
         end
 
+
+        function optim_param = get_weighted_average_of_parameter(ensemble, parameter, weights, clipping_threshold)
+
+            [weights_sorted,weights_sorted_pos] = sort(weights,2, 'descend');
+            weights_sorted_accum = cumsum(weights_sorted,2);
+            clip_pos = [];
+            for i=1:size(weights_sorted_accum,1)
+                pos=find(weights_sorted_accum(i,:)>clipping_threshold, 1);
+                if ~isempty(pos)
+                    clip_pos=[clip_pos; pos];
+                else
+                    clip_pos=[clip_pos; size(weights_sorted_accum,2)];
+                end
+            end
+
+            for i=1:size(weights_sorted,1)
+                weights_sorted(i,clip_pos(i,1)+1:end)=0;
+            end
+            weights_sorted = weights_sorted./repmat(sum(weights_sorted,2), 1, size(weights_sorted,2));
+            optim_param = [];
+
+            for i=1:size(weights_sorted,1)
+                optim_param = [optim_param; sum(parameter(i, weights_sorted_pos(i,:)).* weights_sorted(i,:)) ];
+            end
+
+        end
+
+
     end
 end
-

@@ -41,14 +41,14 @@ classdef SNOW_MULTITILE_BUCKET_SIMPLE < BASE
             
             ground.STATVAR.SWE = ground.STATVAR.SWE -  tile.FORCING.TEMP.sublimation ./1000 ./ ground.CONST.day_sec .* ground.PARA.timestep;
             %melt
-            ground.STATVAR.SWE = ground.STATVAR.SWE - min(ground.STATVAR.SWE, double(tile.FORCING.TEMP.melt>0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);  %in [m], constant timestep
+            melt = min(ground.STATVAR.SWE, double(tile.FORCING.TEMP.melt>0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);  %in [m], constant timestep
+            ground.STATVAR.SWE = ground.STATVAR.SWE - melt;
+            ground.STATVAR.SWE_water = ground.STATVAR.SWE_water + melt;
+            
             %refreezing
-            ground.STATVAR.SWE = ground.STATVAR.SWE + min(ground.STATVAR.SWE_water, - double(tile.FORCING.TEMP.melt<0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);  %in [m], constant timestep
-
-            %melt
-            ground.STATVAR.SWE_water = ground.STATVAR.SWE_water + min(ground.STATVAR.SWE, double(tile.FORCING.TEMP.melt>0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);
-            %refreezing
-            ground.STATVAR.SWE_water = ground.STATVAR.SWE_water - min(ground.STATVAR.SWE_water, - double(tile.FORCING.TEMP.melt<0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);
+            refreeze =  min(ground.STATVAR.SWE_water, - double(tile.FORCING.TEMP.melt<0) .* tile.FORCING.TEMP.melt ./ 1000 ./ground.CONST.day_sec .* ground.PARA.timestep);  %in [m], constant timestep
+            ground.STATVAR.SWE = ground.STATVAR.SWE + refreeze;
+            ground.STATVAR.SWE_water = ground.STATVAR.SWE_water - refreeze;
 
             ground.STATVAR.SWE = max(0, ground.STATVAR.SWE);
             ground.STATVAR.SWE_water = min(ground.STATVAR.SWE./2, ground.STATVAR.SWE_water);

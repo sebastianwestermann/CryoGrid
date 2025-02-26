@@ -46,6 +46,10 @@ classdef MULTITILE_ESA_CCI < matlab.mixin.Copyable
             tile.PARA.out_class = [];
             tile.PARA.out_class_index = [];
             
+
+            tile.PARA.restart_file_path = [];
+            tile.PARA.restart_file_name = [];
+
         end
         
         function tile = provide_CONST(tile)
@@ -284,9 +288,12 @@ classdef MULTITILE_ESA_CCI < matlab.mixin.Copyable
             tile.timestep = tile.SUBSURFACE_CLASS.PARA.timestep;
             
             %2. forcing -> special forcing class required
-            tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
-            tile.FORCING.PARA.preprocessed = 1;
-            tile.FORCING = finalize_init(tile.FORCING, tile);
+            tile.FORCING = reset_time(tile.FORCING, tile);
+            % tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
+            % tile.FORCING.PARA.preprocessed = 1;
+            % tile.FORCING.PARA.post_proc_class = [];
+            % tile.FORCING.PARA.post_proc_class_index = [];
+            % tile.FORCING = finalize_init(tile.FORCING, tile);
 
              %10. assign time, etc.
             tile.t = tile.FORCING.PARA.start_time;
@@ -407,7 +414,37 @@ classdef MULTITILE_ESA_CCI < matlab.mixin.Copyable
             
         end
         
-        
+        function tile = build_tile_restart_OUT_last_timestep(tile)
+            % new_run_name = tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            % new_result_path = tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            % adapt_run_name = tile.PARA.adapt_run_name;
+            % new_end_time = tile.PARA.new_end_time;
+            % if ~isempty(new_end_time) && sum(isnan(new_end_time))==0
+            %     new_end_time = datenum(new_end_time(1,1), new_end_time(2,1), new_end_time(3,1));
+            % else
+            %     new_end_time = [];
+            % end
+
+            restart_file_name = tile.PARA.restart_file_name;
+            pos1 = find(restart_file_name =='X');
+            pos2 = find(restart_file_name =='Y');
+            restart_file_name = [restart_file_name(1:pos1-1) num2str(tile.PARA.range(1)) restart_file_name(pos1+1:pos2-1) num2str(tile.PARA.range(end)) restart_file_name(pos2+1:end)];
+            temp=load([tile.PARA.restart_file_path restart_file_name]);
+            variables = fieldnames(temp.out.STRATIGRAPHY);
+            for i=1:size(variables,1)
+                tile.(variables{i,1}) = temp.out.STRATIGRAPHY.(variables{i,1});
+            end
+            if ~isempty(adapt_run_name) && ~isnan(adapt_run_name)
+                if adapt_run_name
+                    tile.PARA.run_name = new_run_name;
+                    tile.PARA.result_path = new_result_path;
+                end
+            end
+            if ~isempty(new_end_time)
+                tile.FORCING.PARA.end_time = new_end_time;
+            end
+
+        end
 
     end
 end

@@ -12,6 +12,7 @@ classdef MULTITILE_SIMPLE_DA < matlab.mixin.Copyable
         SUBSURFACE_CLASS
         ENSEMBLE
         STRATIGRAPHY
+        STORE
         
         t        
         timestep

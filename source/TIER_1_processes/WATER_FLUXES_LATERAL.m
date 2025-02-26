@@ -1342,7 +1342,10 @@ classdef WATER_FLUXES_LATERAL < BASE
             %waterAir_volumetric = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.ice) ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce);
             waterAir_volumetric = 1 - (ground.STATVAR.mineral(1,1) + ground.STATVAR.organic(1,1) + ground.STATVAR.ice(1,1)) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1) - ground.STATVAR.XwaterIce(1,1));
             saturated_next = (ground.STATVAR.waterIce(1,1) + ground.STATVAR.mineral(1,1) + ground.STATVAR.organic(1,1)) ./ (ground.STATVAR.layerThick(1,1) .* ground.STATVAR.area(1,1) - ground.STATVAR.XwaterIce(1,1)) > 0.999; %avoid rounding errors
-            hardBottom_next = (waterAir_volumetric <= lateral.PARA.hardBottom_cutoff) | ground.STATVAR.Xice(1,1) > 0;
+            % hardBottom_next = (waterAir_volumetric <= lateral.PARA.hardBottom_cutoff) | ground.STATVAR.Xice(1,1) > 0;
+
+            hardBottom_next = (waterAir_volumetric <= lateral.PARA.hardBottom_cutoff) | (ground.STATVAR.Xice(1,1) > 0 & ground.STATVAR.T(1,1) <= 0) | (ground.STATVAR.T(1,1) < 0);  %main difference to simple: layer also considered hard when it has Xice
+
         end
         
         
@@ -1496,7 +1499,11 @@ classdef WATER_FLUXES_LATERAL < BASE
                 lateral.PARENT.STATVAR.water_table_elevation = max(water_table_elevation, lateral.PARENT.STATVAR.water_table_elevation);
             end
             lateral.PARENT.STATVAR.water_available = lateral.PARENT.STATVAR.water_available || sum(double(mobile_water>0) .* mobile_water,1) > 0;
-            lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; T_water(1:water_table_bottom_cell+j,1)];
+            if isempty(lateral.PARENT.STATVAR.T_water)
+                lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; T_water(1:water_table_bottom_cell+j,1)];
+            else
+                lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; T_water(2:water_table_bottom_cell+j,1)];
+            end
         end
         
                 

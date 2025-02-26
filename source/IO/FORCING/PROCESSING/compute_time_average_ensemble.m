@@ -11,8 +11,8 @@
 
 %ATTENTION: CLASS; changed, must be adapted in the ENSEMBLE  generation/DA classes for ESA CCI 
 
-classdef compute_time_average_ensemble < matlab.mixin.Copyable
-    
+classdef compute_time_average_ensemble < FORCING_base
+
     properties
         
     end

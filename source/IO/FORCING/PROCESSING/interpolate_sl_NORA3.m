@@ -67,6 +67,7 @@ classdef interpolate_sl_NORA3 < process_BASE
                 S_TOA = [S_TOA (S0.*mu0)];
                 Sin2 = [Sin2 squeeze(Sin(row(i), col(i),:))];
             end
+            S_TOA = S_TOA(1:size(Sin2,1),:);
             transmissivity = Sin2./S_TOA;
             transmissivity(transmissivity>=1) = NaN;           
             transmissivity = [transmissivity(1,:); transmissivity];    
@@ -89,6 +90,7 @@ classdef interpolate_sl_NORA3 < process_BASE
             [~, solar_zen]=solargeom(proc, nora.t, forcing.SPATIAL.STATVAR.latitude, forcing.SPATIAL.STATVAR.longitude);
             
             mu0=max(cos(solar_zen),0); % Trunacte negative values.
+            mu0 = mu0(1:size(transmissivity_point,1),:);
             Sin_final = S0.*mu0 .* transmissivity_point;
 
 

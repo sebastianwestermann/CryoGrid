@@ -41,10 +41,19 @@ classdef correct_Sin_time_series < process_BASE
             while datenum(y,m,1)<=datenum(ye(end), mo(end),1)
                 S_in_uncorrected = forcing.CARRIER.DATA.Sin(forcing.CARRIER.DATA.timeForcing >= datenum(y, m,1) & forcing.CARRIER.DATA.timeForcing < datenum(y, m+1, 1), 1);
                 S_in_corrected = forcing.DATA.Sin(mo == m & ye == y, 1);
+                %problem around year 0
+                if size(S_in_corrected,1) ~= size(S_in_uncorrected,1)
+                    S_in_uncorrected = S_in_uncorrected(1:size(S_in_corrected,1));
+                end
+
                 mean_Sin_corrected = mean(S_in_corrected);
                 S_TOA_uncorrected = forcing.CARRIER.DATA.S_TOA(forcing.CARRIER.DATA.timeForcing >= datenum(y, m,1) & forcing.CARRIER.DATA.timeForcing < datenum(y, m+1, 1), 1);
                 S_TOA_corrected = forcing.DATA.S_TOA(mo == m & ye == y, 1);
-                
+                %problem around year 0
+                if size(S_TOA_uncorrected,1) ~= size(S_TOA_corrected,1)
+                    S_TOA_uncorrected = S_TOA_uncorrected(1:size(S_TOA_corrected,1));
+                end
+
                 kd_target_change = (mean(S_in_corrected) ./ mean(S_TOA_corrected)) ./ (mean(S_in_uncorrected) ./ mean(S_TOA_uncorrected));
                 
                 %compute daily averages
@@ -103,9 +112,20 @@ classdef correct_Sin_time_series < process_BASE
                     quantile_number_all = S_in_corrected .*0;
                     quantile_number_all(~kd_NaN) = quantile_number;
                     
-                    
                     for i=1:proc.PARA.number_of_quantiles
-                        S_in_corrected(quantile_number_all ==i) = S_in_uncorrected(quantile_number_all ==i) ./ S_TOA_uncorrected(quantile_number_all ==i) .* quantile_correction(i) .* S_TOA_corrected(quantile_number_all ==i);
+                        if size(S_in_corrected,1) == size(S_in_uncorrected,1)
+                            S_in_corrected(quantile_number_all ==i) = S_in_uncorrected(quantile_number_all ==i) ./ S_TOA_uncorrected(quantile_number_all ==i) .* quantile_correction(i) .* S_TOA_corrected(quantile_number_all ==i);
+                        else %not sure when necessary
+                           % S_in_corrected(quantile_number_all ==i) = mean(S_in_uncorrected(quantile_number_all ==i)) ./ mean(S_TOA_uncorrected(quantile_number_all ==i)) .* quantile_correction(i) .* S_TOA_corrected(quantile_number_all ==i);
+                           i
+                           size(S_in_corrected)
+                           size(S_in_uncorrected)
+                           size(S_TOA_corrected)
+                           size(S_TOA_uncorrected)
+                           size(quantile_number_all)
+                           size(quantile_correction)
+                           S_in_corrected(quantile_number_all ==i) = mean(S_in_uncorrected(quantile_number_all ==i)) ./ mean(S_TOA_uncorrected(quantile_number_all ==i)) .* quantile_correction(i) .* S_TOA_corrected(quantile_number_all ==i);
+                        end
                     end
                     S_in_corrected(isnan(S_in_corrected)) = 0;
                     

@@ -43,7 +43,7 @@ classdef READ_DATASET < matlab.mixin.Copyable
         
         function dem = load_data(dem)
             
-            data = readgeoraster([dem.PARA.data_folder dem.PARA.data_filename]);
+            data = double(readgeoraster([dem.PARA.data_folder dem.PARA.data_filename]));
             
             data = data(dem.PARENT.STATVAR.key);
             dem.PARENT.STATVAR.(dem.PARA.variable_name) = data;

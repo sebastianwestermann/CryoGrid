@@ -74,6 +74,8 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
             %restart_OUT_last_timestep
             tile.PARA.restart_file_path = [];
             tile.PARA.restart_file_name = [];
+            tile.PARA.adapt_run_name = [];
+            tile.PARA.new_end_time = [];
 
             tile.PARA.unit_conversion_class = 'UNIT_CONVERSION_standard'; %can be overwritten if needed
               
@@ -595,18 +597,41 @@ classdef TILE_1D_standard2 < matlab.mixin.Copyable
         
         
         function tile = build_tile_restart_OUT_last_timestep(tile)
+            % temp=load([tile.PARA.restart_file_path tile.PARA.restart_file_name]);
+            % variables = fieldnames(temp.out.STRATIGRAPHY);
+            % for i=1:size(variables,1)
+            %     tile.(variables{i,1}) = temp.out.STRATIGRAPHY.(variables{i,1});
+            % end
+            new_run_name = tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            new_result_path = tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            adapt_run_name = tile.PARA.adapt_run_name;
+            new_end_time = tile.PARA.new_end_time;
+            if ~isempty(new_end_time) && sum(isnan(new_end_time))==0
+                new_end_time = datenum(new_end_time(1,1), new_end_time(2,1), new_end_time(3,1));
+            else
+                new_end_time = [];
+            end
+
             temp=load([tile.PARA.restart_file_path tile.PARA.restart_file_name]);
             variables = fieldnames(temp.out.STRATIGRAPHY);
             for i=1:size(variables,1)
                 tile.(variables{i,1}) = temp.out.STRATIGRAPHY.(variables{i,1});
             end
-%             tile.LATERAL.IA_CLASSES = {};
-%             tile.LATERAL.PARA.num_realizations = 1;
-%             tile.LATERAL.PARA.worker_number = 1;
-%             tile.OUT.OUTPUT_TIME = tile.OUT.OUTPUT_TIME+100;
-            %tile.LATERAL.IA_TIME = tile.FORCING.PARA.end_time;
+            if ~isempty(adapt_run_name) && ~isnan(adapt_run_name)
+                if adapt_run_name
+                    tile.PARA.run_name = new_run_name;
+                    tile.PARA.result_path = new_result_path;
+                end
+            end
+
+            if ~isempty(new_end_time)
+                tile.FORCING.PARA.end_time = new_end_time;
+            end
+
         end
         
+
+
         function tile = build_tile_restart_OUT_update_classes(tile)
             %use old PARA, but overwrite all newly set values
             PARA_new = tile.PARA;

@@ -178,9 +178,13 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
                     
                     
                         flow_energy = flow .* lateral.PARENT.CONST.c_w .* T_water;
-                        
-                        flux(1,1) = flux(1,1) + flow;
-                        flux_energy(1,1) = flux_energy(1,1) + flow_energy;
+                        if ~isempty(flux)
+                            flux(1,1) = flux(1,1) + flow;
+                            flux_energy(1,1) = flux_energy(1,1) + flow_energy;
+                        else
+                            flux = flow;
+                            flux_energy = flow_energy;
+                        end
                         
                         lateral.STATVAR.flow = flow;
                         lateral.STATVAR.max_flow = -lateral.PARENT.STATVAR.max_flow ./ (lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec);

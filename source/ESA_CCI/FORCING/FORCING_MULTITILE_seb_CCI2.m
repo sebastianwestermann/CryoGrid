@@ -1,3 +1,4 @@
+
 %main idea: load ERA data annual slices and interpolate to target
 %coordinates -> fully resolved annual time series of all ERA
 % -> apply a range of annual post-processing classes handling
@@ -5,13 +6,9 @@
 % dim2: annual 8d values; dim3: years
 %========================================================================
 
-classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
+classdef FORCING_MULTITILE_seb_CCI2 < FORCING_base
     
     properties
-        PARA
-        CONST
-        TEMP
-        DATA
         POST_PROC
     end
     
@@ -125,6 +122,7 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
                         forcing.TEMP.target_lon = target_lon;
                         
                         filename = forcing.PARA.filename_SURF_geopotential;
+                        test_year = 1980;
                         filename(19:22) = num2str(test_year);
                         
                         %                 %forcing.TEMP.z_surface = ncread_with_360_degree(forcing, [forcing.PARA.ERA_path filename], 'z', 1, 1) ./ forcing.CONST.g;
@@ -430,7 +428,8 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
                         toc
                     end
                 end
-                
+                forcing.PARA.post_proc_class = [];
+                forcing.PARA.post_proc_class_index = [];                
                 tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.DATA = forcing.DATA;
                 tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.PARA = forcing.PARA;
             else
@@ -438,15 +437,34 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
                 %and endtime must be set new!!!
                 PARA_new = forcing.PARA;
                 forcing.PARA = tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.PARA;
+                % forcing.PARA.post_proc_class = [];
+                % forcing.PARA.post_proc_class_index = [];
                 fn = fieldnames(PARA_new);
                 for i=1:size(fn,1)
-                    if ~isempty(PARA_new.(fn{i,1}))
+                    if ~isempty(PARA_new.(fn{i,1})) 
                         forcing.PARA.(fn{i,1}) = PARA_new.(fn{i,1});
                     end
                 end
                 
+                %additional preprocessing make it possible to efficiently change
+                %FORCING data between tiles
                 forcing.DATA = tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.DATA;
+                %initialize post_proc classes
+                if ~isempty(forcing.PARA.post_proc_class) && sum(isnan(forcing.PARA.post_proc_class_index)) == 0
+                    for i=1:size(forcing.PARA.post_proc_class,1)
+                        forcing.POST_PROC{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.post_proc_class{i,1}){forcing.PARA.post_proc_class_index(i,1),1});
+                        forcing.POST_PROC{i,1} = finalize_init(forcing.POST_PROC{i,1}, tile);
+                        forcing = process(forcing.POST_PROC{i,1}, forcing, tile);
+                    end
+                end
+
                 variables = {'ERA_melt_bare'; 'ERA_melt_forest'; 'ERA_snowfall_downscaled'; 'ERA_rainfall_downscaled'; 'ERA_sublimation_downscaled'; 'ERA_T_downscaled'; 'final_av_T'; 'final_MODIS_weight'};
+                
+                %store the revised DATA and PARA for next iteration
+                forcing.PARA.post_proc_class = [];
+                forcing.PARA.post_proc_class_index = [];
+                tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.DATA = forcing.DATA;
+                tile.RUN_INFO.PPROVIDER.STORAGE.FORCING_MULTITILE_seb_CCI.PARA = forcing.PARA;
             end
             
             %------------------------------------------
@@ -459,6 +477,16 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
             for i=1:size(variables,1)
                 forcing.DATA.(variables{i,1}) = double(reshape(forcing.DATA.(variables{i,1}), size(forcing.DATA.(variables{i,1}),1), size(forcing.DATA.(variables{i,1}),2).* size(forcing.DATA.(variables{i,1}),3)));
             end
+
+            %aggregate rainfall -> move this to processing class!
+            test=forcing.DATA.ERA_rainfall_downscaled;
+            test2=std(test,[], 2);
+            for i=1:size(forcing.DATA.ERA_rainfall_downscaled,2)-1
+                test(:,i+1) =test(:,i+1)+ test(:,i) .* double(test(:,i) <test2);
+                test(:,i) = test(:,i) .* double(test(:,i) >=test2);
+            end
+            forcing.DATA.ERA_rainfall_downscaled = test;
+            %end rainfall
             
             %append the last value so that simulations do not crash
             %after last timestamp
@@ -488,6 +516,30 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
             forcing.TEMP.fraction = round((forcing.PARA.start_time - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ ...
                 (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.TEMP.number_of_substeps);
             
+
+            rain_interval = 1; %days
+            forcing.TEMP.number_of_rain_steps = round(forcing.TEMP.number_of_substeps - rain_interval .* forcing.CONST.day_sec ./ tile.timestep);
+            forcing.TEMP.rainfall_inflation_factor = (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ rain_interval;
+        end
+        
+        function forcing = reset_time(forcing, tile)
+            forcing.TEMP = []; %delete all TEMP used in the post_processing
+            
+            forcing.TEMP.index = 1;
+            forcing.TEMP.fraction = 0;
+            while forcing.DATA.timestamp(1, forcing.TEMP.index) <= forcing.PARA.start_time
+                forcing.TEMP.index = forcing.TEMP.index + 1;
+            end
+            forcing.TEMP.index = max(1, forcing.TEMP.index - 1);
+            forcing.TEMP.number_of_substeps  =  round((forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.CONST.day_sec ./ tile.timestep) ;
+            forcing.TEMP.fraction = round((forcing.PARA.start_time - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ ...
+                (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.TEMP.number_of_substeps);
+
+
+            rain_interval = 1; %days
+            forcing.TEMP.number_of_rain_steps = round(forcing.TEMP.number_of_substeps - rain_interval .* forcing.CONST.day_sec ./ tile.timestep);
+            forcing.TEMP.rainfall_inflation_factor = (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ rain_interval;
+            
         end
         
         
@@ -504,9 +556,10 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
                 (forcing.DATA.ERA_snowfall_downscaled(:, forcing.TEMP.index+1) - forcing.DATA.ERA_snowfall_downscaled(:, forcing.TEMP.index)))');
             forcing.TEMP.snowfall = repmat(forcing.TEMP.snowfall, 1, tile.PARA.ensemble_size) .* forcing.PARA.snowfall_factor_grid .* forcing.PARA.snowfall_factor;
 
-            forcing.TEMP.rainfall = double((forcing.DATA.ERA_rainfall_downscaled(:,forcing.TEMP.index) + forcing.TEMP.fraction./forcing.TEMP.number_of_substeps .* ...
-                (forcing.DATA.ERA_rainfall_downscaled(:, forcing.TEMP.index+1) - forcing.DATA.ERA_rainfall_downscaled(:, forcing.TEMP.index)))');
-            forcing.TEMP.rainfall = repmat(forcing.TEMP.rainfall, 1, tile.PARA.ensemble_size);
+            % forcing.TEMP.rainfall = double((forcing.DATA.ERA_rainfall_downscaled(:,forcing.TEMP.index) + forcing.TEMP.fraction./forcing.TEMP.number_of_substeps .* ...
+            %     (forcing.DATA.ERA_rainfall_downscaled(:, forcing.TEMP.index+1) - forcing.DATA.ERA_rainfall_downscaled(:, forcing.TEMP.index)))');
+            forcing.TEMP.rainfall = double(forcing.DATA.ERA_rainfall_downscaled(:, forcing.TEMP.index+1)) .* double(forcing.TEMP.fraction>=forcing.TEMP.number_of_rain_steps) .* forcing.TEMP.rainfall_inflation_factor;
+            forcing.TEMP.rainfall = repmat(forcing.TEMP.rainfall', 1, tile.PARA.ensemble_size);
             
             forcing.TEMP.sublimation = double((forcing.DATA.ERA_sublimation_downscaled(:,forcing.TEMP.index) + forcing.TEMP.fraction./forcing.TEMP.number_of_substeps .* ...
                 (forcing.DATA.ERA_sublimation_downscaled(:, forcing.TEMP.index+1) - forcing.DATA.ERA_sublimation_downscaled(:, forcing.TEMP.index)))');
@@ -519,7 +572,6 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
             forcing.TEMP.melt = repmat(melt_bare, 1, tile.PARA.ensemble_size) .* (1 - forcing.PARA.bare_forest_fraction) + ...
                 repmat(melt_forest, 1, tile.PARA.ensemble_size) .* forcing.PARA.bare_forest_fraction;
             
-            
             forcing.TEMP.fraction =  forcing.TEMP.fraction + 1;
             
             if forcing.TEMP.fraction == forcing.TEMP.number_of_substeps
@@ -527,7 +579,10 @@ classdef FORCING_MULTITILE_seb_CCI2 <FORCING_base
                 forcing.TEMP.fraction = 0;
                 forcing.TEMP.index = forcing.TEMP.index + 1;
                 forcing.TEMP.number_of_substeps  =  round((forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) .* forcing.CONST.day_sec ./ tile.timestep) ;
-                %disp(datestr(forcing.DATA.timestamp(1, forcing.TEMP.index)))
+                
+                rain_interval = 1; %days
+                forcing.TEMP.number_of_rain_steps = round(forcing.TEMP.number_of_substeps - rain_interval .* forcing.CONST.day_sec ./ tile.timestep);
+                forcing.TEMP.rainfall_inflation_factor = (forcing.DATA.timestamp(1, forcing.TEMP.index+1) - forcing.DATA.timestamp(1, forcing.TEMP.index)) ./ rain_interval;
             end
         end
         

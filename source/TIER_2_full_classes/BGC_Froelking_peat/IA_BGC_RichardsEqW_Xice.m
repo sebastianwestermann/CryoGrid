@@ -133,6 +133,7 @@ classdef IA_BGC_RichardsEqW_Xice <  IA_BGC
                 
                 waterIce_BGC = ia_BGC.BGC.STATVAR.layerThick .*0;
                 XwaterIce_BGC = ia_BGC.BGC.STATVAR.layerThick .*0;
+                XwaterIce_thickness_BGC = ia_BGC.BGC.STATVAR.layerThick .*0;
                 organic_BGC = ia_BGC.BGC.STATVAR.layerThick .*0;
                 organic_BGC_remaining_fraction = ia_BGC.BGC.STATVAR.layerThick .*0;
                 energy_BGC = ia_BGC.BGC.STATVAR.layerThick .*0;

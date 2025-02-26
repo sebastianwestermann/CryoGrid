@@ -153,10 +153,20 @@ classdef FORCING_seb_downscale_reference < FORCING_base_carrier_reference
                     proc.PARA.maximum =[NaN; 1; NaN; NaN; NaN];
                 end
                 %reinitialze reference in case
-                if  strcmp(proc_functions{i,1},  'apply_TRANSFORM') && (forcing.PARA.end_time < forcing.REFERENCE.DATA.timeForcing(1,1) || forcing.PARA.start_time > forcing.REFERENCE.DATA.timeForcing(end,1)) 
-                    forcing.REFERENCE.PARA.start_time = forcing.PARA.start_time;
-                    forcing.REFERENCE.PARA.end_time = forcing.PARA.end_time;
-                    forcing.REFERENCE = finalize_init(forcing.REFERENCE, tile);
+                if  strcmp(proc_functions{i,1},  'apply_TRANSFORM') 
+                    if (forcing.PARA.end_time < forcing.REFERENCE.DATA.timeForcing(1,1) || forcing.PARA.start_time > forcing.REFERENCE.DATA.timeForcing(end,1))
+                        forcing.REFERENCE.PARA.start_time = forcing.PARA.start_time;
+                        forcing.REFERENCE.PARA.end_time = forcing.PARA.end_time;
+                        forcing.REFERENCE = finalize_init(forcing.REFERENCE, tile);
+                    end
+                    if  forcing.PARA.start_time < forcing.REFERENCE.DATA.timeForcing(1,1) 
+                        forcing.REFERENCE.PARA.start_time = forcing.PARA.start_time;
+                        forcing.REFERENCE = finalize_init(forcing.REFERENCE, tile);
+                    end
+                    if   forcing.PARA.end_time > forcing.REFERENCE.DATA.timeForcing(end,1)
+                        forcing.REFERENCE.PARA.end_time = forcing.PARA.end_time;
+                        forcing.REFERENCE = finalize_init(forcing.REFERENCE, tile);
+                    end
                 end
                 
                 forcing = process(proc, forcing, tile);

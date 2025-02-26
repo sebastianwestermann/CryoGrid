@@ -203,7 +203,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         
         function timestep = get_timestep(ground, tile)  
            timestep = get_timestep_heat_coduction(ground);
-           timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground)); 
+           timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground));
            timestep = min(timestep, ground.PARA.dt_max);
 
         end
@@ -347,7 +347,16 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         function Tg = get_surface_T(ground, tile)
             Tg = ground.STATVAR.T(1);
         end
+
+
+        %-------------restore_from_out-----
+        function ground = reset_from_OUT(ground, tile)
+            ground.CHILD = 0;
+            ground = create_LUT_freezeC(ground);
+            ground = set_TEMP_2zero(ground);
+        end
         
+                
         
         %-----LATERAL-------------------
         

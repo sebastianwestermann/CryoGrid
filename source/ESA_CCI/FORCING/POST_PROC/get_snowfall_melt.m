@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef get_snowfall_melt < matlab.mixin.Copyable 
+classdef get_snowfall_melt < FORCING_base
     
     properties
         

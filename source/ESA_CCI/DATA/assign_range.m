@@ -17,8 +17,8 @@ classdef assign_range < matlab.mixin.Copyable
     methods
         function update = provide_PARA(update)
 
-            update.PARA.class_name = [];
-            update.PARA.class_index = [];
+            update.PARA.target_class_name = [];
+            update.PARA.target_class_index = [];
             
         end
         
@@ -35,9 +35,9 @@ classdef assign_range < matlab.mixin.Copyable
         end
         
         function update = assign_tile_properties(update, range)
-            for i=1:size(update.PARA.class_name,1)
-                update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.class_name{i,1}){update.PARA.class_index(i,1),1}.PARA.range = range;
-                 update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.class_name{i,1}){update.PARA.class_index(i,1),1}.PARA.number_of_realizations = size(range,1);
+            for i=1:size(update.PARA.target_class_name,1)
+                update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.range = range;
+                 update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.number_of_realizations = size(range,1);
             end
         end
         
@@ -53,9 +53,9 @@ classdef assign_range < matlab.mixin.Copyable
             update.PARA.options.class_name.name =  'H_LIST';
             update.PARA.options.class_name.entries_x = {'TILE_1D_standard' 'TILE_1D_standard' 'TILE_1D_standard'};
             
-            update.PARA.comment.class_index =  {'index of class in which the variable is changed'};
-            update.PARA.options.class_index.name =  'H_LIST';
-            update.PARA.options.class_index.entries_x = {'1' '1' '1'};
+            update.PARA.comment.class_ind =  {'index of class in which the variable is changed'};
+            update.PARA.options.class_ind.name =  'H_LIST';
+            update.PARA.options.class_ind.entries_x = {'1' '1' '1'};
 
             update.PARA.comment.variable =  {'name of variable which is changed (must be assigned by DATA PROVIDER class)'};
             update.PARA.options.variable.name =  'H_LIST';

@@ -63,7 +63,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
             water_table_slope = ensemble.PARA.ensemble_information.water_table_slope';
             water_table_intercept = ensemble.PARA.ensemble_information.water_table_intercept';
             wind_compaction_timescale = ensemble.PARA.ensemble_information.wind_compaction_timescale'; %[in days];
-            wind_speed_per_class = ensemble.PARA.ensemble_information.wind_speed_per_class';
+            wind_speed_class = ensemble.PARA.ensemble_information.wind_speed_class';
             bare_forest_fraction  = ensemble.PARA.ensemble_information.bare_forest_fraction';
             rk_init = ensemble.PARA.ensemble_information.rk_init';
             
@@ -92,7 +92,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
                         
                         ensemble.STATVAR.snowfall_factor(i,index+k) = get_snowfall_factor(ensemble, k./(ensemble_size_per_class(i,j)+1) , CV_list(1,j));
                         ensemble.STATVAR.wind_compaction_timescale(i, index+k) = wind_compaction_timescale(1,j);
-                        ensemble.STATVAR.wind_speed_class(i, index+k) = wind_speed_per_class(1,j);
+                        ensemble.STATVAR.wind_speed_class(i, index+k) = wind_speed_class(1,j);
                         ensemble.STATVAR.bare_forest_fraction(i, index+k) = bare_forest_fraction(1,j);
                         ensemble.STATVAR.rk_init(i, index+k) = rk_init(1,j);
                     end
@@ -180,7 +180,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
             water_table_slope = ensemble.PARA.ensemble_information.water_table_slope';
             water_table_intercept = ensemble.PARA.ensemble_information.water_table_intercept';
             wind_compaction_timescale = ensemble.PARA.ensemble_information.wind_compaction_timescale'; %[in days];
-            wind_speed_per_class = ensemble.PARA.ensemble_information.wind_speed_per_class';
+            wind_speed_class = ensemble.PARA.ensemble_information.wind_speed_class';
             bare_forest_fraction  = ensemble.PARA.ensemble_information.bare_forest_fraction';
             rk_init = ensemble.PARA.ensemble_information.rk_init';
             
@@ -209,7 +209,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
                         
                         ensemble.STATVAR.snowfall_factor(i,index+k) = get_snowfall_factor(ensemble, k./(ensemble_size_per_class(i,j)+1) , CV_list(1,j));
                         ensemble.STATVAR.wind_compaction_timescale(i, index+k) = wind_compaction_timescale(1,j);
-                        ensemble.STATVAR.wind_speed_class(i, index+k) = wind_speed_per_class(1,j);
+                        ensemble.STATVAR.wind_speed_class(i, index+k) = wind_speed_class(1,j);
                         ensemble.STATVAR.bare_forest_fraction(i, index+k) = bare_forest_fraction(1,j);
                         ensemble.STATVAR.rk_init(i, index+k) = rk_init(1,j);
                     end

@@ -71,13 +71,22 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.PARA.T_first_cell = [];
             tile.PARA.start_depth_steady_state = [];
 
+            tile.PARA.modify_class = [];
+            tile.PARA.modify_class_index = [];
+
             %update_stratigraphy
             tile.PARA.truncate_depth = [];
             tile.PARA.keep_LATERAL = 0;
+                        
             
             %restart_OUT_last_timestep
             tile.PARA.restart_file_path = [];
             tile.PARA.restart_file_name = [];
+            tile.PARA.adapt_run_name = [];
+            tile.PARA.new_end_time = [];
+
+            %restart_OUT_all
+            tile.PARA.restart_time = [];
 
             tile.PARA.unit_conversion_class = 'UNIT_CONVERSION_standard'; %can be overwritten if needed
             
@@ -125,7 +134,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
         
         
         function tile = run_model(tile)
-            
+
+
             TOP = tile.TOP;
             BOTTOM = tile.BOTTOM;
             TOP.LATERAL = tile.LATERAL;
@@ -164,10 +174,11 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
                 while ~isequal(CURRENT, BOTTOM)
                     tile.timestep = min(tile.timestep, get_timestep(CURRENT, tile));
                     CURRENT = CURRENT.NEXT;
-                end
+                end   
                 tile.next_break_time = min(tile.LATERAL.IA_TIME, tile.OUT.OUTPUT_TIME);
                 tile.timestep = min(tile.timestep, (tile.next_break_time - tile.t).*tile.CONST.day_sec);
                 
+
                 %prognostic step - integrate prognostic variables in time
                 CURRENT = TOP.NEXT;
                 while ~isequal(CURRENT, BOTTOM)
@@ -545,7 +556,12 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
            
             if tile.PARA.keep_LATERAL
                 tile.LATERAL = old_TILE.LATERAL;
+                tile.LATERAL.IA_TIME = tile.FORCING.PARA.start_time + tile.LATERAL.IA_TIME_INCREMENT;
+                tile.next_break_time = old_TILE.next_break_time;
             end
+
+            tile.LATERAL.TOP = tile.TOP;
+            tile.LATERAL.BOTTOM = tile.BOTTOM;
 
             tile.RUN_INFO.TILE = tile;
             
@@ -570,7 +586,9 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             tile.BOTTOM_CLASS = tile.RUN_INFO.TILE.BOTTOM_CLASS;
             tile.TOP_CLASS = tile.RUN_INFO.TILE.TOP_CLASS;
             tile.timestep = tile.RUN_INFO.TILE.timestep;
-            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL;     
+            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL; 
+            % tile.LATERAL.IA_TIME = tile.FORCING.PARA.start_time + tile.LATERAL.IA_TIME_INCREMENT;
+           % tile.next_break_time = tile.RUN_INFO.TILE.next_break_time; 
             tile.STORE = tile.RUN_INFO.TILE.STORE;     
             
             %use old PARA, but overwrite all newly set values
@@ -582,7 +600,6 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
                     tile.PARA.(fn{i,1}) = PARA_new.(fn{i,1});
                 end
             end
-
             
             tile.FORCING = finalize_init(tile.FORCING, tile); 
             tile.OUT = finalize_init(tile.OUT, tile);           
@@ -592,7 +609,8 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             
             %reset IA time
             tile.LATERAL.IA_TIME = tile.t + tile.LATERAL.IA_TIME_INCREMENT;
-            
+            tile.next_break_time =  tile.LATERAL.IA_TIME; 
+
             %reset time for BGC class (do mothing if no BGC class exists)
             %-> MAKE THIS A GENERAL RESET_TIME OR ADJUST_TIME FUNCTION THAT
             %IS DEFINED IN BASE AND OVERWRITTEN IN ALL FUNCTIONS THAT
@@ -609,18 +627,135 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
             
             tile.RUN_INFO.TILE = tile;
 
+            tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+
+                        
+            if ~isempty(tile.PARA.modify_class) && sum(isnan(tile.PARA.modify_class_index))==0
+                for i=1:size(tile.PARA.modify_class,1)
+                    mod = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.modify_class{i,1}){tile.PARA.modify_class_index(i,1),1});
+                    mod = finalize_init(mod, tile);
+                    tile = modify(mod, tile);
+                end
+            end
+        end
+        
+
+        function tile = build_tile_restart_OUT_all(tile)
             
             tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
             tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            
+            %1. forcing
+            %tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.FUNCTIONAL_CLASSES.FORCING{tile.PARA.forcing_index,1});
+            tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
+            tile.FORCING = finalize_init(tile.FORCING, tile);
+            
+            %4. build stratigraphy
+            strat_classes_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.strat_classes_class){tile.PARA.strat_classes_class_index,1});
+            strat_classes_class = finalize_init(strat_classes_class, tile);
+            
+            tile.TOP = Top();
+            tile.BOTTOM = Bottom();
+            OUT = load([tile.PARA.restart_file_path tile.PARA.restart_file_name]);
+            OUT = OUT.out;
+            if ~isempty(tile.PARA.restart_time) && sum(isnan(tile.PARA.restart_time))==0
+                tile.PARA.restart_time = datenum(tile.PARA.restart_time(1,1), tile.PARA.restart_time(2,1), tile.PARA.restart_time(3,1));
+            else
+                tile.PARA.restart_time = [];
+            end
+            [uppermost_class, lowermost_class] = restore_stratigraphy_from_OUT(OUT, tile.PARA.restart_time, tile);
+            tile.TOP.NEXT = uppermost_class;
+            tile.TOP.NEXT.PREVIOUS = tile.TOP;
+            tile.BOTTOM.PREVIOUS = lowermost_class;
+            tile.BOTTOM.PREVIOUS.NEXT = tile.BOTTOM;
+            
+            tile.TOP_CLASS = tile.TOP.NEXT;
+            tile.BOTTOM_CLASS = tile.BOTTOM.PREVIOUS;
+            
+            %6. set top depths relative to surface and finalize initialization for
+            %subsurface classes
+            CURRENT = tile.TOP_CLASS;
+            CURRENT.STATVAR.top_depth_rel2groundSurface = 0; %set initial surface to zero
+
+            %7. assign interaction classes 
+            CURRENT = tile.TOP_CLASS;
+            
+            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
+                ia_class = get_IA_class(class(CURRENT), class(CURRENT.NEXT));
+                CURRENT.IA_NEXT = ia_class;
+                CURRENT.IA_NEXT.PREVIOUS = CURRENT;
+                CURRENT.IA_NEXT.NEXT = CURRENT.NEXT;
+                CURRENT.NEXT.IA_PREVIOUS = CURRENT.IA_NEXT;
+                
+                finalize_init(CURRENT.IA_NEXT, tile); %Added Sebastian, defined in IA_BASE as empty
+                
+                CURRENT = CURRENT.NEXT;
+            end
+            
+            %8. assign SNOW class
+            snow_class_name = strat_classes_class.PARA.snow_class_name;
+            snow_class_index = strat_classes_class.PARA.snow_class_index;
+            
+            if ~isempty(snow_class_name) && sum(isnan(snow_class_name))==0
+                snow_class =  tile.RUN_INFO.PPROVIDER.CLASSES.(snow_class_name);
+                snow_class = snow_class{snow_class_index,1};
+                tile.STORE.SNOW = copy(snow_class);
+                tile.STORE.SNOW = finalize_init(tile.STORE.SNOW, tile); %make this dependent on TILE!
+            end
+            
+            %9. assign sleeping classes
+            sleeping_classes = strat_classes_class.PARA.sleeping_classes_name;
+            sleeping_classes_index = strat_classes_class.PARA.sleeping_classes_index; 
+
+            for i=1:size(sleeping_classes,1)
+                sc = tile.RUN_INFO.PPROVIDER.CLASSES.(sleeping_classes{i,1});
+                sc = sc{sleeping_classes_index(i,1),1};
+                tile.STORE.SLEEPING{i,1} = copy(sc);
+                tile.STORE.SLEEPING{i,1} = convert_units(tile.STORE.SLEEPING{i,1}, tile);
+                tile.STORE.SLEEPING{i,1} = finalize_init(tile.STORE.SLEEPING{i,1}, tile);
+                tile.STORE.SLEEPING{i,2} = sleeping_classes_index(i,1);
+            end
+            
+            %10. assign time, etc.
+            tile.t = tile.FORCING.PARA.start_time;
+            
+            %11. assign LATERAL classes 
+            tile.LATERAL = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.lateral_class){tile.PARA.lateral_class_index,1});
+            tile.LATERAL = finalize_init(tile.LATERAL, tile);
+            
+            %12. assign OUT classes
+            tile.OUT = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.out_class){tile.PARA.out_class_index,1});
+            tile.OUT = finalize_init(tile.OUT, tile);
+
         end
         
-        
         function tile = build_tile_restart_OUT_last_timestep(tile)
+            new_run_name = tile.RUN_INFO.PPROVIDER.PARA.run_name;
+            new_result_path = tile.RUN_INFO.PPROVIDER.PARA.result_path;
+            adapt_run_name = tile.PARA.adapt_run_name;
+            new_end_time = tile.PARA.new_end_time;
+            if ~isempty(new_end_time) && sum(isnan(new_end_time))==0
+                new_end_time = datenum(new_end_time(1,1), new_end_time(2,1), new_end_time(3,1));
+            else
+                new_end_time = [];
+            end
+
             temp=load([tile.PARA.restart_file_path tile.PARA.restart_file_name]);
             variables = fieldnames(temp.out.STRATIGRAPHY);
             for i=1:size(variables,1)
                 tile.(variables{i,1}) = temp.out.STRATIGRAPHY.(variables{i,1});
             end
+            if ~isempty(adapt_run_name) && ~isnan(adapt_run_name)
+                if adapt_run_name
+                    tile.PARA.run_name = new_run_name;
+                    tile.PARA.result_path = new_result_path;
+                end
+            end
+            if ~isempty(new_end_time)
+                tile.FORCING.PARA.end_time = new_end_time;
+            end
+
 %             tile.LATERAL.IA_CLASSES = {};
 %             tile.LATERAL.PARA.num_realizations = 1;
 %             tile.LATERAL.PARA.worker_number = 1;
@@ -647,7 +782,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
                 end
                 i=i-1;
 
-                if truncate_depth <= 0 %truncate inside this class
+                if truncate_depth <= 1e-6 %truncate inside this class
                     if i==0
                         %do nothing, keep entire class
                     elseif i==size(CURRENT.STATVAR.layerThick,1)
@@ -670,6 +805,11 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
 
 
         function tile = merge_stratigraphies(tile, tile_below)
+             if tile.PARA.domain_depth == 0 %delete empty stratigraphy
+                tile.TOP.NEXT = tile.BOTTOM;
+                tile.BOTTOM.PREVIOUS = tile.TOP;
+             end
+
             if strcmp(class(tile.BOTTOM.PREVIOUS), class(tile_below.TOP.NEXT))
                 %call function at stratgraphy class level and merge classes
                 tile.BOTTOM.PREVIOUS = merge_STATVAR(tile.BOTTOM.PREVIOUS, tile_below.TOP.NEXT);
@@ -691,6 +831,7 @@ classdef TILE_1D_standard < matlab.mixin.Copyable
 
             tile.BOTTOM.PREVIOUS = tile_below.BOTTOM.PREVIOUS;
             tile.BOTTOM.PREVIOUS.NEXT = tile.BOTTOM;
+
         end
 
 

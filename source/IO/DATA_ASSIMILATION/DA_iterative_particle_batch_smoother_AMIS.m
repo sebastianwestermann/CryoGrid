@@ -221,15 +221,6 @@ classdef DA_iterative_particle_batch_smoother_AMIS < matlab.mixin.Copyable
                 labBarrier;
                 %synchronize
                 
-%                 save(['save_all_1_' num2str(tile.PARA.worker_number) '.mat'])
-               
-
-                %actual DA 
-%                 if da.TEMP.num_iterations == 1
-%                     da = PBS(da);
-%                 else
-%                     da = AMIS(da);
-%                 end
 
 
                 da = AMIS(da);

@@ -91,7 +91,7 @@ classdef ENSEMBLE_gaussian < matlab.mixin.Copyable
                 if any(strcmp(variable_list, ensemble.PARA.variable_in_ensemble{i,1}))
                     tile.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.modify_class_name{i,1}){ensemble.PARA.modify_class_index(i,1),1}.PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.index_V(i,1), ensemble.PARA.index_H(i,1)) = ...
                         max(ensemble.PARA.lower_bound(i,1), min(ensemble.PARA.upper_bound(i,1), ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1})));
-                    for j=1:size(ensemble.PARA.modify_class_pointer{i,1})
+                    for j=1:size(ensemble.PARA.modify_class_pointer{i,1},1)
                         ensemble.PARA.modify_class_pointer{i,1}(j,1).PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.index_V(i,1), ensemble.PARA.index_H(i,1)) = ...
                             max(ensemble.PARA.lower_bound(i,1), min(ensemble.PARA.upper_bound(i,1), ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1})));
                     end

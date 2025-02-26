@@ -55,9 +55,14 @@ classdef LAT3D_WATER_OVERLAND_FLOW < BASE_LATERAL
                 flow = max(flow, -lateral.PARENT.STATVAR.max_flow ./ (lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec));
                 
                 flow_energy = flow .* lateral.PARENT.CONST.c_w .* lateral.PARENT.STATVAR.T_water(1,1);
-                
-                lateral.PARENT.STATVAR.water_flux(1,1) = lateral.PARENT.STATVAR.water_flux(1,1) + flow .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
-                lateral.PARENT.STATVAR.water_flux_energy(1,1) = lateral.PARENT.STATVAR.water_flux_energy(1,1) + flow_energy .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;       
+
+                if ~isempty(lateral.PARENT.STATVAR.water_flux)
+                    lateral.PARENT.STATVAR.water_flux(1,1) = lateral.PARENT.STATVAR.water_flux(1,1) + flow .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
+                    lateral.PARENT.STATVAR.water_flux_energy(1,1) = lateral.PARENT.STATVAR.water_flux_energy(1,1) + flow_energy .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
+                else
+                    lateral.PARENT.STATVAR.water_flux = flow .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
+                    lateral.PARENT.STATVAR.water_flux_energy = flow_energy .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
+                end
                 lateral.STATVAR.surface_run_off = lateral.STATVAR.surface_run_off - flow .* lateral.PARA.ia_time_increment .* lateral.PARENT.CONST.day_sec;
                 
                 lateral.STATVAR.flow = flow;

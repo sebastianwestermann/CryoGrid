@@ -87,14 +87,29 @@ classdef doy_quantile_mapping < matlab.mixin.Copyable
         function forcing_corrected = apply_transform(transform, forcing, tile)
             
             forcing_corrected = forcing.DATA.(transform.PARA.variable);
+            
+            %only full resolution and daily averages makes sense for this
+            %class
+            if strcmp(transform.PARA.overlap_target_interval, 'full')
+                forcing_corrected2 = forcing_corrected;
+            elseif strcmp(transform.PARA.overlap_target_interval, 'day') %compute daily averages
+                forcing_corrected2 = forcing_corrected;
+                for i=floor(forcing.DATA.timeForcing(1,1)):floor(forcing.DATA.timeForcing(end,1))
+                    pos = find(forcing.DATA.timeForcing(:,1) >= i & forcing.DATA.timeForcing(:,1) < i+1);
+                    forcing_corrected2(pos,1) = forcing_corrected2(pos,1) .* 0 + mean(forcing_corrected2(pos,1));
+                end
+            end
+
             doy = floor(forcing.DATA.timeForcing - datenum(year(forcing.DATA.timeForcing), 1, 1))+1;
+            
             for i=1:366
                 if transform.PARA.recompute_quantiles == 1
                     doy_corrected = doy;
                     doy_corrected(doy_corrected > i+transform.PARA.window+1) = doy_corrected(doy_corrected > i + transform.PARA.window+1) - 365;
                     doy_corrected(doy_corrected < i-transform.PARA.window-1) = doy_corrected(doy_corrected < i - transform.PARA.window-1) + 365;
                     range = find(doy_corrected >= i-transform.PARA.window & doy_corrected <= i+transform.PARA.window);
-                    quantiles_carrier = [quantile(forcing.DATA.(transform.PARA.variable)(range,1), transform.PARA.number_of_quantiles-1) Inf];
+                    %quantiles_carrier = [quantile(forcing.DATA.(transform.PARA.variable)(range,1), transform.PARA.number_of_quantiles-1) Inf];
+                    quantiles_carrier = [quantile(forcing_corrected2(range,1), transform.PARA.number_of_quantiles-1) Inf];
                 else
                     quantiles_carrier = [transform.STATVAR.quantiles(i,:) Inf];
                 end
@@ -102,7 +117,7 @@ classdef doy_quantile_mapping < matlab.mixin.Copyable
                 
                 quantile_score = 1;
                 for j = 1:transform.PARA.number_of_quantiles
-                    quantile_score = quantile_score + double(forcing_corrected(range,1)>=quantiles_carrier(1,j));
+                    quantile_score = quantile_score + double(forcing_corrected2(range,1)>=quantiles_carrier(1,j));
                 end
                 correction = quantile_score.*0;
                 for j = 1:transform.PARA.number_of_quantiles

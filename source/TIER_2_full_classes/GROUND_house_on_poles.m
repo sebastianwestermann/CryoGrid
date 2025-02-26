@@ -14,7 +14,7 @@ classdef GROUND_house_on_poles < HEAT_CONDUCTION &  UB_TEMPERATURE_FORCING
         %----initialization--------------------
         
         function ground = provide_PARA(ground)
-            ground.PARA.thickness = []; %thickness of the space between building and ground [m]
+            ground.PARA.thickness = []; %thickness of the space between building and ground [m] % SEB, Dec 2024: this should be the thickness of the floor of the hourse?
             ground.PARA.number_of_cells = []; %number of gridcells [-]
             ground.PARA.height_above_ground = []; %height above ground [m]
             ground.PARA.epsilon = []; %surface emissivity [-]
