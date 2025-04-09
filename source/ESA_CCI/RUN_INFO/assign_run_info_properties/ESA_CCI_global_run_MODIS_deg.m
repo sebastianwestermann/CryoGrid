@@ -32,7 +32,13 @@ classdef ESA_CCI_global_run_MODIS_deg < matlab.mixin.Copyable
         end
         
         function update = assign_run_info_properties(update, run_info)
-            load([update.PARA.deg_tile_list_folder update.PARA.deg_tile_list_file]);
+            dec = 0;
+            while dec == 0
+                try
+                    load([update.PARA.deg_tile_list_folder update.PARA.deg_tile_list_file]);
+                    dec = 1;
+                end
+            end
             if isempty(update.PARA.MODIS_tile_number) || isnan(update.PARA.MODIS_tile_number)
                 still2do = find(progress_list(:,1) == 0);
                 rng('shuffle') %different random number sequence each time

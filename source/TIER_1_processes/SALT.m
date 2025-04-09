@@ -36,14 +36,39 @@ classdef SALT < BASE
             
             ground.TEMP.d_salt = ground.TEMP.d_salt + d_salt;
         end
+
+        function ground = get_derivative_salt_buoancy(ground)
+            fluxes_diffusion = (ground.STATVAR.salt_c_brine(1:end-1) - ground.STATVAR.salt_c_brine(2:end)) .* ground.STATVAR.diffusivitySalt(1:end-1) .* ground.STATVAR.diffusivitySalt(2:end) ./...
+                (ground.STATVAR.diffusivitySalt(1:end-1).* ground.STATVAR.layerThick(2:end)./2 +  ground.STATVAR.diffusivitySalt(2:end).* ground.STATVAR.layerThick(1:end-1)./2 );
+            fluxes_diffusion(isnan(fluxes_diffusion)) = 0; % in case diffusivitySalt is 0 for both cells 
+            %unit mol/m2, so flux through 1m2 unit cross section between cells!
+
+            fluxes_buoyancy = double(ground.STATVAR.density_water(1:end-1,1) > ground.STATVAR.density_water(2:end,1)) .* (ground.STATVAR.density_water(1:end-1,1) - ground.STATVAR.density_water(2:end,1)) .* ...
+                (ground.STATVAR.salt_c_brine(1:end-1) - ground.STATVAR.salt_c_brine(2:end)) .* ground.STATVAR.diffusivity_buoyancy(1:end-1) .* ground.STATVAR.diffusivity_buoyancy(2:end) ./...
+                (ground.STATVAR.diffusivity_buoyancy(1:end-1).* ground.STATVAR.layerThick(2:end)./2 +  ground.STATVAR.diffusivity_buoyancy(2:end).* ground.STATVAR.layerThick(1:end-1)./2 );
+            %Eq. 15 in https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2010JC006527
+
+            d_salt=ground.STATVAR.energy.*0;
+            d_salt(1) =  - fluxes_diffusion(1) - fluxes_buoyancy(1,1);
+            d_salt(2:end-1) = fluxes_diffusion(1:end-1) - fluxes_diffusion(2:end) + fluxes_buoyancy(1:end-1) - fluxes_buoyancy(2:end) ;  
+            d_salt(end) =  fluxes_diffusion(end) + fluxes_buoyancy(end);
+            d_salt = d_salt.*ground.STATVAR.area;  %multiply by area, in [mol/sec] 
+            
+            ground.TEMP.d_salt = ground.TEMP.d_salt + d_salt;
+        end
         
         
         %-----------timesteps----------
         
         function timestep = get_timestep_salt(ground) %not used at this stage, modify if necessary!
-            timestep = ground.PARA.dt_max; 
+            timestep1 = 10 ./ (max(abs(ground.TEMP.d_salt) ./ ground.STATVAR.layerThick./ ground.STATVAR.area));
+            timestep1(isnan(timestep1))  = ground.PARA.dt_max;
+            timestep2 = nanmin(double(ground.TEMP.d_salt<0) .* (-ground.STATVAR.saltConc ./ground.TEMP.d_salt) + double(ground.TEMP.d_salt>=0) .* ground.PARA.dt_max);
+            timestep2(isnan(timestep2))  = ground.PARA.dt_max;
+            timestep = min(timestep1, timestep2); 
         end
-        
+
+       
         
         %----diagnostic step---------
         
@@ -316,6 +341,22 @@ classdef SALT < BASE
             %average between values for Na+ and Cl-
             
             ground.STATVAR.diffusivitySalt = D0 .* water ;
+        end
+
+        function ground = diffusivity_salt_sea_ice_buoyancy(ground)
+            
+            water = ground.STATVAR.water./ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            
+            D0 = ((6.06 + 9.60)/2  + max(ground.STATVAR.T, 0) .* (0.297  + 0.438)/2) .* 1e-10; %from Boudreau, B., 1997, Diagenetic Models and their implementation, Springer, Berlin.
+            %average between values for Na+ and Cl-
+            
+            ground.STATVAR.diffusivitySalt = D0 .* water ;
+
+            mixing_length = 7e-5; %[m] no idea where this comes from in the first place, from here: https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2010JC006527
+            viscosity_water = 1.79e-3; %[Pa sec] coarse estimate for 0 degreeC, make T-dpendent, but should not play a big role
+            
+            ground.STATVAR.diffusivity_buoyancy = ground.CONST.g ./ viscosity_water .* mixing_length .* 3e-8 .* water.^3 ;
+
         end
         
     end

@@ -83,16 +83,16 @@ classdef LAKE < BASE
             if size(ground.STATVAR.energy,1) > 1
                 density_water = water_density_saline_UNESCO(ground, ground.STATVAR.T, ground.STATVAR.salt_c_brine);
                 %freezing_cell
-                freezing_cell = find(ground.STATVAR.energy < ground.STATVAR.E_f, 1, 'last');
-                if freezing_cell < size(ground.STATVAR.energy,1)
-                    if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
-                        energy_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1)) ./ ground.STATVAR.waterIce(freezing_cell,1) .* ground.CONST.c_w .* ground.STATVAR.water(freezing_cell,1) .* ground.STATVAR.T(freezing_cell,1);
-                        energy_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.energy(freezing_cell+1,1);
-
-                        salt_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  .* ground.STATVAR.salt_c_brine(freezing_cell,1);
-                        salt_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.saltConc(freezing_cell+1,1);
-                    end
-                end
+                % freezing_cell = find(ground.STATVAR.energy < ground.STATVAR.E_f, 1, 'last');
+                % if freezing_cell < size(ground.STATVAR.energy,1)
+                %     if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
+                %         energy_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1)) ./ ground.STATVAR.waterIce(freezing_cell,1) .* ground.CONST.c_w .* ground.STATVAR.water(freezing_cell,1) .* ground.STATVAR.T(freezing_cell,1);
+                %         energy_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.energy(freezing_cell+1,1);
+                % 
+                %         salt_down_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  .* ground.STATVAR.salt_c_brine(freezing_cell,1);
+                %         salt_up_f = 0.1/3600 .* tile.timestep .* min(ground.STATVAR.water(freezing_cell,1), ground.STATVAR.waterIce(freezing_cell+1,1))  ./ ground.STATVAR.waterIce(freezing_cell+1,1) .* ground.STATVAR.saltConc(freezing_cell+1,1);
+                %     end
+                % end
                 %buoyancy in free water column
                 swap = double(ground.STATVAR.energy(1:end-1,1) >=ground.STATVAR.E_f(1:end-1,1) & ground.STATVAR.energy(2:end,1) >=ground.STATVAR.E_f(2:end,1) & density_water(2:end,1) < density_water(1:end-1,1));
                 
@@ -103,15 +103,15 @@ classdef LAKE < BASE
                 salt_down = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(1:end-1,1) .* ground.STATVAR.saltConc(1:end-1,1);
                 salt_up = swap .* 0.5/3600 .* tile.timestep .* min(ground.STATVAR.waterIce(1:end-1,1), ground.STATVAR.waterIce(2:end,1)) ./ ground.STATVAR.waterIce(2:end,1) .* ground.STATVAR.saltConc(2:end,1);
                                 
-                if freezing_cell < size(ground.STATVAR.energy,1)
-                    if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
-                        ground.STATVAR.energy(freezing_cell,1) = ground.STATVAR.energy(freezing_cell,1) - energy_down_f + energy_up_f;
-                        ground.STATVAR.energy(freezing_cell+1,1) = ground.STATVAR.energy(freezing_cell+1,1)  + energy_down_f - energy_up_f;
-
-                        ground.STATVAR.saltConc(freezing_cell,1) = ground.STATVAR.saltConc(freezing_cell,1) - salt_down_f + salt_up_f;
-                        ground.STATVAR.saltConc(freezing_cell+1,1) = ground.STATVAR.saltConc(freezing_cell+1,1)  + salt_down_f - salt_up_f;
-                    end
-                end
+                % if freezing_cell < size(ground.STATVAR.energy,1)
+                %     if density_water(freezing_cell,1) >density_water(freezing_cell+1,1)
+                %         ground.STATVAR.energy(freezing_cell,1) = ground.STATVAR.energy(freezing_cell,1) - energy_down_f + energy_up_f;
+                %         ground.STATVAR.energy(freezing_cell+1,1) = ground.STATVAR.energy(freezing_cell+1,1)  + energy_down_f - energy_up_f;
+                % 
+                %         ground.STATVAR.saltConc(freezing_cell,1) = ground.STATVAR.saltConc(freezing_cell,1) - salt_down_f + salt_up_f;
+                %         ground.STATVAR.saltConc(freezing_cell+1,1) = ground.STATVAR.saltConc(freezing_cell+1,1)  + salt_down_f - salt_up_f;
+                %     end
+                % end
 
                 ground.STATVAR.energy(1:end-1,1) = ground.STATVAR.energy(1:end-1,1) - energy_down + energy_up;
                 ground.STATVAR.energy(2:end,1) = ground.STATVAR.energy(2:end,1)  + energy_down - energy_up;
@@ -510,9 +510,59 @@ classdef LAKE < BASE
             csal32 = (term14 + term13 + term12) .* s32;
             csal2  =  term15 .* s2;
             
-            density_water = dpure + csal1 + csal32 + csal2;
+            density_water = min(1214, dpure + csal1 + csal32 + csal2); %maximum density is about 1214 kg/m3 (about 26 wt%), eutectic point reached thereafter
         end
         
+
+        function ground = get_derivatives_buoyancy(ground, tile)
+            density_difference = ground.STATVAR.density_water(1:end-1,1)-ground.STATVAR.density_water(2:end,1);
+            permeability_buoyancy = ground.STATVAR.permeability_buoyancy(1:end-1,1) .* ground.STATVAR.permeability_buoyancy(2:end,1) .* ...
+                (ground.STATVAR.permeability_buoyancy(2:end,1) .* ground.STATVAR.layerThick(1:end-1,1)./2 + ground.STATVAR.permeability_buoyancy(1:end-1,1) .* ground.STATVAR.layerThick(2:end,1)./2);
+            buoyancy_flux = double(density_difference>0) .* density_difference ./ ground.CONST.rho_w .* permeability_buoyancy;
+            ground.TEMP.buoyancy_flux = buoyancy_flux; %[m/sec]
+            ground.TEMP.d_salt(1:end-1,1) = ground.TEMP.d_salt(1:end-1,1) - buoyancy_flux .* ground.STATVAR.salt_c_brine(1:end-1,1) .* ground.STATVAR.area(1:end-1,1);
+            ground.TEMP.d_salt(1:end-1,1) = ground.TEMP.d_salt(1:end-1,1) + buoyancy_flux .* ground.STATVAR.salt_c_brine(2:end,1) .* ground.STATVAR.area(2:end,1);
+            ground.TEMP.d_salt(2:end,1) = ground.TEMP.d_salt(2:end,1) + buoyancy_flux .* ground.STATVAR.salt_c_brine(1:end-1,1) .* ground.STATVAR.area(1:end-1,1);
+            ground.TEMP.d_salt(2:end,1) = ground.TEMP.d_salt(2:end,1) - buoyancy_flux .* ground.STATVAR.salt_c_brine(2:end,1) .* ground.STATVAR.area(2:end,1);          
+
+            ground.TEMP.d_energy(1:end-1,1) = ground.TEMP.d_energy(1:end-1,1) - buoyancy_flux .* ground.STATVAR.T(1:end-1,1) .* ...
+                (double(ground.STATVAR.T(1:end-1,1)>=ground.STATVAR.T_f(1:end-1,1)) .* ground.CONST.c_w + double(ground.STATVAR.T(1:end-1,1)<ground.STATVAR.T_f(1:end-1,1)) .* ground.CONST.c_i) .* ground.STATVAR.area(1:end-1,1);
+            ground.TEMP.d_energy(1:end-1,1) = ground.TEMP.d_energy(1:end-1,1) + buoyancy_flux .* ground.STATVAR.T(2:end,1) .* ...
+                (double(ground.STATVAR.T(2:end,1)>=ground.STATVAR.T_f(2:end,1)) .* ground.CONST.c_w + double(ground.STATVAR.T(2:end,1)<ground.STATVAR.T_f(2:end,1)) .* ground.CONST.c_i) .* ground.STATVAR.area(2:end,1);
+
+            ground.TEMP.d_energy(2:end,1) = ground.TEMP.d_energy(2:end,1) + buoyancy_flux .* ground.STATVAR.T(1:end-1,1) .* ground.STATVAR.area(1:end-1,1) .* ...
+                (double(ground.STATVAR.T(1:end-1,1)>=ground.STATVAR.T_f(1:end-1,1)) .* ground.CONST.c_w + double(ground.STATVAR.T(1:end-1,1)<ground.STATVAR.T_f(1:end-1,1)) .* ground.CONST.c_i) .* ground.STATVAR.area(1:end-1,1);
+            ground.TEMP.d_energy(2:end,1) = ground.TEMP.d_energy(2:end,1) - buoyancy_flux .* ground.STATVAR.T(2:end,1) .* ground.STATVAR.area(2:end,1) .* ...
+                (double(ground.STATVAR.T(2:end,1)>=ground.STATVAR.T_f(2:end,1)) .* ground.CONST.c_w + double(ground.STATVAR.T(2:end,1)<ground.STATVAR.T_f(2:end,1)) .* ground.CONST.c_i) .* ground.STATVAR.area(2:end,1);
+
+        end
+
+        function ground = get_permeability_buoyancy(ground)
+            water_content = ground.STATVAR.water ./ ground.STATVAR.layerThick./ ground.STATVAR.area;
+            ground.STATVAR.permeability_buoyancy = ground.PARA.buoyancy_flux_constant .* 1./(1 + (1./exp((water_content - 0.8).*20)));  %double(water_content > 0.50);
+        end
+
+        function ground = get_density_saline(ground)
+            ground.STATVAR.density_water = water_density_saline_UNESCO(ground, ground.STATVAR.T, ground.STATVAR.salt_c_brine);
+        end
+
+        function timestep = get_timestep_buoyancy(ground, tile)
+            timestep = min(ground.STATVAR.layerThick(1:end-1,1), ground.STATVAR.layerThick(2:end,1)) ./2 ./ ground.TEMP.buoyancy_flux;
+            timestep(isnan(timestep) | isinf(timestep))  = ground.PARA.dt_max;
+            timestep = min(timestep);
+        end
+
+        function timestep = get_timestep_LAKE_salt(ground, tile)
+            melting_conditions = ground.STATVAR.energy < 1.001 .*ground.STATVAR.E_f & ground.STATVAR.energy > - 0.9.*ground.STATVAR.waterIce .*ground.CONST.L_f;
+            if sum(melting_conditions & ground.TEMP.d_energy<0)>0
+                c=2;
+            end
+            timestep = min(double(ground.TEMP.d_energy>0 & melting_conditions) .* min(-(ground.STATVAR.energy - ground.STATVAR.E_f) ./ground.TEMP.d_energy,  0.1 .* ground.STATVAR.waterIce .* ground.CONST.L_f ./ ground.TEMP.d_energy) + ...
+                double(ground.TEMP.d_energy<0 & melting_conditions) .* min(((-ground.STATVAR.waterIce .*ground.CONST.L_f + ground.STATVAR.E_f) - ground.STATVAR.energy) ./ground.TEMP.d_energy, -0.1 .* ground.STATVAR.waterIce .*  ground.CONST.L_f  ./ ground.TEMP.d_energy) + ...
+                double(~melting_conditions) .* ground.PARA.dE_max ./ (abs(ground.TEMP.d_energy) ./ ground.STATVAR.layerThick./ ground.STATVAR.area));
+
+            timestep(isnan(timestep)) = ground.PARA.dt_max;
+        end
     end
 end
 

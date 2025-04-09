@@ -37,7 +37,7 @@ classdef OBS_SCFG_ESA_CCI_multiTile < matlab.mixin.Copyable
         end
         
         function obs = finalize_init(obs, tile)
-            while~exist(MODIS_deg_list)
+            while ~exist('MODIS_deg_list')
                 load([obs.PARA.deg_tile_list_folder obs.PARA.deg_tile_list_file], 'MODIS_deg_list');
             end
             obs.TEMP.MODIS_deg_list = MODIS_deg_list;
@@ -59,7 +59,7 @@ classdef OBS_SCFG_ESA_CCI_multiTile < matlab.mixin.Copyable
                 dec = 0;
                 SCFG_file = [obs.PARA.obs_folder obs.PARA.obs_filename '_' num2str(obs.TEMP.MODIS_deg_list(i,1)) '_' num2str(obs.TEMP.MODIS_deg_list(i,2)) '_' ...
                     num2str(obs.TEMP.MODIS_deg_list(i,3)) '_' num2str(obs.TEMP.MODIS_deg_list(i,4))];
-                fname = [obs.PARA.MODIS_path SCFG_file '_' num2str(forcing.TEMP.current_year) '.nc'];
+                fname = [SCFG_file '_' num2str(obs.TEMP.current_year) '.nc'];
 
                 if ~isempty(range_in_tile) && exist(fname)==2
 

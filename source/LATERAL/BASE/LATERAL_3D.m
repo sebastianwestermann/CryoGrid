@@ -106,6 +106,12 @@ classdef LATERAL_3D < matlab.mixin.Copyable
         end
 
  
+        function lateral = update_lateral(lateral, tile)
+            for i=1:size(lateral.IA_CLASSES,1)
+                lateral.IA_CLASSES{i} = set_ia_time(lateral.IA_CLASSES{i}, tile.t);
+                lateral.IA_CLASSES{i} = set_ACTIVE(lateral.IA_CLASSES{i}, i, tile.t - lateral.IA_TIME_INCREMENT);
+            end
+        end
         
     
         

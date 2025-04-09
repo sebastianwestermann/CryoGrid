@@ -21,8 +21,8 @@ classdef IA_thermRadiation11 <  IA_BASE
             stratigraphy1.TEMP.d_energy(end) = stratigraphy1.TEMP.d_energy(end) + (LW_out_strat1 - LW_out_strat2) .* stratigraphy1.STATVAR.area(end);
             stratigraphy2.TEMP.d_energy(1) = stratigraphy2.TEMP.d_energy(1) + (LW_out_strat2 - LW_out_strat1) .* stratigraphy2.STATVAR.area(1);
             
-            stratigraphy1.TEMP.d_energy(end) = stratigraphy1.TEMP.d_energy(end) + stratigraphy1.PARA.exchangeAir .* tile.FORCING.TEMP.wind .* (-stratigraphy1.STATVAR.T(end) + tile.FORCING.TEMP.Tair);
-            stratigraphy2.TEMP.d_energy(1) = stratigraphy2.TEMP.d_energy(1) + stratigraphy1.PARA.exchangeAir .* tile.FORCING.TEMP.wind .* (-stratigraphy2.STATVAR.T(1) + tile.FORCING.TEMP.Tair);
+            stratigraphy1.TEMP.d_energy(end) = stratigraphy1.TEMP.d_energy(end) + stratigraphy1.PARA.exchangeAir .* tile.FORCING.TEMP.wind .* (-stratigraphy1.STATVAR.T(end) + tile.FORCING.TEMP.Tair)  .* stratigraphy1.STATVAR.area(end);
+            stratigraphy2.TEMP.d_energy(1) = stratigraphy2.TEMP.d_energy(1) + stratigraphy1.PARA.exchangeAir .* tile.FORCING.TEMP.wind .* (-stratigraphy2.STATVAR.T(1) + tile.FORCING.TEMP.Tair).* stratigraphy2.STATVAR.area(1);
         end
          
 %         %SNOW

@@ -94,7 +94,10 @@ classdef ERA5_PREPROCESS_CCI < FORCING_MULTITILE_seb_CCI %FORCING_seb_CCI_full
                 filename(19:22) = num2str(test_year);
                 
                 z_surface = ncread_with_360_degree(era, [era.PARA.ERA5_path filename], 'z', 1, 1);
-                
+                if exist([era.PARA.target_path filename])==2
+                    delete([era.PARA.target_path filename])
+                end
+
                 nccreate([era.PARA.target_path filename], 'latitude', 'Format', 'netcdf4', 'Datatype', 'single', 'Dimensions',{'Y',lat_index_end-lat_index_start+1})
                 ncwrite([era.PARA.target_path filename], 'latitude', ERA_lat(lat_index_start:lat_index_end,1))
                 nccreate([era.PARA.target_path filename], 'longitude', 'Format', 'netcdf4', 'Datatype', 'single', 'Dimensions',{'X',lon_index_end-lon_index_start+1})

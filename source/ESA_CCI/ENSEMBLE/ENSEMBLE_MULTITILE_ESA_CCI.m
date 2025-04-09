@@ -71,7 +71,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
                 index=0;
                 for j=1:size(ensemble_size_per_class,2) %loop over the different classes
                     
-                    if j==4 || j==5 || j==9
+                    if j==4 || j==5 || j==9 || j==12 || j==13
                         
                         random_list=rand(ensemble_size_per_class(i,j),1);%CHANGED
                         [~, order] = sort(random_list);%CHANGED

@@ -87,7 +87,7 @@ classdef RUN_ESA_CCI_slurmArray < matlab.mixin.Copyable
                 %spmd must be placed here
                 
                 
-                for run_index=4%[[(run_info.PARA.worker_number-1).*domains_per_worker+1:number_of_tiles] [1:(run_info.PARA.worker_number-1).*domains_per_worker]]
+                for run_index=[[(run_info.PARA.worker_number-1).*domains_per_worker+1:number_of_tiles] [1:(run_info.PARA.worker_number-1).*domains_per_worker]]
                     
                     if run_slice_yes_no(run_info, 'section_started', 'section_done', run_index)
                         

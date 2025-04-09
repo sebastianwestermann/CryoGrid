@@ -61,7 +61,7 @@ classdef RUN_SPATIAL_SPINUP_CLUSTERING < matlab.mixin.Copyable
             run_info.CLUSTER = finalize_init(run_info.CLUSTER);
             run_info.CLUSTER = compute_clusters(run_info.CLUSTER);
             
-            save([run_info.PPROVIDER.PARA.result_path run_info.PPROVIDER.PARA.run_name '/run_parameters.mat'], 'run_info')
+            save([run_info.PPROVIDER.PARA.result_path run_info.PPROVIDER.PARA.run_name '/run_parameters.mat'], 'run_info', '-v7.3')
         end
         
         

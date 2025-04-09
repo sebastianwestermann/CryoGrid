@@ -224,7 +224,6 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
 %                     
 %                 end
 %             end
-            
         end
 
         function lateral = push(lateral, tile)

@@ -72,7 +72,9 @@ classdef LATERAL_1D < matlab.mixin.Copyable
         end
         
 
-        
+        function lateral = update_lateral(lateral, tile)
+
+        end
         
 %         function self = populate_PARA(self, pprovider)
 %             % POPULATE_PARa  Updates the PARA structure with values from cprovider.

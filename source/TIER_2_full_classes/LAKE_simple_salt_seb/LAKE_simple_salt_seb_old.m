@@ -33,8 +33,6 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
             ground.PARA.z0 = []; %roughness length [m]
             ground.PARA.tortuosity = [];
 
-            ground.PARA.buoyancy_flux_constant = [];
-
             ground.PARA.conductivity_function = [];
             
             ground.PARA.dt_max = [];  %maximum possible timestep [sec]
@@ -112,11 +110,8 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
             end
             
             ground = get_E_water_salt_freeW(ground);
-            ground.STATVAR.T_f = - ground.STATVAR.saltConc ./ ground.STATVAR.waterIce .* ground.CONST.R.* ground.CONST.Tmfw.^2 ./ ground.CONST.L_f;
-            ground.STATVAR.E_f =  (ground.CONST.c_w.*ground.STATVAR.waterIce + ground.CONST.c_m.*ground.STATVAR.mineral + ground.CONST.c_o.*ground.STATVAR.organic) .* ground.STATVAR.T_f; 
             ground = conductivity(ground);
-            ground = diffusivity_salt_sea_ice_buoyancy(ground); % calculate salt diffusivity
-            ground = get_density_saline(ground);
+            ground = diffusivity_salt_sea_ice(ground); % calculate salt diffusivity
 
             ground.STATVAR.Lstar = -100;
             ground.STATVAR.Qh = 0;
@@ -159,9 +154,8 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
             ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + energy_below_E_f;
             
             ground = get_T_water_salt_freeW(ground);
-            ground = get_density_saline(ground);
             ground = conductivity(ground);  %thermal conductivity of water
-            ground = diffusivity_salt_sea_ice_buoyancy(ground); % calculate salt diffusivity
+            ground = diffusivity_salt_sea_ice(ground); % calculate salt diffusivity
             
             ground.TEMP.d_energy = ground.STATVAR.energy.*0;
             ground.TEMP.d_salt = ground.STATVAR.energy.*0;
@@ -192,14 +186,13 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
         function ground = get_derivatives_prognostic(ground, tile)
             if size(ground.STATVAR.energy,1)>1
                 ground = get_derivative_energy(ground);
-                ground = get_derivative_salt_buoancy(ground);
+                ground = get_derivative_salt(ground);
             end
+            %ground = get_derivative_salt_diffusion_convection(ground);
         end
         
         function timestep = get_timestep(ground, tile)  
-            %timestep = get_timestep_heat_coduction(ground);
-            timestep = get_timestep_LAKE_salt(ground);
-            timestep = min(timestep, get_timestep_salt(ground));
+            timestep = get_timestep_heat_coduction(ground);
         end
         
         function ground = advance_prognostic(ground, tile)
@@ -228,11 +221,12 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
 
             ground = stratify_simple_salt(ground, tile);
             ground = get_T_water_salt_freeW(ground);
+            ground.STATVAR.T_f = - ground.STATVAR.saltConc ./ ground.STATVAR.waterIce .* ground.CONST.R.* ground.CONST.Tmfw.^2 ./ ground.CONST.L_f;
+            ground.STATVAR.E_f =  (ground.CONST.c_w.*ground.STATVAR.waterIce + ground.CONST.c_m.*ground.STATVAR.mineral + ground.CONST.c_o.*ground.STATVAR.organic) .* ground.STATVAR.T_f; 
 
             ground = conductivity(ground);
-            ground = get_density_saline(ground);
-            ground = diffusivity_salt_sea_ice_buoyancy(ground); % calculate salt diffusivity
-
+            ground = diffusivity_salt_sea_ice(ground); % calculate salt diffusivity
+            
             ground.TEMP.d_energy = ground.STATVAR.energy.*0;
             ground.TEMP.d_salt = ground.STATVAR.energy.*0;
         end

@@ -12,7 +12,7 @@
 
 %defines a regular grid in geographical coordinates, with fixed resolution
 
-classdef POSTPROC_COORDINATES_FROM_FILE_CCI < COORDINATES_FROM_FILE_CCI 
+classdef POSTPROC_COORDINATES_FROM_FILE_CCI_missing < COORDINATES_FROM_FILE_CCI 
 
     properties
 
@@ -25,13 +25,11 @@ classdef POSTPROC_COORDINATES_FROM_FILE_CCI < COORDINATES_FROM_FILE_CCI
             proj.PARA.scale_factor = [0.002;0.002;0.002; 0.002;0.002;0.002; 0.01; 1; 1; 0.01; 1; 0.002;0.002;0.002;0.002;0.002;0.002];
             proj.PARA.scale_offset = [-70;-70;-70;-70;-70;-70; 0; -10; 0; 0; 0; -70;-70;-70;-70;-70;-70];
         end
-
-	function proj = assign_offset_scale_factor_monthly(proj)
+        
+        function proj = assign_offset_scale_factor_monthly(proj)
             proj.PARA.scale_factor = [0.002; 0.01];
             proj.PARA.scale_offset = [-70; 0];
         end
-
-        
         
         function proj = load_spatial_reference(proj, spatial_reference_file)
             load(spatial_reference_file);
@@ -82,27 +80,39 @@ classdef POSTPROC_COORDINATES_FROM_FILE_CCI < COORDINATES_FROM_FILE_CCI
             end
             proj.STATVAR.(variable) = data;
         end
+
+        function proj = accumulate_single_variable2(proj, variable)
+            dummy = ncread([proj.PARA.nc_file_folder proj.PARA.nc_file_name '_1_' num2str(min(size(proj.STATVAR.latitude,1), proj.PARA.number_of_slices)) '.nc'], variable); 
+            data = zeros(size(proj.STATVAR.latitude,1), size(dummy,2),size(dummy,3)) .* NaN;
+            
+            for i=1:proj.PARA.number_of_slices:size(data,1)
+                end_index = min(size(data,1), i+proj.PARA.number_of_slices-1);
+                if exist ([proj.PARA.nc_file_folder proj.PARA.nc_file_name '_' num2str(i) '_' num2str(end_index) '.nc'])==2
+                    data(i:end_index, :,:) = ncread([proj.PARA.nc_file_folder proj.PARA.nc_file_name '_' num2str(i) '_' num2str(end_index) '.nc'], variable);
+                end
+            end
+            proj.STATVAR.(variable) = data;
+        end
         
+
         function proj = accumulate_and_save_all(proj)
             info = ncinfo([proj.PARA.nc_file_folder proj.PARA.nc_file_name '_1_' num2str(min(size(proj.STATVAR.latitude,1), proj.PARA.number_of_slices)) '.nc']);
             for i=1:size(info.Variables,2)
                 variable = info.Variables(i).Name;
                 disp(variable)
-                proj = accumulate_single_variable(proj, variable);
+                proj = accumulate_single_variable2(proj, variable);
                 data = double(proj.STATVAR.(variable)) .* proj.PARA.scale_factor(i) + proj.PARA.scale_offset(i);
                 save([proj.PARA.target_folder variable '_' num2str(proj.PARA.min_lat) '_' num2str(proj.PARA.max_lat) '_' num2str(proj.PARA.min_lon) '_' num2str(proj.PARA.max_lon) '.mat'], 'data')
                 proj.STATVAR.(variable) = [];
             end
-	    save([proj.PARA.target_folder 'proj' '_' num2str(proj.PARA.min_lat) '_' num2str(proj.PARA.max_lat) '_' num2str(proj.PARA.min_lon) '_' num2str(proj.PARA.max_lon) '.mat'], 'proj')
         end
-
 
         function proj = accumulate_and_save_all_compress(proj)
             info = ncinfo([proj.PARA.nc_file_folder proj.PARA.nc_file_name '_1_' num2str(min(size(proj.STATVAR.latitude,1), proj.PARA.number_of_slices)) '.nc']);
             for i=1:size(info.Variables,2)
                 variable = info.Variables(i).Name;
                 disp(variable)
-                proj = accumulate_single_variable(proj, variable);
+                proj = accumulate_single_variable2(proj, variable);
                 %data = double(proj.STATVAR.(variable)) .* proj.PARA.scale_factor(i) + proj.PARA.scale_offset(i);
         		data = proj.STATVAR.(variable);
                 save([proj.PARA.target_folder variable '_' num2str(proj.PARA.min_lat) '_' num2str(proj.PARA.max_lat) '_' num2str(proj.PARA.min_lon) '_' num2str(proj.PARA.max_lon) '.mat'], 'data', '-V7.3')
@@ -112,14 +122,6 @@ classdef POSTPROC_COORDINATES_FROM_FILE_CCI < COORDINATES_FROM_FILE_CCI
     	    save([proj.PARA.target_folder 'proj' '_' num2str(proj.PARA.min_lat) '_' num2str(proj.PARA.max_lat) '_' num2str(proj.PARA.min_lon) '_' num2str(proj.PARA.max_lon) '.mat'], 'proj')
         end
 
-        
-%         function proj = provide_PARA(proj)
-%             proj.PARA.nc_file_folder = '../CryoGridCommunity_results/test_CCI_saga/';
-%             proj.PARA.nc_file_name = 'out';
-%             
-%             proj.PARA.number_of_slices = 250;
-%             
-%         end
 
         
         
