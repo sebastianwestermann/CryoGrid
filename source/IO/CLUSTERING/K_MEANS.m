@@ -62,6 +62,8 @@ classdef K_MEANS < matlab.mixin.Copyable
             end
             cluster.STATVAR.cluster_number = cn;
             cluster.STATVAR.sample_centroid_index = indsc;
+            cluster.STATVAR.key_centroid_index = cluster.RUN_INFO.SPATIAL.STATVAR.key(indsc,1);
+            
          end
         
         

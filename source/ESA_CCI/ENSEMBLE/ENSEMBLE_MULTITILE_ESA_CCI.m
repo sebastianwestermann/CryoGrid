@@ -53,6 +53,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
             ensemble.STATVAR.stratigraphy = ensemble.STATVAR.snowfall_factor; %reshape later      %STRATIGRAPHY
             ensemble.STATVAR.wind_compaction_timescale = ensemble.STATVAR.snowfall_factor;    %GROUND
             ensemble.STATVAR.water_table_depth = ensemble.STATVAR.snowfall_factor;   %GROUND
+            ensemble.STATVAR.field_capacity = ensemble.STATVAR.snowfall_factor;   %GROUND
             ensemble.STATVAR.wind_speed_class = ensemble.STATVAR.snowfall_factor;   %GROUND
             ensemble.STATVAR.bare_forest_fraction = ensemble.STATVAR.snowfall_factor;   %FORCING + TTOP
             ensemble.STATVAR.rk_init = ensemble.STATVAR.snowfall_factor;    %TTOP
@@ -62,6 +63,8 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
             stratigraphy_intercept = ensemble.PARA.ensemble_information.stratigraphy_intercept';
             water_table_slope = ensemble.PARA.ensemble_information.water_table_slope';
             water_table_intercept = ensemble.PARA.ensemble_information.water_table_intercept';
+            field_capacity_slope = ensemble.PARA.ensemble_information.field_capacity_slope';
+            field_capacity_intercept = ensemble.PARA.ensemble_information.field_capacity_intercept';
             wind_compaction_timescale = ensemble.PARA.ensemble_information.wind_compaction_timescale'; %[in days];
             wind_speed_class = ensemble.PARA.ensemble_information.wind_speed_class';
             bare_forest_fraction  = ensemble.PARA.ensemble_information.bare_forest_fraction';
@@ -89,7 +92,8 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
                         
                         %waterTable_fraction = max(0, min(1, water_table_intercept(1,j) + fraction .* water_table_slope(1,j)));
                         ensemble.STATVAR.water_table_depth(i,index+k) = max(0, min(1, water_table_intercept(1,j) + fraction .* water_table_slope(1,j)));
-                        
+                        ensemble.STATVAR.field_capacity(i,index+k) = max(0, min(1, field_capacity_intercept(1,j) + fraction .* field_capacity_slope(1,j)));
+
                         ensemble.STATVAR.snowfall_factor(i,index+k) = get_snowfall_factor(ensemble, k./(ensemble_size_per_class(i,j)+1) , CV_list(1,j));
                         ensemble.STATVAR.wind_compaction_timescale(i, index+k) = wind_compaction_timescale(1,j);
                         ensemble.STATVAR.wind_speed_class(i, index+k) = wind_speed_class(1,j);
@@ -103,6 +107,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
             ensemble.STATVAR.snowfall_factor = ensemble.STATVAR.snowfall_factor(:)';
             ensemble.STATVAR.wind_compaction_timescale = ensemble.STATVAR.wind_compaction_timescale(:)';
             ensemble.STATVAR.water_table_depth = ensemble.STATVAR.water_table_depth(:)';
+            ensemble.STATVAR.field_capacity = ensemble.STATVAR.field_capacity(:)';
             ensemble.STATVAR.wind_speed_class = ensemble.STATVAR.wind_speed_class(:)';
             ensemble.STATVAR.bare_forest_fraction = ensemble.STATVAR.bare_forest_fraction(:)';
             ensemble.STATVAR.rk_init = ensemble.STATVAR.rk_init(:)';
@@ -188,7 +193,7 @@ classdef ENSEMBLE_MULTITILE_ESA_CCI < matlab.mixin.Copyable
                 index=0;
                 for j=1:size(ensemble_size_per_class,2) %loop over the different classes
                     
-                    if j==4 || j==5 || j==9
+                    if j==4 || j==5 || j==9 || j==12 || j==13
                         
                         random_list=rand(ensemble_size_per_class(i,j),1);%CHANGED
                         [~, order] = sort(random_list);%CHANGED

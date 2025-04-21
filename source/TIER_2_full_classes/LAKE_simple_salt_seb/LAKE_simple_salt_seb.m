@@ -250,7 +250,18 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
                 lake_next_season.PREVIOUS = ground.PREVIOUS;
                 lake_next_season.PREVIOUS.NEXT = lake_next_season;
                 lake_next_season.NEXT.PREVIOUS = lake_next_season;
-                
+
+                %remove possible snow cover class (not compatible with open
+                %water, but quite possible for a saline water body.
+                class_previous = class(lake_next_season.PREVIOUS);
+                if length(class_previous)>=4
+                    if strcmp(class_previous(1:4), 'SNOW')
+                        lake_next_season.PREVIOUS.IA_NEXT = [];
+                        lake_next_season.PREVIOUS = lake_next_season.PREVIOUS.PREVIOUS;
+                        lake_next_season.PREVIOUS.NEXT = lake_next_season;
+                        lake_next_season.IA_PREVIOUS = [];
+                    end
+                end
                 %ground (CURRENT) still points to NEXT, so CURRENT.NEXT
                 %will advance to the next - then it is
                 %automatically handled by the garbage collection, since
@@ -263,7 +274,7 @@ classdef LAKE_simple_salt_seb < SEB & HEAT_CONDUCTION & LAKE & SALT & REGRID
                     lake_next_season.IA_PREVIOUS.NEXT = lake_next_season;
                     lake_next_season.IA_PREVIOUS.PREVIOUS = lake_next_season.PREVIOUS;
                     lake_next_season.PREVIOUS.IA_NEXT = ia_class;
-                end
+                end          
                 if ~strcmp(class(lake_next_season.NEXT), 'Bottom')
                     ia_class = get_IA_class(class(lake_next_season), class(lake_next_season.NEXT));
                     lake_next_season.IA_NEXT = ia_class;

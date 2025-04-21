@@ -14,6 +14,7 @@ classdef GROUND_MULTITILE_ESA_CCI_sublimation_compiled < BASE
             ground.PARA.wind_speed_class = [];
             ground.PARA.wind_compaction_timescale = [];
             ground.PARA.water_table_depth = [];
+            ground.PARA.field_capacity = 0.1;
 
             ground.PARA.speedup_size = 2100;
         end
@@ -564,7 +565,7 @@ classdef GROUND_MULTITILE_ESA_CCI_sublimation_compiled < BASE
             gain_loose = depths.*0;
             gain_loose(1:31,:) = gain_loose_in;
             porosity = 1 - ground.STATVAR.mineral ./layerThick  - ground.STATVAR.organic ./layerThick;
-            field_capacity = 0.25.* porosity;   %CHANGE later
+            field_capacity = ground.PARA.field_capacity.* porosity;   %CHANGE later
 
             water_table_depth = zeros(1, size(field_capacity,2));
 

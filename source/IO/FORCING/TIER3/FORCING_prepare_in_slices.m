@@ -39,8 +39,10 @@ classdef FORCING_prepare_in_slices < FORCING_base
             forcing.PARA.start_time = datenum(forcing.PARA.start_time(1,1), forcing.PARA.start_time(2,1), forcing.PARA.start_time(3,1));
             forcing.PARA.end_time = datenum(forcing.PARA.end_time(1,1), forcing.PARA.end_time(2,1),forcing.PARA.end_time(3,1));
             
-            forcing.TEMP.time_next_slice = datenum(year(forcing.PARA.start_time)+forcing.PARA.years_per_slice, 1, 1);
-            
+            %forcing.TEMP.time_next_slice = datenum(year(forcing.PARA.start_time)+forcing.PARA.years_per_slice, 1, 1);
+            forcing.TEMP.time_next_slice = datenum(year(forcing.PARA.start_time)+forcing.PARA.years_per_slice, month(forcing.PARA.start_time), day(forcing.PARA.start_time)); 
+            %CHANGED SW
+
             %load first slice
             forcing_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.forcing_class){forcing.PARA.forcing_class_index,1});
             %forcing_class.PARA.start_time = [year(forcing.PARA.start_time); month(forcing.PARA.start_time); day(forcing.PARA.start_time)];
@@ -77,7 +79,8 @@ classdef FORCING_prepare_in_slices < FORCING_base
                 old_slice = forcing.DATA;
                 
                 start_time = forcing.TEMP.time_next_slice;
-                forcing.TEMP.time_next_slice = datenum(year(start_time)+forcing.PARA.years_per_slice, 1, 1);
+                %forcing.TEMP.time_next_slice = datenum(year(start_time)+forcing.PARA.years_per_slice, 1, 1);
+                forcing.TEMP.time_next_slice = datenum(year(start_time)+forcing.PARA.years_per_slice, month(start_time), day(start_time));
                 
                 %load next slice
                 forcing_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.forcing_class){forcing.PARA.forcing_class_index,1});

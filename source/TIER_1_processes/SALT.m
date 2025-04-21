@@ -24,7 +24,7 @@ classdef SALT < BASE
         
         function ground = get_derivative_salt(ground)
             fluxes = (ground.STATVAR.salt_c_brine(1:end-1) - ground.STATVAR.salt_c_brine(2:end)) .* ground.STATVAR.diffusivitySalt(1:end-1) .* ground.STATVAR.diffusivitySalt(2:end) ./...
-                (ground.STATVAR.diffusivitySalt(1:end-1).* ground.STATVAR.layerThick(2:end)./2 +  ground.STATVAR.diffusivitySalt(2:end).* ground.STATVAR.layerThick(1:end-1)./2 );
+                (ground.STATVAR.diffusivitySalt(1:end-1).* ground.STATVAR.layerThick(2:end)./2 + ground.STATVAR.diffusivitySalt(2:end).* ground.STATVAR.layerThick(1:end-1)./2 );
             fluxes(isnan(fluxes)) = 0; % in case diffusivitySalt is 0 for both cells 
             %unit mol/m2, so flux through 1m2 unit cross section between cells!
             
@@ -330,7 +330,20 @@ classdef SALT < BASE
             D0 = ((6.06 + 9.60)/2  + max(ground.STATVAR.T, 0) .* (0.297  + 0.438)/2) .* 1e-10; %from Boudreau, B., 1997, Diagenetic Models and their implementation, Springer, Berlin.
             %average between values for Na+ and Cl-
             
-            ground.STATVAR.diffusivitySalt = D0 .* water ./ground.PARA.tortuosity.^2;
+            ground.STATVAR.diffusivitySalt = D0 .* water ./ground.PARA.tortuosity;
+        end
+
+        function ground = diffusivity_salt_buoyancy(ground)
+            
+            water = ground.STATVAR.water./ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            
+            D0 = ((6.06 + 9.60)/2  + max(ground.STATVAR.T, 0) .* (0.297  + 0.438)/2) .* 1e-10; %from Boudreau, B., 1997, Diagenetic Models and their implementation, Springer, Berlin.
+            %average between values for Na+ and Cl-
+            ground.STATVAR.diffusivitySalt = D0 .* water ./ ground.PARA.tortuosity;
+
+            mixing_length = 7e-5; %[m] no idea where this comes from in the first place, from here: https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2010JC006527
+            viscosity_water = 1.79e-3; %[Pa sec] coarse estimate for 0 degreeC, make T-dpendent, but should not play a big role
+            ground.STATVAR.diffusivity_buoyancy = ground.CONST.g ./ viscosity_water .* mixing_length .* 3e-8 .* water.^3 ./ ground.PARA.tortuosity_buoyancy;
         end
         
         function ground = diffusivity_salt_sea_ice(ground)
@@ -357,6 +370,60 @@ classdef SALT < BASE
             
             ground.STATVAR.diffusivity_buoyancy = ground.CONST.g ./ viscosity_water .* mixing_length .* 3e-8 .* water.^3 ;
 
+        end
+
+        function ground = water_density_saline2(ground)
+
+            T = max(0,ground.STATVAR.T);
+            %required salt_conc in g salt/kg water 
+%             salt_conc = salt_conc .* 1e-3 .* (23+35.5)/2; %salt_conc in the model in mol/m3 = 1e-3 mol/l; assuming NaCl means half of the atoms have atomic mass 23 and half atomic mall 35.5
+            salt_conc = ground.STATVAR.salt_c_brine .* 1e-3 .* 35.5./1.1243; %salt_conc in the model in mol/m3 = 1e-3 mol/l; assuming an average ion composition of sea water, 35g/l correpsonds to 1.1243 mol/l (density of water set to 1000 for simplicity)
+            
+            c1=999.842594;
+            c2=6.793952e-2;
+            c3=9.095290e-3;
+            c4=1.001685e-4;
+            c5=1.120083e-6;
+            c6=6.536332e-9;
+            d1=8.24493e-1;
+            d2=4.0899e-3;
+            d3=7.6438e-5;
+            d4=8.2467e-7;
+            d5=5.3875e-9;
+            d6=5.72466e-3;
+            d7=1.0227e-4;
+            d8=1.6546e-6;
+            d9=4.8314e-4;
+            
+            t2 = T.^2;
+            t3 = t2.*T;
+            t4 = t3.*T;
+            t5 = t4.*T;
+            s2 = salt_conc.*salt_conc;
+            s32 = salt_conc.^1.5;
+            
+            term1  =  c1;
+            term2  =  c2 .* T;
+            term3  = -c3 .* t2;
+            term4  =  c4 .* t3;
+            term5  = -c5 .* t4;
+            term6  =  c6 .* t5;
+            term7  =  d1;
+            term8  = -d2 .* T;
+            term9  =  d3 .* t2;
+            term10  = -d4 .* t3;
+            term11 =  d5 .* t4;
+            term12 = -d6;
+            term13 =  d7 .* T;
+            term14 = -d8 .* t2;
+            term15 =  d9;
+            
+            dpure  =  term6  + term5  + term4  + term2 + term3 + term1;
+            csal1  = (term11 + term10  + term9  + term8 + term7) .* salt_conc;
+            csal32 = (term14 + term13 + term12) .* s32;
+            csal2  =  term15 .* s2;
+            
+            ground.STATVAR.density_water = min(1214, dpure + csal1 + csal32 + csal2); %maximum density is about 1214 kg/m3 (about 26 wt%), eutectic point reached thereafter
         end
         
     end

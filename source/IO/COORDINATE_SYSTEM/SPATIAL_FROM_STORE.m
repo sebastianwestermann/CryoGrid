@@ -11,23 +11,19 @@
 %========================================================================
 
 
-classdef UTM < DEM_BASE
+classdef SPATIAL_FROM_STORE <  matlab.mixin.Copyable
 
     properties
         RUN_INFO
+        PARA
+        CONST
+        STATVAR
+        TEMP
         ACTION
     end
     
     methods
         function proj = provide_PARA(proj)
-            proj.PARA.max_N = [];
-            proj.PARA.min_N = [];
-            proj.PARA.N_grid_cell_size = [];
-            proj.PARA.max_E = [];
-            proj.PARA.min_E = [];
-            proj.PARA.E_grid_cell_size = [];
-            
-            proj.PARA.UTM_zone = [];
             
             proj.PARA.mask_class = []; %acts on the entire 2d matirx
             proj.PARA.mask_class_index = [];
@@ -40,8 +36,8 @@ classdef UTM < DEM_BASE
             
             proj.PARA.assign_tile_properties_class = [];
             proj.PARA.assign_tile_properties_class_index = [];
-            
-            proj.PARA.new_reference = 1;
+
+            proj.PARA.new_reference = 0;
         end
         
         function proj = provide_STATVAR(proj)
@@ -53,21 +49,7 @@ classdef UTM < DEM_BASE
         end
         
         function proj = finalize_init(proj)
-            %span up grid and initialize matrices for lat and lon
-            proj.STATVAR.Y = [proj.PARA.min_N:proj.PARA.N_grid_cell_size:proj.PARA.max_N]';
-            proj.STATVAR.X = [proj.PARA.min_E:proj.PARA.E_grid_cell_size:proj.PARA.max_E]';
-            [proj.STATVAR.X, proj.STATVAR.Y] = meshgrid(proj.STATVAR.X, proj.STATVAR.Y);
-            proj.STATVAR.X = proj.STATVAR.X(:);
-            proj.STATVAR.Y = proj.STATVAR.Y(:);     
-            
-            [proj.STATVAR.latitude,proj.STATVAR.longitude]=utm2ll(DEM, proj.STATVAR.X, proj.STATVAR.Y, proj.PARA.UTM_zone);
-            
-            %reduce to list 
-            
-%        
-%             proj.STATVAR.latitude = proj.STATVAR.latitude(:);
-%             proj.STATVAR.longitude = proj.STATVAR.longitude(:);
-            proj.STATVAR.key = [1:size(proj.STATVAR.latitude,1)]';
+           
             
             %apply masks before data sets
             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);

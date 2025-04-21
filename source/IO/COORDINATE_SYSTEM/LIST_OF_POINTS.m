@@ -22,6 +22,8 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
             
             proj.PARA.assign_tile_properties_class = [];
             proj.PARA.assign_tile_properties_class_index = [];
+
+            proj.PARA.new_reference = 1;
         end
         
         function proj = provide_STATVAR(proj)

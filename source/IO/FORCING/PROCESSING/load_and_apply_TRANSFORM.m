@@ -76,7 +76,12 @@ classdef load_and_apply_TRANSFORM < matlab.mixin.Copyable %makes the TRANSFORM o
                     transform_forcing_class{j,1} = finalize_init(transform_forcing_class{j,1}, tile);
                     scale_vars = [];
                     for i=1:size(proc.PARA.spatial_variable,1)
-                        scale_vars = [scale_vars transform_forcing_class{j,1}.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1}) - forcing.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1})];
+                        if ~strcmp(proc.PARA.spatial_variable{i,1}, 'distance')
+                            scale_vars = [scale_vars transform_forcing_class{j,1}.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1}) - forcing.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1})];
+                        else
+                            dist = distance(transform_forcing_class{j,1}.SPATIAL.STATVAR.latitude,transform_forcing_class{j,1}.SPATIAL.STATVAR.longitude,forcing.SPATIAL.STATVAR.latitude, forcing.SPATIAL.STATVAR.longitude, wgs84Ellipsoid("m"))./1000; %in km
+                            scale_vars = [scale_vars dist];
+                        end
                     end
                     spatial_scale_variable = [spatial_scale_variable; scale_vars];
                 end
@@ -93,7 +98,12 @@ classdef load_and_apply_TRANSFORM < matlab.mixin.Copyable %makes the TRANSFORM o
                     transform_forcing_class{j+offset,1}.SPATIAL = temp.spatial;                    
                     scale_vars = [];
                     for i=1:size(proc.PARA.spatial_variable,1)
-                        scale_vars = [scale_vars transform_forcing_class{j+offset,1}.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1}) - forcing.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1})];
+                        if ~strcmp(proc.PARA.spatial_variable{i,1}, 'distance')
+                            scale_vars = [scale_vars transform_forcing_class{j+offset,1}.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1}) - forcing.SPATIAL.STATVAR.(proc.PARA.spatial_variable{i,1})];
+                        else
+                            dist = distance(transform_forcing_class{j+offset,1}.SPATIAL.STATVAR.latitude, transform_forcing_class{j+offset,1}.SPATIAL.STATVAR.longitude, forcing.SPATIAL.STATVAR.latitude, forcing.SPATIAL.STATVAR.longitude, wgs84Ellipsoid("m"))./1000; %in km
+                            scale_vars = [scale_vars dist];
+                        end
                     end
                     spatial_scale_variable = [spatial_scale_variable; scale_vars];
                 end
