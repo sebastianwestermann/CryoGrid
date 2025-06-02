@@ -25,10 +25,12 @@ classdef features_one2one < matlab.mixin.Copyable
 
         end
 
-        function out = features_from_spatial(spatial2features, tile, valid)
+        function [out, data_groups] = features_from_spatial(spatial2features, tile, valid)
             out = [];
+            data_groups = [];
             for j=1:size(spatial2features.PARA.variables, 1)
                 out = [out tile.RUN_INFO.SPATIAL.STATVAR.(spatial2features.PARA.variables{j,1})(logical(valid),:)];
+                data_groups = [data_groups j];
             end
         end
 

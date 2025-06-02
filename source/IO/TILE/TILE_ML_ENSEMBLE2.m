@@ -5,7 +5,7 @@
 % S. Westermann, April 2025
 %========================================================================
 
-classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
+classdef TILE_ML_ENSEMBLE2 < matlab.mixin.Copyable
     
     properties
         
@@ -31,7 +31,6 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
         function tile = provide_PARA(tile)
 
             tile.PARA.number_of_MLs = [];
-            tile.PARA.variables = [];
             
             tile.PARA.ml_class = [];
             tile.PARA.ml_class_index = [];
@@ -44,6 +43,12 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
 
             tile.PARA.feature_data_class = [];
             tile.PARA.feature_data_class_index = [];
+
+            tile.PARA.in2out_NN_class = [];%must be stored
+            tile.PARA.in2out_NN_class_index = [];
+
+            tile.PARA.in2out_training_class = [];
+            tile.PARA.in2out_training_class_index = [];
 
             tile.PARA.out_class = [];
             tile.PARA.out_class_index = [];
@@ -71,14 +76,13 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
 
             rng(1234+tile.PARA.worker_number)
             target_data_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.target_data_class){tile.PARA.target_data_class_index,1}); %read out
-            target_data_class.PARA.variables = tile.PARA.variables;
             target_data_class = finalize_init(target_data_class, tile);
 
             feature_data_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.feature_data_class){tile.PARA.feature_data_class_index,1}); %read terrain and forcing
             feature_data_class = finalize_init(feature_data_class, tile);
-            feature_data_in_ML = generate_feature_data_training(feature_data_class, tile);
+            [feature_data_in_ML, feature_data_groups] = generate_feature_data_training(feature_data_class, tile);
             tile.FEATURE_CLASS = feature_data_class;
-            target_ML = generate_target_data(target_data_class, tile);
+            [target_ML, target_data_groups] = generate_target_data(target_data_class, tile);
 
             if tile.PARA.read_from_store
                 tile.ML_STORE = tile.RUN_INFO.TILE.ML_STORE; %this is the data in real space
@@ -91,30 +95,43 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
                 tile.ML_STORE.out = target_ML;
             end
 
-            %divide in and out by std
+            tile.TEMP.in2out_NN_target = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.in2out_training_class){tile.PARA.in2out_training_class_index,1}); %real data to NN input and NN output to real data
+            tile.TEMP.in2out_NN_target.PARA.data_groups = target_data_groups;
+            tile.TEMP.in2out_NN_target.STATVAR.data = target_ML;
+            tile.TEMP.in2out_NN_target = finalize_init(tile.TEMP.in2out_NN_target, tile); %calculate the STDs
+            %target_ML = real_world2NN_normalize(tile.TEMP.in2out_NN_target, target_ML, tile);
+
+            tile.TEMP.in2out_NN_features = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.in2out_NN_class){tile.PARA.in2out_NN_class_index,1}); %real data to NN input and NN output to real data
+            tile.TEMP.in2out_NN_features.PARA.data_groups = feature_data_groups;
+            tile.TEMP.in2out_NN_features.STATVAR.data = feature_data_in_ML;
+            tile.TEMP.in2out_NN_features = finalize_init(tile.TEMP.in2out_NN_features, tile);%calculate the STDs
+            %feature_data_in_ML = real_world2NN_normalize(tile.TEMP.in2out_NN_features, feature_data_in_ML, tile);
 
             disp('training neural net')
 
-            tile.STATVAR.out_mean = mean(target_ML,1);
-            tile.STATVAR.out_std = std(target_ML,[],1);
-            tile.STATVAR.in_mean = mean(feature_data_in_ML,1);
-            tile.STATVAR.in_std = std(feature_data_in_ML,[],1);     
+            %this must be replaced by classes that 1. make the target + features (whatever
+            %it is) into the format that the NN can run predictions on (single vector
+            %for the target), and 2. compute additional constraints like derivatives from both the target and the NN output
+            % which is then fed into the training routine (for physical constriants like diffusion)
+            % tile.STATVAR.out_mean = mean(target_ML,1);
+            % tile.STATVAR.out_std = std(target_ML,[],1);
+            % tile.STATVAR.in_mean = mean(feature_data_in_ML,1);
+            % tile.STATVAR.in_std = std(feature_data_in_ML,[],1);     
+            % 
+            % target_ML = (target_ML - tile.STATVAR.out_mean) ./ tile.STATVAR.out_std;
+            % tile.STATVAR.in = (feature_data_in_ML - tile.STATVAR.in_mean) ./ tile.STATVAR.in_std;
 
-            target_ML = (target_ML - tile.STATVAR.out_mean) ./ tile.STATVAR.out_std;
-            tile.STATVAR.in = (feature_data_in_ML - tile.STATVAR.in_mean) ./ tile.STATVAR.in_std;
+            tile.STATVAR.in = feature_data_in_ML;
+            tile.STATVAR.out = target_ML;
             
-            for i=1:size(tile.PARA.variables,1)
-                tile.TEMP.var_ID = i;
-                tile.STATVAR.out = target_ML(:,i);
-                for j=1:tile.PARA.number_of_MLs
-                    tile.ML = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ml_class){tile.PARA.ml_class_index,1});
-                    tile.ML = finalize_init(tile.ML, tile);
+            for j=1:tile.PARA.number_of_MLs
+                tile.ML = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ml_class){tile.PARA.ml_class_index,1});
+                tile.ML = finalize_init(tile.ML, tile);
 
-                    training_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.training_class){tile.PARA.training_class_index,1});
-                    training_class = finalize_init(training_class, tile);
-                    tile.ML = train_ML(training_class, tile);
-                    tile.ML_STORE.ML{i,j} = tile.ML;
-                end
+                training_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.training_class){tile.PARA.training_class_index,1});
+                training_class = finalize_init(training_class, tile);
+                tile.ML = train_ML(training_class, tile);
+                tile.ML_STORE.ML{1,j} = tile.ML;
             end
             tile.STATVAR.out = target_ML;
 
@@ -126,20 +143,18 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
 
         function tile = run_model(tile)
             disp('running neural net forward')
-            for var_ID = 1:size(tile.PARA.variables,1)
-                for i = 1:size(tile.STATVAR.timestamp_prediction,1)
-                    tile.t = tile.STATVAR.timestamp_prediction(i,1);
-                    in = generate_feature_data_prediction_single_timestamp(tile.FEATURE_CLASS, tile);
-                    in = (in - tile.STATVAR.in_mean) ./ tile.STATVAR.in_std;
-                    tile.STATVAR.(tile.PARA.variables{var_ID,1}) = [];
-                    for j=1:tile.PARA.number_of_MLs
-                        tile.ML = tile.ML_STORE.ML{var_ID,j};
-                        [out_j, ~] = progapagate_ML(tile.ML, in);
-                        out_j = mean(out_j,2) .* tile.STATVAR.out_std(1,var_ID) + tile.STATVAR.out_mean(1,var_ID);
-                        tile.STATVAR.(tile.PARA.variables{var_ID,1}) = [tile.STATVAR.(tile.PARA.variables{var_ID,1}) out_j];
-                    end
-                    tile = store_OUT_tile(tile, var_ID);
+            for i = 1:size(tile.STATVAR.timestamp_prediction,1)
+                tile.t = tile.STATVAR.timestamp_prediction(i,1);
+                in = generate_feature_data_prediction_single_timestamp(tile.FEATURE_CLASS, tile);
+                in = (in - tile.STATVAR.in_mean) ./ tile.STATVAR.in_std;
+                tile.STATVAR.(tile.PARA.variables) = [];
+                for j=1:tile.PARA.number_of_MLs
+                    tile.ML = tile.ML_STORE.ML{1,j};
+                    [out_j, ~] = progapagate_ML(tile.ML, in);
+                    out_j = mean(out_j,2) .* tile.STATVAR.out_std + tile.STATVAR.out_mean;
+                    tile.STATVAR.(tile.PARA.variables) = [tile.STATVAR.(tile.PARA.variables) out_j];
                 end
+                tile = store_OUT_tile(tile);
             end
 
             tile = write_OUT_tile(tile); %write to SPATIAL and excahnge info between tiles if parallel
@@ -160,8 +175,8 @@ classdef TILE_ML_ENSEMBLE < matlab.mixin.Copyable
         end
         
 
-        function tile = store_OUT_tile(tile, var_ID)
-            tile.OUT = store_OUT(tile.OUT, tile, var_ID);
+        function tile = store_OUT_tile(tile)
+            tile.OUT = store_OUT(tile.OUT, tile);
         end        
 
         function tile = write_OUT_tile(tile)

@@ -1,6 +1,6 @@
 % base class build a model tile
 
-classdef TILE_1D_ensemble < matlab.mixin.Copyable
+classdef TILE_1D_DA_ML < matlab.mixin.Copyable
     
     properties
         
@@ -9,11 +9,11 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
         RUN_INFO
         FORCING
         CONST
-        TEMP
         GRID
         OUT 
         STORE
-        
+        ML
+        ML_STORE
         t        
         timestep
         next_break_time
@@ -53,23 +53,18 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.PARA.lateral_class_index = [];
             tile.PARA.lateral_IA_classes = [];
             tile.PARA.lateral_IA_classes_index = [];
+            tile.PARA.DA_classes = [];
+            tile.PARA.DA_classes_index = [];
             tile.PARA.ensemble_class = [];
             tile.PARA.ensemble_class_index = [];
             
             %new_init_steady_state
-            tile.PARA.init_steady_state_class = []; % if left empty, use T_first_cell
-            tile.PARA.init_steady_state_class_index = [];
             tile.PARA.T_first_cell = [];
             tile.PARA.start_depth_steady_state = [];
-
-            tile.PARA.modify_class = [];
-            tile.PARA.modify_class_index = [];
             
             %restart_OUT_last_timestep
             tile.PARA.restart_file_path = [];
             tile.PARA.restart_file_name = [];
-            tile.PARA.adapt_run_name = [];
-            tile.PARA.new_end_time = [];
 
             tile.PARA.unit_conversion_class = 'UNIT_CONVERSION_standard'; %can be overwritten if needed
             
@@ -114,7 +109,23 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.OUT = store_OUT(tile.OUT, tile);
         end        
         
-       
+        function tile = data_assimilation(tile)
+            for i = 1:size(tile.DA, 1)
+                tile.DA{i,1} = DA_step(tile.DA{i,1}, tile);
+                %recalculate stratigraphy
+                if tile.DA{i,1}.TEMP.recalculate_stratigraphy_now == 1 %set in DA class
+                    tile.DA{i,1}.TEMP.recalculate_stratigraphy_now = 0;
+                    tile = recalculate_stratigraphy(tile);
+                    %reset observation operators if necessary
+                    for j=1:size(tile.DA, 1)
+                        for k=1:size(tile.DA{j,1}.OBS_OP,1)
+                            tile.DA{j,1}.OBS_OP{k,1} = reset_new_stratigraphy(tile.DA{j,1}.OBS_OP{k,1}, tile);
+                        end
+                    end
+                end
+            end
+        end
+        
         
         
         function tile = run_model(tile)
@@ -194,6 +205,8 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
                 %update time variable t
                 tile.t = tile.t + tile.timestep./tile.CONST.day_sec;
                 
+                %data assimilation
+                tile = data_assimilation(tile);
                 
                 %store output
                 tile = store_OUT_tile(tile);
@@ -224,7 +237,11 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             else
                 parameters = fieldnames(tile.PARA);
             end
-
+            for i=1:size(parameters,1)
+                if size(tile.PARA.(parameters{i,1}),1) == 0 && size(tile.PARA.(parameters{i,1}),2) == 0
+                    disp(['Warning: PARA ' parameters{i,1} ' in class ' class(tile) ' not assigned'])
+                end
+            end
         end
         
         function tile = build_tile_new_init(tile)
@@ -362,7 +379,15 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             %12. assign OUT classes
             tile.OUT = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.out_class){tile.PARA.out_class_index,1});
             tile.OUT = finalize_init(tile.OUT, tile);
-
+          
+      
+            
+            %assign DA classes
+            for i = 1:size(tile.PARA.DA_classes,1)
+              tile.DA{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.DA_classes{i,1}){tile.PARA.DA_classes_index(i,1),1});  
+              tile.DA{i,1} = finalize_init(tile.DA{i,1}, tile);
+            end
+           
         end
         
         function tile = build_tile_new_init_steady_state(tile)
@@ -430,12 +455,6 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             %6. set top depths relative to surface and finalize initialization for
             %subsurface classes
             
-            %determine T_first_cell from class
-            if ~isempty(tile.PARA.init_steady_state_class) && sum(isnan(tile.PARA.init_steady_state_class)) == 0
-                init_steady_state_class = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.init_steady_state_class){tile.PARA.init_steady_state_class_index,1});
-                init_steady_state_class = finalize_init(init_steady_state_class, tile); %assigns T_first_cell and potentially start_depth_steady_state
-            end
-
             CURRENT = tile.TOP_CLASS;
             CURRENT.STATVAR.top_depth_rel2groundSurface = 0; %set initial surface to zero
             
@@ -513,6 +532,14 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             %12. assign OUT classes
             tile.OUT = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.out_class){tile.PARA.out_class_index,1});
             tile.OUT = finalize_init(tile.OUT, tile);
+            
+            
+            %assign DA classes
+            for i = 1:size(tile.PARA.DA_classes,1)
+              tile.DA{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.DA_classes{i,1}){tile.PARA.DA_classes_index(i,1),1});  
+              tile.DA{i,1} = finalize_init(tile.DA{i,1}, tile);
+            end
+
 
         end
         
@@ -531,12 +558,7 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.BOTTOM_CLASS = tile.RUN_INFO.TILE.BOTTOM_CLASS;
             tile.TOP_CLASS = tile.RUN_INFO.TILE.TOP_CLASS;
             tile.timestep = tile.RUN_INFO.TILE.timestep;
-            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL;     
-            tile.STORE = tile.RUN_INFO.TILE.STORE;     
-            tile.ENSEMBLE = tile.RUN_INFO.TILE.ENSEMBLE;     
-            tile.DA = tile.RUN_INFO.TILE.DA;
-
-            
+            tile.LATERAL = tile.RUN_INFO.TILE.LATERAL;            
             
             %use old PARA, but overwrite all newly set values
             PARA_new = tile.PARA;
@@ -549,33 +571,17 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             tile.FORCING = finalize_init(tile.FORCING, tile); 
             tile.OUT = finalize_init(tile.OUT, tile);           
             %10. assign time, etc.
-            tile.TEMP.time_difference = tile.RUN_INFO.TILE.t - tile.FORCING.PARA.start_time; %Used to correct time variables in subsurface classes
             tile.t = tile.FORCING.PARA.start_time;
             
             %reset IA time
             tile.LATERAL.IA_TIME = tile.t + tile.LATERAL.IA_TIME_INCREMENT;
             
-            %reset time for BGC class (do mothing if no BGC class exists)
-            %-> MAKE THIS A GENERAL RESET_TIME OR ADJUST_TIME FUNCTION THAT
-            %IS DEFINED IN BASE AND OVERWRITTEN IN ALL FUNCTIONS THAT
-            %ACTUALLY HAVE A TIME VARIABLE - CALCULATE TIME OFFSET BETWEEN
-            %OLD AND NEW FORCING, I.E LAST TIMESTAMP OF OLD RUN AND FIRST TIMESTAMP OF NEW RUN 
-            CURRENT = tile.TOP.NEXT;
-            while ~isequal(CURRENT.NEXT, tile.BOTTOM)
-                CURRENT = reset_timestamps(CURRENT, tile);
-                CURRENT = CURRENT.NEXT;
-            end
             
             tile.RUN_INFO.TILE = tile;
 
             
             tile.PARA.run_name =  tile.RUN_INFO.PPROVIDER.PARA.run_name;
             tile.PARA.result_path =  tile.RUN_INFO.PPROVIDER.PARA.result_path;
-
-
-
-            
-
         end
         
         
@@ -619,7 +625,7 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
             if strcmp(option, 'new_init')
                 parameters = {'latitude'; 'longitude'; 'altitude'; 'domain_depth'; 'area'; 'forcing_class'; 'forcing_class_index'; 'grid_class'; 'grid_class_index'; 'out_class'; ...
                     'out_class_index'; 'strat_classes_class'; 'strat_classes_class_index'; 'strat_statvar_class'; 'strat_statvar_class_index'; 'lateral_class'; ...
-                    'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'ensemble_class'; 'ensemble_class_index'};
+                    'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'DA_classes'; 'DA_classes_index'; 'ensemble_class'; 'ensemble_class_index'};
                 
                 for i=1:size(parameters,1)
                     tile.PARA.(parameters{i,1})=[];
@@ -655,6 +661,10 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
                 tile.PARA.options.lateral_IA_classes.name =  'H_LIST'; 
                 tile.PARA.options.lateral_IA_classes_index.name =  'H_LIST';
                 
+                tile.PARA.comment.DA_classes = {'list of data assimilation classes'};
+                tile.PARA.options.DA_classes.name =  'H_LIST'; 
+                tile.PARA.options.DA_classes_index.name = 'H_LIST';
+                
                 tile.PARA.comment.ensemble_class = {ensemble generation class'};
                 tile.PARA.default_value.ensemble_class = {'ENSEMBLE_general'};
                 tile.PARA.default_value.ensemble_class_index = {1};
@@ -664,7 +674,7 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
                 parameters = {'latitude'; 'longitude'; 'altitude'; 'domain_depth'; 'area'; 'forcing_class'; 'forcing_class_index'; 'grid_class'; 'grid_class_index'; 'out_class'; ...
                     'out_class_index'; 'strat_classes_class'; 'strat_classes_class_index'; 'strat_statvar_class'; 'strat_statvar_class_index'; 'lateral_class'; ...
                     'lateral_class_index'; 'lateral_IA_classes'; 'lateral_IA_classes_index'; 'T_first_cell'; 'start_depth_steady_state'; ...
-                    'ensemble_class'; 'ensemble_class_index'};
+                    'DA_classes'; 'DA_classes_index'; 'ensemble_class'; 'ensemble_class_index'};
                 for i=1:size(parameters,1)
                     tile.PARA.(parameters{i,1})=[];
                 end
@@ -702,6 +712,10 @@ classdef TILE_1D_ensemble < matlab.mixin.Copyable
                 tile.PARA.comment.init_steady_state_class = {'init_steady_state class to compute temperature of first grid cell, leave empty when using T_first_grid_cell'};
                 tile.PARA.comment.T_first_cell = {'temperature of first grid cell used to compute the temperature gradient, leave empty when using init_steady_state class'};
                 tile.PARA.comment.start_depth_steady_state = {'depth [m] where temperature gradient starts, constant above, leave empty when using init_steady_state class'};
+                
+                tile.PARA.comment.DA_classes = {'list of data assimilation classes'};
+                tile.PARA.options.DA_classes.name =  'H_LIST'; 
+                tile.PARA.options.DA_classes_index.name = 'H_LIST';
                 
                 tile.PARA.comment.ensemble_class = {ensemble generation class'};
                 tile.PARA.default_value.ensemble_class = {'ENSEMBLE_general'};

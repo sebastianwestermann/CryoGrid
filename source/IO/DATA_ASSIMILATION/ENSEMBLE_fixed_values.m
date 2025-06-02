@@ -85,21 +85,29 @@ classdef ENSEMBLE_fixed_values < ENSEMBLE_general
             
             ensemble = set_pointers2classes(ensemble, tile);
             variable_list = [];
+            index_list = [];
             for i=1:size(ensemble.PARA.modify_class_pointer,1)
                 variable_list = [variable_list; {class(ensemble.PARA.modify_class_pointer{i,1})}];
+                if ~isempty(ensemble.PARA.modify_class_pointer{i,1})
+                    index_list = [index_list; ensemble.PARA.modify_class_pointer{i,1}.PARA.class_index];
+                else
+                    index_list = [index_list; 0];
+                end
             end
             
             %write variables in PROVIDER
             for i=1:size(ensemble.PARA.modify_class_name,1)
                 %rewrite in already called classes
                 if any(strcmp(variable_list, ensemble.PARA.modify_class_name{i,1}))
-                    pos = find(strcmp(variable_list,ensemble.PARA.modify_class_name{i,1}));
-                    ensemble.PARA.modify_class_pointer{pos,1}.PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.position_in_class(i,1)) = ...
-                    ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1});
+                    pos = find(strcmp(variable_list,ensemble.PARA.modify_class_name{i,1}) & index_list == ensemble.PARA.modify_class_index(i,1));
+                    for j=1:length(pos)
+                        ensemble.PARA.modify_class_pointer{pos(j),1}.PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.position_in_class(i,1)) = ...
+                            ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1});
+                    end
                 end
                %rewrite in Provider
-                    tile.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.modify_class_name{i,1}){ensemble.PARA.modify_class_index(i,1),1}.PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.position_in_class(i,1)) = ...
-                    ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1});
+               tile.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.modify_class_name{i,1}){ensemble.PARA.modify_class_index(i,1),1}.PARA.(ensemble.PARA.variable_in_class{i,1})(ensemble.PARA.position_in_class(i,1)) = ...
+                   ensemble.STATVAR.(ensemble.PARA.variable_in_ensemble{i,1});
 %                 
             end
             

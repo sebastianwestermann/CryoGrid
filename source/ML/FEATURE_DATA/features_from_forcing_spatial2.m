@@ -1,4 +1,4 @@
-classdef features_from_forcing_spatial < matlab.mixin.Copyable
+classdef features_from_forcing_spatial2 < matlab.mixin.Copyable
     
     properties
         PARA
@@ -61,9 +61,9 @@ classdef features_from_forcing_spatial < matlab.mixin.Copyable
                     datenum(features.PARA.end_date_training(1,1), features.PARA.end_date_training(2,1), features.PARA.end_date_training(3,1))]';
             end
 
-            features.DATA.features_forcing = [];
-            features.DATA.data_groups = [];
-
+            features.DATA.features_forcing = {}; %cell array, so that the std and mean can be independently computed for each variable separately
+            features.DATA.features_forcing_mean = [];
+            features.DATA.features_forcing_std = [];            
             %average
             for i=1:size(features.PARA.forcing_class,1)
                 forcing = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(features.PARA.forcing_class{i,1}){features.PARA.forcing_class_index(i,1),1}); %read out
@@ -71,20 +71,27 @@ classdef features_from_forcing_spatial < matlab.mixin.Copyable
                 for j=1:size(features.PARA.forcing2features_class, 1)
                     forcing2features = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(features.PARA.forcing2features_class{j,1}){features.PARA.forcing2features_class_index(j,1),1});
                     forcing2features = finalize_init(forcing2features, tile);
-                    [ff, ff_dg] = features_from_forcing(forcing2features, features, forcing);
-                    features.DATA.features_forcing = [features.DATA.features_forcing ff];
-                    if isempty(features.DATA.data_groups)
-                        max_dg_index = 0;
-                    else
-                        max_dg_index = max(features.DATA.data_groups);
-                    end
-                    features.DATA.data_groups = [features.DATA.data_groups ff_dg+max_dg_index];
+                    feature_data = features_from_forcing(forcing2features, features, forcing);
+                    features.DATA.features_forcing = [features.DATA.features_forcing; feature_data];
                 end
             end
+            % for i=1:size(features.DATA.features_forcing,1)
+            %     features.DATA.features_forcing_mean = [features.DATA.features_forcing_mean; mean(features.DATA.features_forcing{i,1}(:))];
+            %     features.DATA.features_forcing_std = [features.DATA.features_forcing_std; std(features.DATA.features_forcing{i,1}(:))];
+            % end
         end
 
-        
         function [out, data_groups] = generate_feature_data_training(features, tile)
+
+            %rearrange forcing
+            data_groups = [];
+            features_forcing = [];
+            for i=1:size(features.DATA.features_forcing,1)
+                features_forcing = [features_forcing features.DATA.features_forcing{i,1}];
+                data_groups = [data_groups ones(1,size(features.DATA.features_forcing{i,1},2)).*i];
+            end
+            maxID_data_groups = i;
+
             %spatial features 
             valid = ones(size(tile.RUN_INFO.SPATIAL.STATVAR.latitude,1),1); 
             for i=1:size(features.PARA.mask_class_training,1)
@@ -93,35 +100,29 @@ classdef features_from_forcing_spatial < matlab.mixin.Copyable
                 valid = apply_mask2(mask, tile, valid); %both additive and exclusive masks are possible
             end
             features_spatial = [];
-            data_groups =[];
-            data_group_index = max(features.DATA.data_groups)+1;
             for i=1:size(features.PARA.spatial2features_class, 1)
                 spatial2features = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(features.PARA.spatial2features_class{i,1}){features.PARA.spatial2features_class_index(i,1),1});
                 spatial2features = finalize_init(spatial2features, tile);
-                [fs, fs_dg] = features_from_spatial(spatial2features, tile, valid);
+                fs = features_from_spatial(spatial2features, tile, valid);
                 features_spatial = [features_spatial fs];
-                features.DATA.data_groups = [features.DATA.data_groups fs_dg+max(features.DATA.data_groups)];
-                data_group_index = data_group_index+1;
             end
             features.DATA.features_spatial = features_spatial;
+            data_groups = [data_groups maxID_data_groups+[1:size(features_spatial,2)]];
+            % features.DATA.features_spatial_mean = mean(features_spatial, 1);
+            % features.DATA.features_spatial_std = std(features_spatial, [], 1);
+            % features_spatial = (features_spatial - features.DATA.features_spatial_mean) ./ features.DATA.features_spatial_std;
+
 
             %combine with forcing
-            out = repmat(features.DATA.features_forcing, size(features_spatial,1),1);
+            out = repmat(features_forcing, size(features_spatial,1),1);
             out_spatial = [];
             for j=1:size(features_spatial,1)
-                out_spatial = [out_spatial; repmat(features_spatial(j,:), size(features.DATA.features_forcing,1),1)];
+                out_spatial = [out_spatial; repmat(features_spatial(j,:), size(features_forcing,1),1)];
             end
             out = [out out_spatial];
-            data_groups = features.DATA.data_groups;
         end
 
-        function tile = assign_timestamp_prediction(features, tile)
-            valid_forcing = features.DATA.timestamp >= datenum(features.PARA.start_date_prediction(1,1), features.PARA.start_date_prediction(2,1), features.PARA.start_date_prediction(3,1)) ...
-                & features.DATA.timestamp <= datenum(features.PARA.end_date_prediction(1,1), features.PARA.end_date_prediction(2,1), features.PARA.end_date_prediction(3,1));
-            tile.STATVAR.timestamp_prediction = features.DATA.timestamp(valid_forcing,1);
-        end
-
-        function out = generate_feature_data_prediction_single_timestamp(features, tile)
+        function out = generate_feature_data_prediction(features, tile)
 
             %spatial features
             valid = zeros(size(tile.RUN_INFO.SPATIAL.STATVAR.latitude,1),1); 
@@ -139,12 +140,14 @@ classdef features_from_forcing_spatial < matlab.mixin.Copyable
                 fs = features_from_spatial(spatial2features, tile, valid);
                 features_spatial = [features_spatial fs];
             end
+            features_spatial = (features_spatial - features.DATA.features_spatial_mean) ./ features.DATA.features_spatial_std;
 
             %combine with forcing
-            % valid_forcing = features.DATA.timestamp >= datenum(features.PARA.start_date_prediction(1,1), features.PARA.start_date_prediction(2,1), features.PARA.start_date_prediction(3,1)) ...
-            %     & features.DATA.timestamp <= datenum(features.PARA.end_date_prediction(1,1), features.PARA.end_date_prediction(2,1), features.PARA.end_date_prediction(3,1));
-            valid_forcing = find(abs(features.DATA.timestamp-tile.t) <1e-5); 
-            out = repmat(features.DATA.features_forcing(valid_forcing,:), size(features_spatial,1),1);
+            features_forcing = [];
+            for i=1:size(features.DATA.features_forcing,1)
+                features_forcing = [features_forcing (features.DATA.features_forcing{i,1} - features.DATA.features_forcing_mean(i,1)) ./ features.DATA.features_forcing_std(i,1)];
+            end
+            out = repmat(features_forcing, size(features_spatial,1),1);
             out = [out features_spatial];
           
         end

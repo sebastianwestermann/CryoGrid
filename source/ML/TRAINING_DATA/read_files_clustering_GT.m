@@ -1,4 +1,4 @@
-classdef read_files_clustering < matlab.mixin.Copyable
+classdef read_files_clustering_GT < matlab.mixin.Copyable
     
     properties
         PARA
@@ -16,7 +16,7 @@ classdef read_files_clustering < matlab.mixin.Copyable
             features.PARA.start_year = [];
             features.PARA.end_year = [];
 
-            features.PARA.variables = [];
+            features.PARA.depths = [];
         end
 
 
@@ -38,34 +38,35 @@ classdef read_files_clustering < matlab.mixin.Copyable
             ground_surface_cell = find(sum(isnan(CG_out.T),2)==0, 1, 'first'); %bit nonsense if snow stays around!
             
             features.TEMP.target_cells = [];
-            for i=1:size(features.PARA.variables,1)
-                if strcmp('T', features.PARA.variables{i,1}(1,1))
-                    target_depth = str2num(features.PARA.variables{i,1}(2:end-1));
-                    features.TEMP.target_cells = [features.TEMP.target_cells; round(ground_surface_cell + target_depth./cell_size)];
-                elseif strcmp('ALT', features.PARA.variables{i,1})
-                    features.TEMP.get_ALT = 1;
-                end
+            for i=1:size(features.PARA.depths,1)
+                target_depth = features.PARA.depths(i,1);
+                features.TEMP.target_cells = [features.TEMP.target_cells; round(ground_surface_cell + target_depth./cell_size)];
             end
 
         end
 
-        function [out, data_groups] = generate_target_data(features, tile)
+        function [out, data_groups]  = generate_target_data(features, tile)
             disp('reading out-files')
             out = [];
-            data_groups = [];
             valid_ind = sort(tile.RUN_INFO.CLUSTER.STATVAR.key_centroid_index);
             for i=1:size(valid_ind,1)
+                out_i = [];
                 for y = features.PARA.start_year:features.PARA.end_year
                     load([features.PARA.out_folder  features.PARA.out_filename '_' num2str(valid_ind(i,1)) '_' num2str(y)  features.PARA.out_str '.mat'])
-                    out_i = [];
+                    out_ii = [];
                     for j=1:size(features.TEMP.target_cells,1)
-                        out_i = [out_i mean(CG_out.T(features.TEMP.target_cells(j,1),:))];
+                        out_ii = cat(3, out_ii, mean(CG_out.T(features.TEMP.target_cells(j,1),:)));
                     end
-                    out = [out; out_i];
+                    out_i = cat(2, out_i, out_ii);
                 end
+                out = cat(1, out, out_i);
             end
             features.DATA.out = out;
-            data_groups = [1:size(features.TEMP.target_cells,1)];
+
+            data_groups = out(1,:,:).*0 + 1;
+            for i=1:size(data_groups,3)
+                data_groups(1,:,i) = data_groups(1,:,i).*i;
+            end
         end
 
     end

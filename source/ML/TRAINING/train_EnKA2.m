@@ -1,4 +1,4 @@
-classdef train_EnKA < matlab.mixin.Copyable
+classdef train_EnKA2 < matlab.mixin.Copyable
 
     properties
         PARA
@@ -9,7 +9,7 @@ classdef train_EnKA < matlab.mixin.Copyable
 
     methods
         function train = provide_PARA(train)
-            train.PARA.training_fraction = [];
+            train.PARA.minibatch_size = [];
             train.PARA.number_of_iterations = [];
             train.PARA.relative_error_term = 1e-3;
         end
@@ -21,11 +21,11 @@ classdef train_EnKA < matlab.mixin.Copyable
 
         end
 
-        function train = finalize_init(train, tile)
-            sigy = train.PARA.relative_error_term ./ tile.STATVAR.out_std; %must already live in derivative space, proably entire operation should be moved to train_ML?
-            sigy=repmat(sigy, size(tile.STATVAR.out,1), 1);
-            train.TEMP.R = sigy.^2;
-        end
+         function train = finalize_init(train, tile)
+        %     sigy = train.PARA.relative_error_term ./ tile.STATVAR.out_std; %must already live in derivative space, proably entire operation should be moved to train_ML?
+        %     sigy=repmat(sigy, train.PARA.minibatch_size, 1);
+        %     train.TEMP.R = sigy.^2;
+         end
 
         % function train = finalize_init(train, tile)
         %     sigy = train.PARA.relative_error_term ./ tile.STATVAR.out_std(1, tile.TEMP.var_ID);
@@ -36,21 +36,44 @@ classdef train_EnKA < matlab.mixin.Copyable
         function ml = train_ML(train, tile)
             ml = tile.ML;
             for i=1:train.PARA.number_of_iterations
-                training_IDs = randsample([1:size(tile.STATVAR.out,1)]', round(train.PARA._fraction .* size(tile.STATVAR.out,1)));
+
                 
-                input =  tile.STATVAR.in(training_IDs,:,:);
-                input = transform4NN(tile.TEMP.transform_input_class, input, tile);
+                % input =  tile.STATVAR.in(training_IDs,:,:); 
+                % input = realWorld2NN(tile.TEMP.in2out_NN_features, input, tile);
+                input = realWorld2NN(tile.TEMP.in2out_NN_features, tile.STATVAR.in, tile); %only normalizes features, should use feature_data_groups
+                
+              %  target = tile.STATVAR.out(training_IDs,:,:); %this should also come later and also involve the different years and depths and the gradients computed
+    
+                %compute the physics constraints for target and normalize
+                [tile.TEMP.in2out_NN_target, target] = realWorld2training(tile.TEMP.in2out_NN_target, tile.STATVAR.out, tile); %This must calculate the derivatives, probably good in several stages
+                
+                %this could go to finalize_init?
+               % uncertainty = repmat(train.PARA.relative_error_term ./ tile.TEMP.in2out_NN_target.STATVAR.data_std, size(tile.STATVAR.out,1), 1);
+                uncertainty = realWorld2training_uncertainty(tile.TEMP.in2out_NN_target, train.PARA.relative_error_term, tile); 
+                
+                %and then calculate the uncertainties for each of them
+                %and leave in the real space for now
+                %but make a variable data_std that has exactly the same
+                %size as the target
+                %then only divide the seletced minibatch by std
 
-                target = tile.STATVAR.out(training_IDs,:,:);
-                target = transform4training(tile.TEMP.transform_target_class, target, tile); %This must calculate the derivatives 
-                uncertainty = train.TEMP.R(training_IDs,:,:);
-                uncertainty = transform4training(tile.TEMP.transform_target_class, uncertainty, tile);
+                %propagate_ML delivers everything normalized
+                % then bring back to normal space
+                %calculate the derivatives
+                % and get minibatch
+                %then normalize again and reshape to column vector
 
-                [predicted_ensemble_ML, ml_parameters] = progapagate_ML(tile.ML, input);
+                % compute uncertainty for physics constriants
 
-                predicted_ensemble_ML = transform4training2(tile.TEMP.transform_target_class, predicted_ensemble_ML, tile); %transform to real space, then to  target space, like calculating derivatives 
+                [predicted_ensemble_ML, ml_parameters] = progapagate_ML(tile.ML, input); %get all of the output, that should not be supermuch time
 
-                new_parameters = EnKA(train, ml_parameters, target, predicted_ensemble_ML, train.PARA.number_of_iterations, uncertainty, 0);
+           %     predicted_ensemble_ML =  NNout2training(tile.TEMP.in2out_NN_target, predicted_ensemble_ML, tile);  %transform to real space, then to  target space, like calculating derivatives 
+                
+                %reduce to a subspace for training
+                %uncertainty= target.*0+1e-3;
+                training_IDs = randsample([1:size(target,1)]', train.PARA.minibatch_size); %this could also be all of the observations
+               % training_IDs = [1:size(target,1)]';
+                new_parameters = EnKA(train, ml_parameters, target(training_IDs,1), predicted_ensemble_ML(training_IDs,:), train.PARA.number_of_iterations, uncertainty(training_IDs,:), 0);
 
                 tile.ML = reset_parameters(tile.ML, new_parameters);
             end

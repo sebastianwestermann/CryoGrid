@@ -1752,8 +1752,41 @@ classdef WATER_FLUXES_LATERAL < BASE
             lateral.PARENT.STATVAR.hydrostatic_head = [lateral.PARENT.STATVAR.hydrostatic_head; hydrostatic_head]; 
             lateral.PARENT.STATVAR.matric_potential_head = [lateral.PARENT.STATVAR.matric_potential_head; matric_potential_head];
             lateral.PARENT.STATVAR.T_water = [lateral.PARENT.STATVAR.T_water; ground.STATVAR.T];
+
         end
         
+        %new functions for "trapped" lateral Xwater
+        function ground = lateral3D_pull_Xwater_unconfined_aquifer_RichardsEq(ground, lateral) %RichardsEq_Xice
+                        %add movable Xwater below hard_bottom here, same vector as
+            %T_water, and code if the cell is hard_bottom, like -1 or so ->
+            %move defined fraction of Xwater to other tile of Xwater >0 in
+            %one of them and Xwater ==0 in the other . Only Xwater in cell
+            %right below hard_bottom
+            water_volumetric = (ground.STATVAR.water + ground.STATVAR.Xwater) ./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
+            hardBottom = (water_volumetric <= lateral.PARA.hardBottom_cutoff | ground.STATVAR.T<=0); %<= here!
+            Xwater = double(ground.STATVAR.Xwater(2:end,1) > 1e-4 .* ground.STATVAR.area(2:end,1) & hardBottom(1:end-1,1)) .* ground.STATVAR.Xwater(2:end,1);
+            Xwater= [0; Xwater];
+            i=1;
+            unfrozen = 1;
+            while i <= size(ground.STATVAR.layerThick,1) && unfrozen==1
+                if ground.STATVAR.T(i,1)>0 
+                    Xwater(i,1) = -1; % -1 if the cell can take up Xwater -> overwrite Xwater if it could simply go upwards
+                else
+                    unfrozen = 0;
+                end
+                i=i+1;
+            end
+            lateral.PARENT.STATVAR.Xwater = [lateral.PARENT.STATVAR.Xwater; Xwater];
+            lateral.PARENT.STATVAR.layerThick = [lateral.PARENT.STATVAR.layerThick; ground.STATVAR.layerThick];
+        end
+
+
+        function ground = lateral3D_pull_Xwater_unconfined_aquifer_full_uptake(ground, lateral) %unfrozen lake, etc.
+            lateral.PARENT.STATVAR.Xwater = [lateral.PARENT.STATVAR.Xwater; ground.STATVAR.layerThick .*0-1];
+            lateral.PARENT.STATVAR.layerThick = [lateral.PARENT.STATVAR.layerThick; ground.STATVAR.layerThick];
+        end        
+
+        % continuation noch change from here
         function ground = lateral3D_pull_water_unconfined_aquifer_lake_unfr_RichardsEq(ground, lateral)
             hydraulic_conductivity_water = 1e-4; %5.*1e-5; %set a higher value than  ground -> maybe problematic when two lakes are communicating! 
             

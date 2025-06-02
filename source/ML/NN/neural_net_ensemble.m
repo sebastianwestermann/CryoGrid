@@ -28,8 +28,8 @@ classdef neural_net_ensemble < matlab.mixin.Copyable
                 af = str2func(nn.PARA.activation_functions{i,1});
                 nn.ACTIVATION{i,1} = af();
             end
-            nn.PARA.number_of_neurons(end, 1) = size(tile.STATVAR.out,2);
-            neurons_per_layer = [size(tile.STATVAR.in,2); nn.PARA.number_of_neurons];
+            nn.PARA.number_of_neurons(end, 1) = size(tile.TEMP.in2out_NN_target.STATVAR.data(:), 1) ./ size(tile.TEMP.in2out_NN_target.STATVAR.data, 1);
+            neurons_per_layer = [size(tile.TEMP.in2out_NN_features.STATVAR.data(:), 1) ./ size(tile.TEMP.in2out_NN_features.STATVAR.data, 1); nn.PARA.number_of_neurons];
             size_weights = 0;
             for i=2:size(neurons_per_layer,1)
                 size_weights = size_weights + neurons_per_layer(i-1).*neurons_per_layer(i);
@@ -42,7 +42,7 @@ classdef neural_net_ensemble < matlab.mixin.Copyable
 
         function [out_all, nn_parameters] = progapagate_ML(nn, in)
 
-            out_all = zeros(size(in,1), nn.PARA.ensemble_size);
+            out_all=zeros(size(in,1).*nn.PARA.number_of_neurons(end,1), nn.PARA.ensemble_size);
             for count = 1:nn.PARA.ensemble_size
                 out = in;
                 start_id_w=1;
@@ -57,7 +57,8 @@ classdef neural_net_ensemble < matlab.mixin.Copyable
                     out = out*weights+bias_term';
                     out = propagate(nn.ACTIVATION{i,1}, out);
                 end
-                out_all(:,count) = out;
+                %out = out'; %NEW: columns different values, like time dependence; rows: different samples
+                out_all(:,count) = out(:);
             end
             nn_parameters = [nn.STATVAR.weights; nn.STATVAR.bias_terms];
         end

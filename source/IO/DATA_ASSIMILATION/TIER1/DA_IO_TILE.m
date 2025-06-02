@@ -50,9 +50,9 @@ classdef DA_IO_TILE < matlab.mixin.Copyable
                     end
                 end
             end
-            if tile.PARA.worker_number == 3
-                save('test3.mat', 'da')
-            end
+            % if tile.PARA.worker_number == 3
+            %     save('test3.mat', 'da')
+            % end
             spmdBarrier;
         end
 

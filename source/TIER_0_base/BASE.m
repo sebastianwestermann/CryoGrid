@@ -135,6 +135,11 @@ classdef BASE < matlab.mixin.Copyable
         function ground = lateral3D_push_water_general_aquifer(ground, lateral)
             
         end
+
+        function ground = lateral3D_pull_Xwater_unconfined_aquifer(ground, lateral) %no uptake of Xwater
+            lateral.PARENT.STATVAR.Xwater = [lateral.PARENT.STATVAR.Xwater; ground.STATVAR.layerThick .*0];
+            lateral.PARENT.STATVAR.layerThick = [lateral.PARENT.STATVAR.layerThick; ground.STATVAR.layerThick];
+        end
         
         function [saturated_next, hardBottom_next] = get_saturated_hardBottom_first_cell(ground, lateral)
             saturated_next = 0;

@@ -1,4 +1,4 @@
-classdef features_annual < matlab.mixin.Copyable
+classdef features_annual_average < matlab.mixin.Copyable
     
     properties
         PARA
@@ -27,8 +27,10 @@ classdef features_annual < matlab.mixin.Copyable
 
         end
 
-        function out = features_from_forcing(forcing2features, features, forcing)
+        function [out, data_groups] = features_from_forcing(forcing2features, features, forcing)
             out = [];
+            data_groups = [];
+            data_group_index = 1;
             for j=1:size(features.DATA.timestamp,1)
                 out_i = [];
                 for v=1:size(forcing2features.PARA.variables,1)
@@ -38,8 +40,13 @@ classdef features_annual < matlab.mixin.Copyable
                         range = find(forcing.DATA.timeForcing>=start_date & forcing.DATA.timeForcing<end_date);
                         out_i = [out_i mean(forcing.DATA.(forcing2features.PARA.variables{v,1})(range,1))];
                     end
+                    if j==1
+                        data_groups = [data_groups repmat(data_group_index,1,size(out_i,2))];
+                        data_group_index = data_group_index + 1;
+                    end
                 end
                 out = [out; out_i];
+
             end
         end
 

@@ -2,7 +2,6 @@
 % CryoGrid GROUND class GROUND_freezeC_RichardsEqW_Xice_seb
 % heat conduction, Richards equation water scheme, freeze curve based on
 % freezing=drying assumption, surface energy balance, excess ice 
-% DISCONTINUED, do not use any more!
 % S. Westermann, October 2020
 %========================================================================
 
@@ -409,6 +408,10 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         
          function ground = lateral3D_push_water_unconfined_aquifer_RichardsEq(ground, lateral)
              ground = lateral3D_push_water_unconfined_aquifer_Xice(ground, lateral);
+         end
+
+         function ground = lateral3D_pull_Xwater_unconfined_aquifer(ground, lateral)
+             ground = lateral3D_pull_Xwater_unconfined_aquifer_RichardsEq(ground, lateral);
          end
         
         %LAT3D_WATER_RESERVOIR and LAT3D_WATER_SEEPAGE_FACE do not require specific functions

@@ -1,65 +1,55 @@
 %========================================================================
-% CryoGrid FORCING processing class
+% CryoGrid FORCING post-processing 
 %
 %
 % Authors:
-% S. Westermann, December 2022
+% S. Westermann, January 2023
 %
 %========================================================================
 
-classdef initialize_TEMP < matlab.mixin.Copyable 
+classdef scale_snowfall_manual < FORCING_base
     
     properties
-        CONST
-        PARA
-        STATVAR
-        TEMP
+        
     end
     
     methods
-        function proc = provide_PARA(proc)
-            proc.PARA.is_slope = [];  %rainfall fraction assumed in sumulations (rainfall from the forcing data file is multiplied by this parameter)
-        end
-        
-        
-        function proc = provide_CONST(proc)
-
-        end
-        
-        
-        function proc = provide_STATVAR(proc)
+        function post_proc = provide_PARA(post_proc)
+            
+            post_proc.PARA.snowfall_factor = [];
+            post_proc.PARA.annual = 0;
             
         end
         
         
-        function proc = finalize_init(proc, tile)
+        function post_proc = provide_CONST(post_proc)
 
         end
         
         
-        function forcing = process(proc, forcing, tile)
+        function post_proc = provide_STATVAR(post_proc)
             
-            forcing.TEMP.snowfall=0;
-            forcing.TEMP.rainfall=0;
-            forcing.TEMP.Lin=0;
-            forcing.TEMP.Sin=0;
-            forcing.TEMP.Tair=0;
-            forcing.TEMP.wind=0;
-            forcing.TEMP.q=0;
-            forcing.TEMP.p=0;
-            
-            if proc.PARA.is_slope
-                forcing.TEMP.Sin_dif = 0;
-                forcing.TEMP.Sin_dir = 0;
-                forcing.TEMP.sunElevation = 0;
-                forcing.TEMP.azimuth = 0;
-            end
-
-            forcing.STATVAR.timestep = (forcing.DATA.timeForcing(end,1)-forcing.DATA.timeForcing(1,1)) ./ (size(forcing.DATA.timeForcing,1)-1);
         end
         
         
-                %-------------param file generation-----
+        function post_proc = finalize_init(post_proc, tile)
+
+        end
+        
+        
+        function forcing = process(post_proc, forcing, tile)
+
+                forcing.DATA.ERA_snowfall_downscaled =  forcing.DATA.ERA_snowfall_downscaled .* post_proc.PARA.snowfall_factor;
+        end
+        
+        
+        
+
+ 
+        
+        
+        
+%                 %-------------param file generation-----
 %         function post_proc = param_file_info(post_proc)
 %             post_proc = provide_PARA(post_proc);
 % 
@@ -84,4 +74,3 @@ classdef initialize_TEMP < matlab.mixin.Copyable
     end
     
 end
-

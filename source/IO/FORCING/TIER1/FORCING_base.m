@@ -88,16 +88,20 @@ classdef FORCING_base <  matlab.mixin.Copyable
                     forcing = process(proc_class, forcing, tile);
                 end
             end
+
         end
         
         
         function forcing = interpolate_forcing(forcing, tile)
             t = tile.t;
             
-            posit = floor((t-forcing.DATA.timeForcing(1,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)))+1;
+            % posit = floor((t-forcing.DATA.timeForcing(1,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)))+1;
+            posit = floor((t-forcing.DATA.timeForcing(1,1))./ forcing.STATVAR.timestep)+1;
+           
             
             variables = fieldnames(forcing.TEMP);
-            t_weight = (t-forcing.DATA.timeForcing(posit,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)); % current distance from last timestep (0,1)
+            t_weight = (t-forcing.DATA.timeForcing(posit,1))./forcing.STATVAR.timestep; % current distance from last timestep (0,1)
+            %t_weight = (t-forcing.DATA.timeForcing(posit,1))./(forcing.DATA.timeForcing(2,1)-forcing.DATA.timeForcing(1,1)); % current distance from last timestep (0,1)
             
             for i = 1:length(variables)
                 if ~strcmp(variables{i},'t') && isfield(forcing.DATA, variables{i})

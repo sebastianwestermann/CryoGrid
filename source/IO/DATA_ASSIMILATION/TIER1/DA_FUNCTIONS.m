@@ -254,16 +254,18 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
                 else
                     disp('clipping unsuccessful')
                     pric = diag(da.TEMP.old_std_gaussian.^2);
-                    % 07.11.
-                    cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
-                    % 07.11.
+                    % % 07.11.
+                    % cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
+                    % % 07.11.
+                    cov_gaussian_resampled = d.*cov_gaussian_resampled + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
                 end
             else
                 disp('no clipping')
                 pric = diag(da.TEMP.old_std_gaussian.^2);
-                % 07.11.
-                cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
-                % 07.11.
+                % % 07.11.
+                % cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
+                % % 07.11.
+                cov_gaussian_resampled = d.*cov_gaussian_resampled + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
             end
 
             da.TEMP.cov_gaussian_resampled = cat(3, da.TEMP.cov_gaussian_resampled, cov_gaussian_resampled); %propc(:,:,ell)=pc;
@@ -273,7 +275,7 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
             Z = randn(size(mean_gaussian_resampled,1), tile.PARA.ensemble_size); %Z=randn(Np,Ne);
             L=chol(cov_gaussian_resampled,'lower');
             value_gaussian_resampled= mean_gaussian_resampled+L*Z;
-            da.TEMP.value_gaussian_resampled = value_gaussian_resampled;
+            da.TEMP.value_gaussian_resampled = value_gaussian_resampled; %this needs to be the same as da.ENSEMBLE.value_gaussian
             da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = value_gaussian_resampled(:, tile.PARA.worker_number);
         end
             
@@ -367,6 +369,65 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
             end
         end
             
+        function [weights, effective_ensemble_size] = PBS2(da, observations, modeled_obs, obs_variance)
+           % w = PBS( HX,Y,R )
+            % Efficient implementation of the Particle Batch Smoother
+            % presented in Margulis et al. (2015; JHM).
+            % N.B. The observation errors are assumed to be uncorrelated (diagonal R)
+            % and Gaussian.
+            %
+            % Dimensions: No = Number of observations in the batch to assimilate.
+            %             Np = Number of parameters to update.
+            %             Ne = Number of ensemble members (particles).
+            %
+            % -----------------------------------------------------------------------
+            % Inputs:
+            %
+            %
+            % HX   => No x Ne matrix containing an ensemble of Ne predicted
+            %         observation column vectors each with No entries.
+            %
+            % Y     => No x 1 vector containing the batch of (unperturbed) observations.
+            %
+            % R     => No x No observation error variance matrix; this may also be
+            %         specified as a scalar corresponding to the constant variance of
+            %         all the observations in the case that these are all from the same
+            %         instrument.
+            %
+            % -----------------------------------------------------------------------
+            % Outputs:
+            %
+            % w     => 1 x Ne vector containing the ensemble of posterior weights,
+            %         the prior weights are implicitly 1/N_e.
+            %
+            % -----------------------------------------------------------------------
+            % See e.g. https://jblevins.org/log/log-sum-exp for underflow issue.
+            %
+            % Code by Kristoffer Aalstad (Feb. 2019)
+
+            No=size(observations,1);
+            Rinv=(obs_variance').^(-1);
+
+            % Calculate the likelihood.
+            Inn=repmat(observations,1,size(modeled_obs,2))-modeled_obs;   % Innovation.
+            EObj=Rinv*(Inn.^2);                     % [1 x Ne] ensemble objective function.
+            LLH=-0.5.*EObj; % log-likelihoods.
+            normc=logsumexp(da, LLH,2);
+
+
+            % NB! The likelihood coefficient (1/sqrt(2*pi...)) is
+            % omitted because it drops out in the normalization
+            % of the likelihood. Including it (very small term) would lead
+            % to problems with FP division.
+
+            % Calculate the posterior weights as the normalized likelihood.
+            logw = LLH-normc;
+            weights = exp(logw); % Posterior weights.
+
+            % Need "log-sum-exp" trick to overcome numerical issues for small R/large
+            % number of obs.
+            effective_ensemble_size = 1./sum(weights.^2);
+        end
 
             
         function s = logsumexp(da, a, dim)
