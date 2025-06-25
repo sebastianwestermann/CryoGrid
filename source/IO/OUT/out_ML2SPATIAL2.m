@@ -39,24 +39,21 @@ classdef out_ML2SPATIAL2 < matlab.mixin.Copyable
         
         function out = finalize_init(out, tile)
 
-               out.MEAN.GT = [];
-               out.STD.GT = [];
-               if ~any(strcmp(fieldnames(tile.RUN_INFO.SPATIAL.STATVAR), 'ml_std_GT'))
-                   tile.RUN_INFO.SPATIAL.STATVAR.ml_std_GT = tile.RUN_INFO.SPATIAL.STATVAR.latitude .*0;
-               end
-           end
-
-
+            out.MEAN.ML_out = [];
+            out.STD.ML_out = [];
+            if ~any(strcmp(fieldnames(tile.RUN_INFO.SPATIAL.STATVAR), 'ML_std'))
+                tile.RUN_INFO.SPATIAL.STATVAR.ML_std = tile.RUN_INFO.SPATIAL.STATVAR.latitude .*0;
+            end
 
         end
         
         %---------------time integration-------------
-                    
-        function out = store_OUT(out, tile)           
-            
-            out.MEAN.GT = [out.MEAN.GT mean(tile.STATVAR.GT,2)];
-            out.STD.GT = [out.STD.GT std(tile.STATVAR.GT,[],2)];
 
+        function out = store_OUT(out, tile)
+
+            %take mean/std and reshape, so that gridcell is dim1, time dim2 and the different variables dim3
+            out.MEAN.ML_out = cat(2, out.MEAN.ML_out, reshape(mean(tile.STATVAR.ML_out,3), size(tile.STATVAR.ML_out,1), 1, size(tile.STATVAR.ML_out,2)));
+            out.STD.ML_out = cat(2, out.STD.ML_out,  reshape(std(tile.STATVAR.ML_out, [], 3), size(tile.STATVAR.ML_out,1), 1, size(tile.STATVAR.ML_out,2)));
         end
 
         function out = write_OUT(out, tile)
@@ -69,12 +66,12 @@ classdef out_ML2SPATIAL2 < matlab.mixin.Copyable
                 worker_no_str = '';
             end
             if isempty(out.PARA.tag) || all(isnan(out.PARA.tag))
-                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name worker_no_str '.mat'], 'out')
+                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_' num2str(tile.RUN_INFO.STATVAR.run_info_count) worker_no_str '.mat'], 'out')
             else
-                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name worker_no_str '_' out.PARA.tag '.mat'], 'out')
+                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_' num2str(tile.RUN_INFO.STATVAR.run_info_count) worker_no_str '_' out.PARA.tag '.mat'], 'out')
             end
 
-            tile.RUN_INFO.SPATIAL.STATVAR.ml_std_GT(tile.PARA.range,1) = mean(out.STD.GT, 2);
+            tile.RUN_INFO.SPATIAL.STATVAR.ML_std(tile.PARA.range,1) = mean(mean(out.STD.ML_out, 2),3);
 
             disp('writing out files')
 
@@ -87,17 +84,13 @@ classdef out_ML2SPATIAL2 < matlab.mixin.Copyable
                         for j=1:tile.RUN_INFO.PARA.number_of_cores
                             if j~=tile.PARA.worker_number
                                 spmdSend(tile.PARA.range, j, 1);
-                                for k=1:size(tile.PARA.variables,1)
-                                    spmdSend(mean(out.STD.(tile.PARA.variables{k,1}),2), j, k+1);
-                                end
+                                spmdSend(mean(mean(out.STD.ML_out, 2),3), j, 2);
                             end
                         end
                     else
-                        %receive from sending worker 
+                        %receive from sending worker
                         range = spmdReceive(i, 1);
-                        for k=1:size(tile.PARA.variables,1)
-                            tile.RUN_INFO.SPATIAL.STATVAR.(['ml_std_' (tile.PARA.variables{k,1})])(range,1) = spmdReceive(i, k+1);
-                        end
+                        tile.RUN_INFO.SPATIAL.STATVAR.ML_std(range,1) = spmdReceive(i, 2);
                     end
                     spmdBarrier;
                 end

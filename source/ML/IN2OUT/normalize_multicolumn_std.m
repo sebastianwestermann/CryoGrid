@@ -22,10 +22,10 @@ classdef normalize_multicolumn_std < matlab.mixin.Copyable
 
             in_out.STATVAR.data_size = size(in_out.STATVAR.data);       
 
-            in_out.STATVAR.data_mean{1,1} = in_out.PARA.data_groups.*0;
-            in_out.STATVAR.data_std{1,1} = in_out.PARA.data_groups.*0;
-            for i=1:max(in_out.PARA.data_groups(:))
-                range = in_out.PARA.data_groups==i;
+            in_out.STATVAR.data_mean{1,1} = in_out.STATVAR.data_groups.*0;
+            in_out.STATVAR.data_std{1,1} = in_out.STATVAR.data_groups.*0;
+            for i=1:max(in_out.STATVAR.data_groups(:))
+                range = in_out.STATVAR.data_groups==i;
                 data = in_out.STATVAR.data(:,range);
                 in_out.STATVAR.data_mean{1,1}(range) = mean(data(:)); %mean and std can be used as normal in the equation, no need to reshape altough it is 3D
                 in_out.STATVAR.data_std{1,1}(range) = std(data(:));
@@ -33,7 +33,7 @@ classdef normalize_multicolumn_std < matlab.mixin.Copyable
         end
 
 
-        function out = realWorld2NN(in_out, in, tile)
+        function out = realWorld2NNin(in_out, in, tile)
             out = (in - in_out.STATVAR.data_mean{1,1}) ./ in_out.STATVAR.data_std{1,1};
         end
 
@@ -70,7 +70,7 @@ classdef normalize_multicolumn_std < matlab.mixin.Copyable
             uncertainty = uncertainty .^2;
         end
 
-        function target = NNout2training(in_out, in, tile) 
+        function target = NNout2realWorld(in_out, in, tile) 
             target.values{1,1} = reshape(in, [in_out.STATVAR.sizes{1,1} size(in,2)]);
             target.values{1,1} = target.values{1,1} .*  in_out.STATVAR.data_std{1,1} + in_out.STATVAR.data_mean{1,1};
             % target.values{2,1} = target.values{1,1}(:,1:end-1,:,:) - target.values{1,1}(:,2:end,:,:);

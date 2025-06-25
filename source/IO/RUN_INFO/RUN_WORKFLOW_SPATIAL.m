@@ -59,9 +59,10 @@ classdef RUN_WORKFLOW_SPATIAL < matlab.mixin.Copyable
                             spatial_exchange = finalize_init(spatial_exchange, run_info);
                             current_run_info = read_spatial_from_master(spatial_exchange, current_run_info, run_info);
                         end
-                       disp(['run_info class ' num2str(i)])
+                        disp(['run_info class ' num2str(i)])
                         current_run_info = finalize_init(current_run_info);
-                        
+                        current_run_info.STATVAR.run_info_count = i; %store iteration for OUT
+
                         [current_run_info, tile] = run_model(current_run_info);
 
                         if ~isempty(run_info.PARA.spatial_exchange_class{i,1}) && ~(sum(isnan(run_info.PARA.spatial_exchange_class{i,1}))>0)
@@ -85,6 +86,7 @@ classdef RUN_WORKFLOW_SPATIAL < matlab.mixin.Copyable
                     end
 
                     current_run_info = finalize_init(current_run_info);
+                    current_run_info.STATVAR.run_info_count = i; %store iteration for OUT
 
                     [current_run_info, tile] = run_model(current_run_info);
 

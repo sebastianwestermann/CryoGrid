@@ -28,8 +28,8 @@ classdef neural_net_ensemble < matlab.mixin.Copyable
                 af = str2func(nn.PARA.activation_functions{i,1});
                 nn.ACTIVATION{i,1} = af();
             end
-            nn.PARA.number_of_neurons(end, 1) = size(tile.TEMP.in2out_NN_target.STATVAR.data(:), 1) ./ size(tile.TEMP.in2out_NN_target.STATVAR.data, 1);
-            neurons_per_layer = [size(tile.TEMP.in2out_NN_features.STATVAR.data(:), 1) ./ size(tile.TEMP.in2out_NN_features.STATVAR.data, 1); nn.PARA.number_of_neurons];
+            nn.PARA.number_of_neurons(end, 1) = size(tile.TRANSFORM_ML_out.STATVAR.data(:), 1) ./ size(tile.TRANSFORM_ML_out.STATVAR.data, 1);
+            neurons_per_layer = [size(tile.TRANSFORM_ML_in.STATVAR.data(:), 1) ./ size(tile.TRANSFORM_ML_in.STATVAR.data, 1); nn.PARA.number_of_neurons];
             size_weights = 0;
             for i=2:size(neurons_per_layer,1)
                 size_weights = size_weights + neurons_per_layer(i-1).*neurons_per_layer(i);

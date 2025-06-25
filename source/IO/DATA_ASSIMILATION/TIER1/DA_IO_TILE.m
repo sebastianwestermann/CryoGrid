@@ -20,7 +20,11 @@ classdef DA_IO_TILE < matlab.mixin.Copyable
 
             modeled_obs = [];%gather modeled observations in one vector
             for i=1:size(da.STATVAR.modeled_obs,1)
-                modeled_obs = [modeled_obs; da.STATVAR.modeled_obs{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,1)];  %ONLY USE THE PART IN THE OBS INTERVAL, ALSO MAKE A SIMILAR VECTOR FOR OBSERVATIONS AND VARIANCES
+                if isinf(da.TEMP.time_next_obs)
+                    modeled_obs = [modeled_obs; da.STATVAR.modeled_obs{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1),1)];  %ONLY USE THE PART IN THE OBS INTERVAL, ALSO MAKE A SIMILAR VECTOR FOR OBSERVATIONS AND VARIANCES
+                else
+                    modeled_obs = [modeled_obs; da.STATVAR.modeled_obs{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,1)];  %ONLY USE THE PART IN THE OBS INTERVAL, ALSO MAKE A SIMILAR VECTOR FOR OBSERVATIONS AND VARIANCE
+                end
             end
             data_package = pack(da_IO, data_package, 'modeled_obs', modeled_obs);
             da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.TILE.PARA.ensemble_size) .* NaN);

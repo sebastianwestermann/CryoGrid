@@ -39,10 +39,6 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
                 da.STATVAR.observations{i,1} = da.OBSERVATIONS{i,1}.STATVAR.observations;
                 da.STATVAR.obs_variance{i,1} = da.OBSERVATIONS{i,1}.STATVAR.obs_variance;
                 da.STATVAR.modeled_obs{i,1} = repmat(da.STATVAR.observations{i,1}.*NaN,1, get_size_of_modeled_obs(da.IO, da, tile));
-
-                da.TEMP.first_obs_index = [da.TEMP.first_obs_index; find(da.STATVAR.obs_time{i,1} > tile.t, 1)];
-                da.TEMP.index_next_obs = [da.TEMP.index_next_obs; da.TEMP.first_obs_index(i,1)]; %start with
-                da.TEMP.time_next_obs = [da.TEMP.time_next_obs; da.STATVAR.obs_time{i,1}(da.TEMP.first_obs_index(i,1),1)];
                 da.OBSERVATIONS{i,1}.STATVAR = [];
 
                 %delete observations that are no longer relevant for DA
@@ -51,6 +47,10 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
                 da.STATVAR.observations{i,1}(delete_obs,:) = [];
                 da.STATVAR.obs_variance{i,1}(delete_obs,:) = [];
                 da.STATVAR.modeled_obs{i,1}(delete_obs,:) = [];
+
+                da.TEMP.first_obs_index = [da.TEMP.first_obs_index; find(da.STATVAR.obs_time{i,1} > tile.t, 1)];
+                da.TEMP.index_next_obs = [da.TEMP.index_next_obs; da.TEMP.first_obs_index(i,1)]; %start with
+                da.TEMP.time_next_obs = [da.TEMP.time_next_obs; da.STATVAR.obs_time{i,1}(da.TEMP.first_obs_index(i,1),1)];
 
             end
             da.DA_TIME = min(da.TEMP.time_next_obs);
@@ -171,8 +171,13 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
             observations = [];
             obs_variance = [];
             for i=1:size(da.STATVAR.observations,1)
-                observations = [observations; da.STATVAR.observations{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,:)];
-                obs_variance = [obs_variance; da.STATVAR.obs_variance{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,:)];
+                if isinf(da.TEMP.time_next_obs)
+                    observations = [observations; da.STATVAR.observations{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1),:)];
+                    obs_variance = [obs_variance; da.STATVAR.obs_variance{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1),:)];
+                else
+                    observations = [observations; da.STATVAR.observations{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,:)];
+                    obs_variance = [obs_variance; da.STATVAR.obs_variance{i,1}(da.TEMP.first_obs_index(i,1):da.TEMP.index_next_obs(i,1)-1,:)];
+                end
             end
             
             da.ENSEMBLE.observations = observations;
@@ -221,7 +226,7 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
             end
         end
 
-        function da = resample_AMIS(da, tile)
+        function da = resample_AMIS_old(da, tile)
             rng(da.DA_STEP_TIME.*da.TEMP.num_iterations+2); % seeds the random number generator new for each iteration
             resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:));
             value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
@@ -280,6 +285,58 @@ classdef DA_FUNCTIONS < matlab.mixin.Copyable
         end
             
 
+        function da = resample_AMIS(da, tile)
+            rng(da.DA_STEP_TIME.*da.TEMP.num_iterations+2); % seeds the random number generator new for each iteration
+            resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:));
+            value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
+            thetapc=value_gaussian_resampled; % For clipping potentially
+            value_gaussian_resampled=reshape(value_gaussian_resampled,[size(value_gaussian_resampled,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); % Concatenate across all weights (past proposals)
+            value_gaussian_resampled = value_gaussian_resampled(:,resample_ID);
+            mean_gaussian_resampled = mean(value_gaussian_resampled,2); % proposal mean for next iteration
+            A=value_gaussian_resampled-mean_gaussian_resampled;
+            cov_gaussian_resampled=(1./da.TILE.PARA.ensemble_size).*(A*A'); % proposal covariance for next iteration
+
+            d = min(2.*(da.ENSEMBLE.effective_ensemble_size-1)./da.TILE.PARA.ensemble_size./da.PARA.min_ensemble_diversity,1); %d=min(diversity/adapt_thresh,1);
+
+            a = rand(1);
+            %clip = round(da.PARA.min_ensemble_diversity.*da.TILE.PARA.ensemble_size); %clip=round(adapt_thresh*Ne);
+            clip = sum(double(da.ENSEMBLE.weights(:) > 1e-3));
+            if clip>=2 %da.ENSEMBLE.effective_ensemble_size>2 %sum(da.ENSEMBLE.weights(:) > 1/(10*da.TILE.PARA.ensemble_size))>clip  %should have a threshold, is 0 in Kris original code
+                disp('clipping')
+                w = da.ENSEMBLE.weights(:);
+                ws=sort(w,'descend');
+                wc=ws(max(clip, 4));
+                w(w>wc)=wc; % > truncated ("clipped") < anti-truncated
+                w=w./sum(w); %renomralize
+                resamplec_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, w);
+                thetapc=reshape(thetapc,[size(thetapc,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); %reshape(thetapc,[Np,Nw]);
+                thetapc=thetapc(:,resamplec_ID);
+                pmc=mean(value_gaussian_resampled,2); % proposal mean for next iteration
+                Ac=thetapc-pmc;
+                pcc=(1./da.TILE.PARA.ensemble_size).*(Ac*Ac');
+                mean_gaussian_resampled = pmc;
+                if all(eig(pcc)>0) && clip >= da.ENSEMBLE.effective_ensemble_size 
+                    cov_gaussian_resampled=pcc;
+                else
+                    disp('clipping unsuccessful')
+                    pric = diag(da.TEMP.old_std_gaussian.^2);
+                    cov_gaussian_resampled = d.*pcc + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
+                end
+            else
+                disp('no clipping')
+                pric = diag(da.TEMP.old_std_gaussian.^2);
+                cov_gaussian_resampled = d.*cov_gaussian_resampled + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
+            end
+
+            da.TEMP.cov_gaussian_resampled = cat(3, da.TEMP.cov_gaussian_resampled, cov_gaussian_resampled); %propc(:,:,ell)=pc;
+            da.TEMP.mean_gaussian_resampled = cat(3, da.TEMP.mean_gaussian_resampled, mean_gaussian_resampled); %propm(:,ell)=pm; %SEB: here, propm and the others are expaned by one
+
+            Z = randn(size(mean_gaussian_resampled,1), tile.PARA.ensemble_size); %Z=randn(Np,Ne);
+            L=chol(cov_gaussian_resampled,'lower');
+            value_gaussian_resampled= mean_gaussian_resampled+L*Z;
+            da.TEMP.value_gaussian_resampled = value_gaussian_resampled; %this needs to be the same as da.ENSEMBLE.value_gaussian
+            da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = value_gaussian_resampled(:, tile.PARA.worker_number);
+        end
 
 %-------------------------------------------------------------------------
 % actual DA functions
