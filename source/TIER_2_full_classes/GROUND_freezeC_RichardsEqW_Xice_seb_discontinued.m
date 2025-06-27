@@ -347,26 +347,6 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             Tg = ground.STATVAR.T(1);
         end
 
-        function q_g = get_humidity_surface(ground, tile)
-            % Specific humidity of ground surface as in CLM5 documentation
-            % (sect. 5.2)
-            Tmfw = ground.CONST.Tmfw; % Freezing T of water (K)
-            R = ground.CONST.R; % Univ. gas constant [J/K/mol]
-            M = ground.CONST.molar_mass_w; % [g/mol] SW,Dec 2022, must be in kg/mol, otherwise units in alpha_soil do not match! 
-            g = ground.CONST.g;
-            p = tile.FORCING.TEMP.p;
-            Tg = ground.STATVAR.T(1) + Tmfw; % Tg in [K]
-            psi_surf = ground.STATVAR.waterPotential(1);
-            f_water = (ground.STATVAR.water(1) + ground.STATVAR.Xwater(1))./(ground.STATVAR.waterIce(1)+ground.STATVAR.XwaterIce(1));
-            f_ice = 1-f_water;
-
-            e_sat = f_water.*satPresWater(ground,Tg) + f_ice.*satPresIce(ground,Tg);
-            alpha_soil = exp(psi_surf.*g./(R./M.*Tg)); % Eq. 5.73
-            q_g_sat = .622.*e_sat./p;
-            q_g = q_g_sat.*(f_ice + f_water.*alpha_soil); % Eq. 5.72
-            ground.STATVAR.q_g = q_g; % save for calculation of ground Qe
-        end
-
 
         %-------------restore_from_out-----
         function ground = reset_from_OUT(ground, tile)

@@ -4,27 +4,90 @@
 %========================================================================
 
 classdef VEGETATION < BASE
-    
+
     methods
+
+        function canopy = PFT_PARA(canopy)
+            % Assign PFT specific parameters from: https://www2.cesm.ucar.edu/models/cesm2/land/CLM50_Tech_Note.pdf
+            % More PFTs can be added to the list
+            if strcmp(canopy.PARA.PFT,'NDT boreal') || strcmp(canopy.PARA.PFT,'NET boreal')
+                canopy.PARA.Khi_L           = 0.01;
+                canopy.PARA.alpha_leaf_vis  = 0.07;
+                canopy.PARA.alpha_leaf_nir  = 0.35;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.10;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.055;
+                canopy.PARA.R_d             = 0.67;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'BDT boreal')
+                canopy.PARA.Khi_L           = 0.25;
+                canopy.PARA.alpha_leaf_vis  = 0.10;
+                canopy.PARA.alpha_leaf_nir  = 0.45;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.25;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.055;
+                canopy.PARA.R_d             = 0.67;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'BDS boreal')
+                canopy.PARA.Khi_L           = 0.25;
+                canopy.PARA.alpha_leaf_vis  = 0.10;
+                canopy.PARA.alpha_leaf_nir  = 0.45;
+                canopy.PARA.alpha_stem_vis  = 0.16;
+                canopy.PARA.alpha_stem_nir  = 0.39;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.25;
+                canopy.PARA.tau_stem_vis    = 0.001;
+                canopy.PARA.tau_stem_nir    = 0.001;
+                canopy.PARA.R_z0            = 0.12;
+                canopy.PARA.R_d             = 0.68;
+                canopy.PARA.d_leaf          = 0.04;
+            elseif strcmp(canopy.PARA.PFT,'C3 grass')
+                canopy.PARA.Khi_L           = -0.30;
+                canopy.PARA.alpha_leaf_vis  = 0.11;
+                canopy.PARA.alpha_leaf_nir  = 0.35;
+                canopy.PARA.alpha_stem_vis  = 0.31;
+                canopy.PARA.alpha_stem_nir  = 0.53;
+                canopy.PARA.tau_leaf_vis    = 0.05;
+                canopy.PARA.tau_leaf_nir    = 0.34;
+                canopy.PARA.tau_stem_vis    = 0.12;
+                canopy.PARA.tau_stem_nir    = 0.25;
+                canopy.PARA.R_z0            = 0.12;
+                canopy.PARA.R_d             = 0.68;
+                canopy.PARA.d_leaf          = 0.04;
+            else
+                error('PFT-specific parameters must be assigned')
+            end
+
+        end
         
-        function canopy = get_heat_capacity_canopy_leaves(canopy)
-            % As in Bonan et al. (2018), Modeling canopy-induced turbulence in the Earth system
-            % Assumes stems have same heat capacity as leaves
+% ------- diagnose canopy properties ------
+        function canopy = get_heat_capacity_leaves(canopy)
+            % Heat capacities from Bonan 2018, assuming stems have same
+            % heat capacity as leaves.
             L = canopy.STATVAR.LAI;
             S = canopy.STATVAR.SAI;
             SLA = canopy.PARA.SLA;
             f_c = canopy.PARA.f_carbon;
             f_w = canopy.PARA.f_water;
-            c_w = canopy.CONST.c_w./canopy.CONST.rho_w;
-            c_dry = c_w ./ 3; 
+            c_w = canopy.CONST.c_w./canopy.CONST.rho_w; % [J/(kg*K)]
+            c_dry = c_w ./ 3; % specific heat capacity of dry biomass
             
             Ma = 1/SLA; % leaf dry mass per unit area
-            c_leaf_areal = c_dry.*Ma./f_c + c_w.*(f_w./(1-f_w)).*Ma./f_c;
-            canopy.STATVAR.c_canopy = (L+S).*c_leaf_areal.*canopy.STATVAR.area(1); % [J/K]
+            c_areal = c_dry.*Ma./f_c + c_w.*(f_w./(1-f_w)).*Ma./f_c;
+
+            canopy.STATVAR.c_canopy = (L+S).*c_areal.*canopy.STATVAR.area(1); % [J/K]
         end
-        
+
         function canopy = get_heat_capacity_canopy(canopy)
-            % As get_get_heat_capacity_canopy(..), but with trunk heat
+            % As get_get_heat_capacity_canopy_leaves(..), but with trunk heat
             % capacity from Swenson et al. (2018)
             kv = canopy.PARA.kv;
             D_bh = canopy.PARA.D_bh;
@@ -48,13 +111,19 @@ classdef VEGETATION < BASE
             canopy.STATVAR.c_canopy = (L.*c_leaf_areal + c_stem).*canopy.STATVAR.area(1); % [J/K]
         end
         
-        function canopy = get_T_simpleVegetatation(canopy)
-            % Disregards water in canopy
-            canopy.STATVAR.T = canopy.STATVAR.energy ./ canopy.STATVAR.c_canopy;
-        end
-        
-        function canopy = get_E_simpleVegetation(canopy)
-            canopy.STATVAR.energy = canopy.STATVAR.T .* canopy.STATVAR.c_canopy; % [J]
+        function canopy = get_z0_d_vegetation(canopy) % roughness length of vegetated surface (CLM5)
+            L = canopy.STATVAR.LAI; % Leaf area index
+            S = canopy.PARA.SAI; % Stem area index
+            z0g = get_z0_surface(canopy.NEXT); % Roughness lenght of ground/snow surface
+            R_z0 = canopy.PARA.R_z0; % Ratio of momentum roughness length to canopy height
+            R_d = canopy.PARA.R_d; % Ratio of displacement height to canopy height
+            z_top = sum(canopy.STATVAR.layerThick); % canopy height
+            
+            V = ( 1-exp(-1.*min(L+S,2))) ./ (1-exp(-2)); % Eq. 5.127
+            z0 = exp( V.*log(z_top.*R_z0) + (1-V).*log(z0g) ); % Eq. 5.125
+            d = z_top.*R_d.*V; % Eq. 5.126
+            canopy.STATVAR.z0 = z0;
+            canopy.STATVAR.d = d;
         end
         
         function canopy = get_E_water_vegetation(canopy)
@@ -87,6 +156,17 @@ classdef VEGETATION < BASE
             canopy.STATVAR.f_dry = (1-canopy.STATVAR.f_wet).*L./(L+S);
         end
         
+        % NOT in use now
+        % function canopy = get_T_simpleVegetatation(canopy)
+        %     % Disregards water in canopy
+        %     canopy.STATVAR.T = canopy.STATVAR.energy ./ canopy.STATVAR.c_canopy;
+        % end
+        % 
+        % function canopy = get_E_simpleVegetation(canopy)
+        %     canopy.STATVAR.energy = canopy.STATVAR.T .* canopy.STATVAR.c_canopy; % [J]
+        % end
+
+% -------- GET TIMESTEP FUNCTIONS ---------
         function timestep = get_timestep_canopy_T(canopy)
             d_energy = canopy.TEMP.d_energy;
             c_canopy =  canopy.STATVAR.c_canopy; % [J/m3]
@@ -94,67 +174,131 @@ classdef VEGETATION < BASE
             
             timestep = canopy.PARA.dT_max ./ ( abs(d_energy)./(c_canopy + cp_waterIce) );
         end
+
+        function timestep = get_timestep_snow_vegetation(canopy)
+            timestep = canopy.STATVAR.ice ./ -canopy.TEMP.d_snow;
+            timestep(canopy.TEMP.d_snow == 0) = canopy.PARA.dt_max;
+        end
         
-        function canopy = get_z0_d_vegetation(canopy) % roughness length of vegetated surface (CLM5)
-            L = canopy.STATVAR.LAI; % Leaf area index
-            S = canopy.PARA.SAI; % Stem area index
-            z0g = get_z0_surface(canopy.NEXT); % Roughness lenght of ground/snow surface
-            R_z0 = canopy.PARA.R_z0; % Ratio of momentum roughness length to canopy height
-            R_d = canopy.PARA.R_d; % Ratio of displacement height to canopy height
-            z_top = sum(canopy.STATVAR.layerThick); % canopy height
-            
-            V = ( 1-exp(-1.*min(L+S,2))) ./ (1-exp(-2)); % Eq. 5.127
-            z0 = exp( V.*log(z_top.*R_z0) + (1-V).*log(z0g) ); % Eq. 5.125
-            d = z_top.*R_d.*V; % Eq. 5.126
-            canopy.STATVAR.z0 = z0;
-            canopy.STATVAR.d = d;
+        function timestep = get_timestep_water_vegetation(canopy)
+            timestep(canopy.TEMP.d_water ~= 0) = double(canopy.TEMP.d_water < 0).* canopy.STATVAR.waterIce ./ -canopy.TEMP.d_water + ...
+                double(canopy.TEMP.d_water > 0).* 0.1 .* canopy.PARA.Wmax.*canopy.STATVAR.area ./ canopy.TEMP.d_water;
+            timestep(canopy.TEMP.d_water == 0) = canopy.PARA.dt_max;
+            timestep(timestep<=0) = canopy.PARA.dt_max;
+        end
+        
+% ------- modify canopy structure ------ % 
+        function canopy = build_canopy(canopy) 
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
+            canopy = get_E_water_vegetation(canopy); % derive energy from temperature
+            canopy = get_z0_d_vegetation(canopy);
         end
         
         function canopy = add_canopy(canopy)
             canopy.STATVAR.LAI = canopy.PARA.LAI;
-            Khi_L = max(-0.4, min(0.6, canopy.PARA.Khi_L));
-            phi1 = .5 - .633.*(Khi_L) - .33.*(Khi_L).^2; % for -.4 <= Khi_L <=.6
-            phi2 = .877 .* (1-2.*phi1);
-            my_bar = 1./phi2*( 1- phi1./phi2 * log( (phi1+phi2)./phi1) );
-            canopy.STATVAR.emissivity = 1 - exp((-canopy.STATVAR.LAI-canopy.STATVAR.SAI)./my_bar);
-%             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI);
-            canopy = get_heat_capacity_canopy(canopy);
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
+            canopy = get_E_water_vegetation(canopy); % derive energy from temperature
+            canopy = get_z0_d_vegetation(canopy);
+        end
+        
+        function canopy = add_canopy_linear(canopy, doy)
+            doy = min(doy, canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period); % Avoid overshoot
+            canopy.STATVAR.LAI = canopy.PARA.LAI.* max(canopy.PARA.leafsprout_period, doy - canopy.PARA.t_leafsprout + canopy.PARA.leafsprout_period) ./ canopy.PARA.leafsprout_period;
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI);  % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature
             canopy = get_z0_d_vegetation(canopy);
         end
         
         function canopy = remove_canopy(canopy)
             canopy.STATVAR.LAI = 0;
-            Khi_L = max(-0.4, min(0.6, canopy.PARA.Khi_L));
-            phi1 = .5 - .633.*(Khi_L) - .33.*(Khi_L).^2; % for -.4 <= Khi_L <=.6
-            phi2 = .877 .* (1-2.*phi1);
-            my_bar = 1./phi2*( 1- phi1./phi2 * log( (phi1+phi2)./phi1) );
-            canopy.STATVAR.emissivity = 1 - exp((-canopy.STATVAR.LAI-canopy.STATVAR.SAI)./my_bar);
-%             canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI);
-            canopy = get_heat_capacity_canopy(canopy);
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
             canopy = get_E_water_vegetation(canopy); % derive energy from temperature            
             canopy = get_z0_d_vegetation(canopy);
         end
         
-%         function canopy = distribute_roots(canopy)
-%             beta = canopy.PARA.beta_root;
-%             dz = canopy.GROUND.STATVAR.layerThick;
-%             z = cumsum(dz);
-%            
-%             % Root fraction per soil layer
-%             f_root = beta.^([0; z(1:end-1)].*100) - beta.^(z*100); % Eq. 11.1
-%             
-%             canopy.GROUND.STATVAR.f_root = f_root;
-%         end
-%         
-%         function stresses = get_soil_moisture_stress(canopy)
-%             psi = canopy.GROUND.STATVAR.waterPotential;
-%             f_root = canopy.GROUND.STATVAR.f_root;
-% %             layerThick = ia_seb_water.NEXT.STATVAR.layerThick;
-%             psi_wilt = canopy.PARA.psi_wilt;
-%             
-%             stresses = sum(f_root.*min(1,(psi./psi_wilt)));
-%         end
+        function canopy = remove_canopy_linear(canopy, doy)
+            doy = min(doy,canopy.PARA.t_leaffall + canopy.PARA.leaffall_period);
+            canopy.STATVAR.LAI = canopy.PARA.LAI.* max(0,canopy.PARA.t_leaffall - doy) ./ canopy.PARA.leaffall_period;
+            canopy.STATVAR.emissivity = 1 - exp(-canopy.STATVAR.LAI-canopy.STATVAR.SAI); % my_bar = 1 for longwave!
+            if isfield(canopy.PARA, 'heat_capacity_function')
+                if ~isempty(canopy.PARA.heat_capacity_function)
+                    heat_capacity_function = str2func(canopy.PARA.heat_capacity_function);
+                    canopy = heat_capacity_function(canopy);
+                else
+                    canopy = get_heat_capacity_canopy(canopy);
+                end
+            else
+                canopy = get_heat_capacity_canopy(canopy);
+            end
+            canopy = get_E_water_vegetation(canopy); % derive energy from temperature
+        end
+
+        function canopy = make_VEGETATION_CHILD(canopy, tile)
+            
+                surface = canopy.NEXT; % Can be GROUND or SNOW
+                classname = class(surface);
+                if strcmp(classname(1:4),'SNOW')
+                    ground = canopy.NEXT.NEXT;
+                else
+                    ground = surface;
+                end
+                
+                surface.PREVIOUS = canopy.PREVIOUS; %reassign surface
+                surface.PREVIOUS.NEXT = surface;
+                ground.VEGETATION = canopy; % VEGETATION can only be stored in GROUND
+
+                ia_class = get_IA_class(class(canopy.PREVIOUS),class(surface));
+                surface.IA_PREVIOUS = ia_class;
+                surface.PREVIOUS.IA_NEXT = ia_class;
+                surface.IA_PREVIOUS.NEXT = surface;
+                surface.IA_PREVIOUS.PREVIOUS = canopy.PREVIOUS;
+
+                % canopy.NEXT = []; % Needs to continue pointing to below
+                % class, otherwise check_trigger cannot finish while-loop
+                canopy.PREVIOUS = [];
+                canopy.IA_NEXT = [];
+                canopy.IA_PREVIOUS = [];
+        end
     end
 end
 
