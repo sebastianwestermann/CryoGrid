@@ -26,6 +26,9 @@ classdef GROUND_freeW_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
             ground.PARA.ratioET = []; %fraction of transpiration of total evapotranspiration [-]
             ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
             
+            ground.PARA.conductivity_function = "conductivity_mixing_squares_lwr"; %long-wave radiation enhancement on by default
+            ground.PARA.efficiency_longwave = 1; % set to 0 to remove long-wave radiation enhancement
+
             ground.PARA.dt_max = [];  %maximum possible timestep [sec]
             ground.PARA.dE_max = [];  %maximum possible energy change per timestep [J/m3]
             
@@ -43,11 +46,12 @@ classdef GROUND_freeW_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
             ground.STATVAR.energy = [];  % total internal energy [J]
             
             ground.STATVAR.T = [];  % temperature [degree C]
-            ground.STATVAR.grain_size = []; %diameter of soil groains/stones/rocks [m] 
+            ground.STATVAR.grain_size = []; %diameter of soil grains/stones/rocks [m] 
             ground.STATVAR.water = [];  % total volume of water [m3]
             ground.STATVAR.ice = []; %total volume of ice [m3]
             ground.STATVAR.air = [];  % total volume of air [m3] - NOT USED
             ground.STATVAR.thermCond = []; %thermal conductivity [W/mK]
+            ground.STATVAR.satHydraulicConductivity = []; %
             ground.STATVAR.hydraulicConductivity = []; % hydraulic conductivity [m/sec]
             
             ground.STATVAR.Lstar = []; %Obukhov length [m]
@@ -212,7 +216,10 @@ classdef GROUND_freeW_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
         end
         
         function ground = conductivity(ground)
-            ground = conductivity_mixing_squares(ground);
+            conductivity_function = str2func(ground.PARA.conductivity_function);
+            ground = conductivity_function(ground);
+
+            %ground = conductivity_mixing_squares(ground);
         end
         
         function ground = permeability_air(ground)

@@ -109,6 +109,18 @@ classdef HEAT_CONDUCTION < BASE
                 + mineral.* ground.CONST.k_m.^0.5 + organic.* ground.CONST.k_o.^0.5 + air.* ground.CONST.k_a.^0.5).^2;
             
         end
+
+        function ground = conductivity_mixing_squares_lwr(ground)
+           
+            % Get the conductivity mixing from water/ice/mineral/org/air and calculate the thermal conductivity.
+            ground = conductivity_mixing_squares(ground);
+     
+            % Calculate potential thermal conductivity from porosity
+            porosity = max(0, (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.organic - ground.STATVAR.mineral - ground.STATVAR.waterIce)./(ground.STATVAR.layerThick .* ground.STATVAR.area));  
+            thermCond_lwr = ground.PARA.efficiency_longwave.*4.*porosity.*ground.CONST.sigma.*ground.STATVAR.grain_size.*(ground.STATVAR.T+273.15).^3;
+            
+           ground.STATVAR.thermCond = ground.STATVAR.thermCond + thermCond_lwr;
+        end
         
         function ground = thermalConductivity_CLM4_5(ground)
             

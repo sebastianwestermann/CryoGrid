@@ -20,6 +20,7 @@ classdef K_MEANS < matlab.mixin.Copyable
             cluster.PARA.max_iterations = [];
             cluster.PARA.cluster_variable_class = [];
             cluster.PARA.cluster_variable_class_index = [];
+            cluster.PARA.add2SPATIAL = 0;
         end
         
         function cluster = provide_STATVAR(cluster)
@@ -63,7 +64,11 @@ classdef K_MEANS < matlab.mixin.Copyable
             cluster.STATVAR.cluster_number = cn;
             cluster.STATVAR.sample_centroid_index = indsc;
             cluster.STATVAR.key_centroid_index = cluster.RUN_INFO.SPATIAL.STATVAR.key(indsc,1);
-            
+
+            if cluster.PARA.add2SPATIAL
+                cluster.RUN_INFO.SPATIAL.STATVAR.is_cluster_centroid = cluster.RUN_INFO.SPATIAL.STATVAR.key.*0;
+                cluster.RUN_INFO.SPATIAL.STATVAR.is_cluster_centroid(indsc,1) = 1;
+            end
          end
         
         

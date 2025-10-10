@@ -1,4 +1,4 @@
-classdef features_annual_average < matlab.mixin.Copyable
+classdef features_average_defined_period < matlab.mixin.Copyable
     
     properties
         PARA
@@ -10,7 +10,8 @@ classdef features_annual_average < matlab.mixin.Copyable
     methods
         function forcing2features = provide_PARA(forcing2features)
             forcing2features.PARA.variables = []; 
-            forcing2features.PARA.number_of_years = [];
+            forcing2features.PARA.start_period = [];
+            forcing2features.PARA.end_period = [];
             forcing2features.PARA.number_of_periods = [];
         end
 
@@ -24,19 +25,36 @@ classdef features_annual_average < matlab.mixin.Copyable
         end
 
         function forcing2features = finalize_init(forcing2features, tile)
-
+            test_year=2000;
+            start_period = datenum(test_year, forcing2features.PARA.start_period(1), forcing2features.PARA.start_period(2)); 
+            end_period = datenum(test_year, forcing2features.PARA.end_period(1), forcing2features.PARA.end_period(2)); 
+            if start_period > end_period
+                forcing2features.TEMP.offset_years = 1;
+            else
+                forcing2features.TEMP.offset_years = 0;
+            end
         end
 
         function [out, data_groups] = features_from_forcing(forcing2features, features, forcing)
+
+            test_year=2000;
+            end_period1 = datenum(test_year, month(features.DATA.timestamp(1,1)), day(features.DATA.timestamp(1,1))); 
+            end_period2 = datenum(test_year, forcing2features.PARA.end_period(1), forcing2features.PARA.end_period(2)); 
+            if end_period2 > end_period1
+                offset_years2 = 1;
+            else
+                offset_years2 = 0;
+            end
+
             out = [];
             data_groups = [];
             data_group_index = 1;
             for j=1:size(features.DATA.timestamp,1)
                 out_i = [];
                 for v=1:size(forcing2features.PARA.variables,1)
-                    for i=forcing2features.PARA.number_of_periods:-1:1
-                        start_date = datenum(year(features.DATA.timestamp(j,1))-i.*forcing2features.PARA.number_of_years, month(features.DATA.timestamp(j,1)), day(features.DATA.timestamp(j,1)));
-                        end_date = datenum(year(features.DATA.timestamp(j,1))-(i-1).*forcing2features.PARA.number_of_years, month(features.DATA.timestamp(j,1)), day(features.DATA.timestamp(j,1)));
+                    for i=forcing2features.PARA.number_of_periods-1:-1:0
+                        start_date = datenum(year(features.DATA.timestamp(j,1))-i-forcing2features.TEMP.offset_years-offset_years2, forcing2features.PARA.start_period(1), forcing2features.PARA.start_period(2));
+                        end_date = datenum(year(features.DATA.timestamp(j,1))-i-offset_years2, forcing2features.PARA.end_period(1), forcing2features.PARA.end_period(2));
                         range = find(forcing.DATA.timeForcing>=start_date & forcing.DATA.timeForcing<end_date);
                         if strcmp(forcing2features.PARA.variables{v,1}, 'FDD')
                             out_i = [out_i sum(forcing.DATA.Tair(range,1) .* double(forcing.DATA.Tair(range,1)<0))];
@@ -47,8 +65,8 @@ classdef features_annual_average < matlab.mixin.Copyable
                         end
                     end
                     if j==1
+                        %data_groups = [data_groups repmat(data_group_index,1,size(out_i,2))];
                         data_groups = [data_groups repmat(data_group_index,1,forcing2features.PARA.number_of_periods)];
-                        % data_groups = [data_groups repmat(data_group_index,1,size(out_i,2))];
                         data_group_index = data_group_index + 1;
                     end
                 end

@@ -167,6 +167,11 @@ classdef LAKE_simple_seb < SEB & HEAT_CONDUCTION & LAKE
             [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
         end
         
+        function [ground, S_up] = penetrate_SW_PARENT(ground, S_down)  %mandatory function when used with class that features SW penetration
+            [ground, S_up] = penetrate_SW_no_transmission(ground, S_down);
+        end        
+
+
         function ground = get_derivatives_prognostic(ground, tile)
             ground = get_derivative_energy(ground);
             

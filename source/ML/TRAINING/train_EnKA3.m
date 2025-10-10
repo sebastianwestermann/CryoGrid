@@ -11,7 +11,7 @@ classdef train_EnKA3 < matlab.mixin.Copyable
         function train = provide_PARA(train)
             train.PARA.minibatch_size = [];
             train.PARA.number_of_iterations = [];
-            train.PARA.relative_error_term = 1e-4;
+            train.PARA.relative_error_term = 1e-5;
         end
 
         function train = provide_CONST(train)

@@ -112,6 +112,13 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+
+        function ground = lateral_push_groundHeatPump(ground, lateral)
+
+        end
+
+
+        %---3D-LATERAL----------
         function ground = lateral3D_pull_water_unconfined_aquifer(ground, lateral)
             lateral.TEMP.open_system = 0;
         end

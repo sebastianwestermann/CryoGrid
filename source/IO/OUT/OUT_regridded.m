@@ -244,6 +244,10 @@ classdef OUT_regridded < matlab.mixin.Copyable
             depths(1) = 0;
             depths = -(depths-depths(end,1));
             depths = depths + altitudeLowestCell;
+            if depths(1)== depths(2)
+                depths=depths(2:end,1);
+                temp=temp(2:end,:);
+            end
             
             for k=1:numberOfVariables
                 out.result.(variableList{k,1}) = [out.result.(variableList{k,1}) interp1(depths, temp(:,k), new_grid, 'nearest')];

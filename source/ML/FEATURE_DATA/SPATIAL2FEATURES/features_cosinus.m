@@ -1,4 +1,4 @@
-classdef features_sinus < matlab.mixin.Copyable
+classdef features_cosinus < matlab.mixin.Copyable
     
     properties
         PARA
@@ -29,8 +29,8 @@ classdef features_sinus < matlab.mixin.Copyable
             out = [];
             data_groups = [];
             for j=1:size(spatial2features.PARA.variables, 1)
-                out = [out sind(tile.RUN_INFO.SPATIAL.STATVAR.(spatial2features.PARA.variables{j,1})(valid,:)) -cosd(tile.RUN_INFO.SPATIAL.STATVAR.(spatial2features.PARA.variables{j,1})(valid,:))];
-                data_groups = [data_groups j j];
+                out = [out cosd(tile.RUN_INFO.SPATIAL.STATVAR.(spatial2features.PARA.variables{j,1})(valid,:))];
+                data_groups = [data_groups j];
             end
         end
 
