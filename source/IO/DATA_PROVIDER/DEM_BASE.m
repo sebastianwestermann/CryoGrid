@@ -45,13 +45,16 @@ classdef DEM_BASE < matlab.mixin.Copyable
             elseif strcmp(dem.TEMP.info.RasterReference.CoordinateSystemType, 'geographic')
                 
                 R=dem.TEMP.info.RasterReference;
-                
-                lat=R.LatitudeLimits(2):-R.CellExtentInLatitude:R.LatitudeLimits(1);
-                lon=R.LongitudeLimits(1):R.CellExtentInLongitude:R.LongitudeLimits(2);
-                
-                lat2=(lat(1:end-1)+lat(2:end))/2;
-                lon2=(lon(1:end-1)+lon(2:end))/2;
-                
+                if any(strcmp(fieldnames(R), 'SampleSpacingInLatitude'))
+                    lat2=R.LatitudeLimits(2):-R.SampleSpacingInLatitude:R.LatitudeLimits(1);
+                    lon2=R.LongitudeLimits(1):R.SampleSpacingInLongitude:R.LongitudeLimits(2);
+                else
+                    lat=R.LatitudeLimits(2):-R.CellExtentInLatitude:R.LatitudeLimits(1);
+                    lon=R.LongitudeLimits(1):R.CellExtentInLongitude:R.LongitudeLimits(2);
+
+                    lat2=(lat(1:end-1)+lat(2:end))/2;
+                    lon2=(lon(1:end-1)+lon(2:end))/2;
+                end
                 [lon2, lat2] = meshgrid(lon2, lat2');
                 if dem.PARA.reproject2utm
                     

@@ -27,7 +27,7 @@ classdef GROUND_freeW_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
             ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
             
             ground.PARA.conductivity_function = "conductivity_mixing_squares_lwr"; %long-wave radiation enhancement on by default
-            ground.PARA.efficiency_longwave = 1; % set to 0 to remove long-wave radiation enhancement
+            ground.PARA.efficiency_longwave = 0.5; % set to 0 to remove long-wave radiation enhancement
 
             ground.PARA.dt_max = [];  %maximum possible timestep [sec]
             ground.PARA.dE_max = [];  %maximum possible energy change per timestep [J/m3]
