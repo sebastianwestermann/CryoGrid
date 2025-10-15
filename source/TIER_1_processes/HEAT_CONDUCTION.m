@@ -253,6 +253,21 @@ classdef HEAT_CONDUCTION < BASE
 %             snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
 %             
         end
+
+        function snow = conductivity_snow_Yen2(snow)
+            
+            %ki = 2.2196 - 0.0062489 .* snow.STATVAR.T + 0.00010154.*snow.STATVAR.T.^2;
+            ki = 2.22 + snow.STATVAR.T ./-50 .* (2.76-2.22);
+            snow.STATVAR.thermCond = max(0.04, ki.*(snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area).^1.88);
+            
+            %additional term from Sun et al., 1999, increasing k for high
+            %snow T
+%             k1 = -0.06023;
+%             k2 = 2.5425;
+%             k3 = 289.99-273.15;
+%             snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
+%             
+        end
         
         function snow = conductivity_snow_Sturm(snow)
             rho_snow = snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area .* snow.CONST.rho_i ./1000;
@@ -288,8 +303,26 @@ classdef HEAT_CONDUCTION < BASE
             
             rho = rho_ice .* snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area;
             snow.STATVAR.thermCond = k_air + (7.75e-5.*rho + 1.105e-6*rho.^2)*(k_ice-k_air);
-            % Note that k_ice in Yen's parameteruization is made
-            % temperature dependent!
+            
+            %quite a bit above Yen, big relative difference especially for
+            %low snow densities
+        end
+
+        function snow = conductivity_snow_Macfarlane2023(snow)
+            % Alternative snow conductivity parameterization, based on
+            % Macfarlane et al.: Temporospatial variability of snow’s thermal conductivity on Arctic sea ice
+            % SW, October 2025
+
+            a = 2.62e-6;
+            b = 1.54e-33;
+            c = 3.04e-2;
+
+            rho_ice = snow.CONST.rho_i;
+            
+            rho = rho_ice .* snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area;
+            snow.STATVAR.thermCond = a.* rho.^2 + b.* rho + c;
+            %close to Jordan, but a bit below generally - could be a good
+            %compromise between Yen and Jordan
         end
         
     end
