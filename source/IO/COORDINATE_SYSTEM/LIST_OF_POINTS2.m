@@ -1,10 +1,10 @@
 %========================================================================
 % CryoGrid SPATIAL_REFERENCE class LIST_OF_POINTS
-% S. Westermann, Dec 2022
+% S. Westermann, Oct 2025
 %========================================================================
 
 
-classdef LIST_OF_POINTS < matlab.mixin.Copyable
+classdef LIST_OF_POINTS2 < matlab.mixin.Copyable
 
     properties
         RUN_INFO
@@ -17,13 +17,31 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
     
     methods
         function proj = provide_PARA(proj)
-            proj.PARA.info_file_folder = []; %first row contains variable names
-            proj.PARA.info_file_name = []; 
+            %optoional parameters, can be used to set constant values for
+            %all points, overwritten if they are contained in
+            %parameter_list
+            proj.PARA.latitude = [];
+            proj.PARA.longitude = [];
+            proj.PARA.altitude = [];
+            proj.PARA.slope_angle = [];     %
+            proj.PARA.aspect = [];     %
+            proj.PARA.area = [];
+
+            proj.PARA.parameter_list = []; %first row contains variable names
+
+            proj.PARA.mask_class = []; %acts on the entire 2d matirx
+            proj.PARA.mask_class_index = [];
+            
+            proj.PARA.data_class = [];
+            proj.PARA.data_class_index = [];
+            
+            proj.PARA.data_mask_class = []; %
+            proj.PARA.data_mask_class_index = [];
             
             proj.PARA.assign_tile_properties_class = [];
             proj.PARA.assign_tile_properties_class_index = [];
 
-          %  proj.PARA.new_reference = 1;
+            proj.PARA.new_reference = 1;
         end
         
         function proj = provide_STATVAR(proj)
@@ -36,79 +54,60 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
         
         function proj = finalize_init(proj)
             
-            [~,~,raw] = xlsread([proj.PARA.info_file_folder proj.PARA.info_file_name]);
-            
-            for i=1:size(raw,2)
-                if strcmp(raw{2,i}, 'num')
-                    proj.STATVAR.(raw{1,i}) = cell2mat(raw(3:end,i));
-                else
-                    proj.STATVAR.(raw{1,i}) = raw(3:end,i);
+            vars = fieldnames(proj.PARA.parameter_list);
+
+            for i=1:size(vars,1)
+                if ~strcmp(vars{i,1}, 'depth')
+                    proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
+                    number_of_points = size(proj.STATVAR.(vars{i,1}),1);
                 end
             end
-            
-            variables = fieldnames(proj.STATVAR);
-            lat_yes=0;
-            lon_yes=0;
-            alt_yes=0;
-            for i=1:size(variables,1)
-                if strcmp(variables{i,1}, 'latitude')
-                    lat_yes = 1;
-                end
-                if strcmp(variables{i,1}, 'longitude')
-                    lat_yes = 1;
-                end
-                if strcmp(variables{i,1}, 'altitude')
-                    lat_yes = 1;
+            vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
+            for i=1:size(vars,1)
+                if ~any(strcmp(vars{i,1}, fieldnames(proj.STATVAR)))
+                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), number_of_points,1);
                 end
             end
-            if ~lat_yes
-                proj.STATVAR.latitude = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
-            end
-            if ~lon_yes
-                proj.STATVAR.longitude = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
-            end
-            if ~alt_yes
-                proj.STATVAR.altitde = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
-            end
+           
             proj.STATVAR.key = [1:size(proj.STATVAR.latitude,1)]';
             
-%             %apply masks before data sets
-%             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);
-%             for i=1:size(proj.PARA.mask_class_index,1)
-%                 mask_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.mask_class{i,1}){proj.PARA.mask_class_index(i,1),1});
-%                 mask_class.PARENT = proj;
-%                 mask_class = finalize_init(mask_class);
-%                 mask_class = apply_mask(mask_class); %can be additive or subtractive
-%             end
-%             
-%             %reduce the list to the ones inside the masks
-%             mask = proj.STATVAR.mask;
-%             fn = fieldnames(proj.STATVAR);
-%             for i=1:size(fn,1)  
-%                     proj.STATVAR.(fn{i,1})(~mask) = [];
-%             end
-%             
-% 
-%             %load data sets
-%             for i=1:size(proj.PARA.data_class,1)
-%                 data_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.data_class{i,1}){proj.PARA.data_class_index(i,1),1});
-%                 data_class.PARENT = proj;
-%                 data_class = finalize_init(data_class);
-%                 data_class = load_data(data_class); %can be additive or subtractive
-%             end
-%             
-%             for i=1:size(proj.PARA.data_mask_class_index,1)
-%                 mask_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.data_mask_class{i,1}){proj.PARA.data_mask_class_index(i,1),1});
-%                 mask_class.PARENT = proj;
-%                 mask_class = finalize_init(mask_class);
-%                 mask_class = apply_mask(mask_class); %can be additive or subtractive
-%             end
-%             
-%             mask = proj.STATVAR.mask;
-%             fn = fieldnames(proj.STATVAR);
-%             for i=1:size(fn,1)  
-%                     proj.STATVAR.(fn{i,1})(~mask) = [];
-%             end
+            %apply masks before data sets
+            proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);
+            for i=1:size(proj.PARA.mask_class_index,1)
+                mask_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.mask_class{i,1}){proj.PARA.mask_class_index(i,1),1});
+                mask_class.PARENT = proj;
+                mask_class = finalize_init(mask_class);
+                mask_class = apply_mask(mask_class); %can be additive or subtractive
+            end
+
+            %reduce the list to the ones inside the masks
+            mask = proj.STATVAR.mask;
+            fn = fieldnames(proj.STATVAR);
+            for i=1:size(fn,1)  
+                    proj.STATVAR.(fn{i,1})(~mask) = [];
+            end
+
+
+            %load data sets
+            for i=1:size(proj.PARA.data_class,1)
+                data_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.data_class{i,1}){proj.PARA.data_class_index(i,1),1});
+                data_class.PARENT = proj;
+                data_class = finalize_init(data_class);
+                data_class = load_data(data_class); %can be additive or subtractive
+            end
+
+            for i=1:size(proj.PARA.data_mask_class_index,1)
+                mask_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.data_mask_class{i,1}){proj.PARA.data_mask_class_index(i,1),1});
+                mask_class.PARENT = proj;
+                mask_class = finalize_init(mask_class);
+                mask_class = apply_mask(mask_class); %can be additive or subtractive
+            end
+
+            mask = proj.STATVAR.mask;
+            fn = fieldnames(proj.STATVAR);
+            for i=1:size(fn,1)  
+                    proj.STATVAR.(fn{i,1})(~mask) = [];
+            end
             
             for i=1:size(proj.PARA.assign_tile_properties_class,1)
                 proj.ACTION{i,1} = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.assign_tile_properties_class{i,1}){proj.PARA.assign_tile_properties_class_index(i,1),1});

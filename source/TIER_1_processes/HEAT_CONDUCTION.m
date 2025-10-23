@@ -324,6 +324,30 @@ classdef HEAT_CONDUCTION < BASE
             %close to Jordan, but a bit below generally - could be a good
             %compromise between Yen and Jordan
         end
+
+        function snow = conductivity_snow_Macfarlane2023_anisotropy(snow)
+            % Alternative snow conductivity parameterization, based on
+            % Macfarlane et al.: Temporospatial variability of snow’s thermal conductivity on Arctic sea ice
+            % SW, October 2025
+            %experimental version taking anisotropy into account, i.e. adding a term dependent on sphericity, which decreases thermal
+            %conductivity for snow with sphericity 0 and increases it for
+            %sphericity 1 - function derived as simplest possible version of eyeballing fig. 5c 
+
+            a = 2.62e-6;
+            b = 1.54e-33;
+            c = 3.04e-2;
+
+            rho_ice = snow.CONST.rho_i;
+            
+            rho = rho_ice .* snow.STATVAR.waterIce./snow.STATVAR.layerThick./ snow.STATVAR.area;
+            thermCond = a.* rho.^2 + b.* rho + c;
+            snow.STATVAR.thermCond = thermCond  - double(thermCond-0.0369 < 2).*(snow.STATVAR.s.*2-1).* (0.2-0.2.*(thermCond-0.0369-1).^2);
+
+            %NOTE: the qualitative effect is the same as  increasing thermal
+            %conductivity with lower T which would typically coincide with
+            %non-sperical snow
+
+        end
         
     end
 end

@@ -131,8 +131,13 @@ classdef terrain_correct_radiation < process_BASE
         function forcing = terrain_shade(proc, forcing, tile)
             az = forcing.DATA.azimuth;
             el = forcing.DATA.sunElevation;
-            hbins = forcing.SPATIAL.STATVAR.horizon_bins;
-            h = forcing.SPATIAL.STATVAR.horizon_angles;
+            if size(forcing.SPATIAL.STATVAR.horizon_bins,1)==1 && size(forcing.SPATIAL.STATVAR.horizon_bins,2)>1
+                hbins = forcing.SPATIAL.STATVAR.horizon_bins';
+                h = forcing.SPATIAL.STATVAR.horizon_angles';
+            else
+                hbins = forcing.SPATIAL.STATVAR.horizon_bins;
+                h = forcing.SPATIAL.STATVAR.horizon_angles;
+            end
             
             I = knnsearch(hbins,az); % hbin containing current solar azimuth -> INTERPOLATE INSTEAD??? in the DEM analysis, this is points along lines, not bins!!
             forcing.DATA.Sin_dir(h(I)>el) = 0; % remove direct Sin if sun is below horizon
