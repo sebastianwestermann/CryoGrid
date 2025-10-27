@@ -22,6 +22,8 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
             
             proj.PARA.assign_tile_properties_class = [];
             proj.PARA.assign_tile_properties_class_index = [];
+
+            proj.PARA.new_reference = 1;
         end
         
         function proj = provide_STATVAR(proj)
@@ -53,10 +55,10 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
                     lat_yes = 1;
                 end
                 if strcmp(variables{i,1}, 'longitude')
-                    lat_yes = 1;
+                    lon_yes = 1;
                 end
                 if strcmp(variables{i,1}, 'altitude')
-                    lat_yes = 1;
+                    alt_yes = 1;
                 end
             end
             if ~lat_yes
@@ -65,10 +67,51 @@ classdef LIST_OF_POINTS < matlab.mixin.Copyable
             if ~lon_yes
                 proj.STATVAR.longitude = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
             end
+
             if ~alt_yes
-                proj.STATVAR.altitde = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
+                proj.STATVAR.altitude = repmat(70, size(proj.STATVAR.(variables{1,1}),1),1);
             end
             proj.STATVAR.key = [1:size(proj.STATVAR.latitude,1)]';
+
+
+            % Calculate skyview_factor, originally code from POINT_SLOPE.
+            % NOTE: proj.STATVAR are cells, not floats
+            proj.STATVAR.horizon_bins = repmat([0],size(proj.STATVAR.latitude,1),1); % [0, 360]; %
+            proj.STATVAR.horizon_angles = repmat([0],size(proj.STATVAR.latitude,1),1); % [0, 0]; %
+ 
+            if isempty(proj.STATVAR.skyview_factor) || sum(isnan(proj.STATVAR.skyview_factor))>0
+                
+                for i = 1:length(proj.STATVAR.latitude)
+                    bin_increment = 360/proj.STATVAR.number_of_horizon_bins(i);
+                    horizon_bins = 0:bin_increment:360;
+                    horizon_angles = zeros(size(horizon_bins));
+                % horizon_bins = proj.STATVAR.horizon_bins(i,:); %[0:360]';
+                % horizon_angles = interp1(proj.STATVAR.horizon_bins(i,:), proj.STATVAR.horizon_angles(i,:), horizon_bins);
+                
+                azmRadian = (pi/180).*horizon_bins;
+     
+                % convert output from horizon program to radians and translate to angle
+                % from zenith
+                H = (pi/180).*(90 - horizon_angles);
+                
+                aspectRadian = (pi/180).*(proj.STATVAR.aspect);
+                % modify limits of integration for slopes facing away from horizons
+              
+                t = cosd(proj.STATVAR.aspect(i)-proj.STATVAR.horizon_bins(i))<0;
+                %Simplified trig, the original was H(t) = min(H(t),...
+                %  acos(-cos(azmRadian(t)-aspectRadian)*sind(slopeDegrees)./...
+                %  sqrt(cosd(slopeDegrees)^2+sind(slopeDegrees)^2*cos(azmRadian(t)-aspectRadian).^2)));
+                % but same as
+                H(t) = min(H(t), acos(sqrt(1-1./(1+tand(proj.STATVAR.slope_angle(i)).^2.*cos(azmRadian(t)-aspectRadian(i)).^2))));
+                    qIntegrand = (cosd(proj.STATVAR.slope_angle(i)).*sin(H).^2 + sind(proj.STATVAR.slope_angle(i)).*cos(aspectRadian(i)-azmRadian).*(H-cos(H).*sin(H)))/2;
+              
+                % shouldn't be any negative, except perhaps rounding error, so just in case
+                    qIntegrand(qIntegrand<0) = 0;
+                
+                % integrate
+                    proj.STATVAR.skyview_factor(i) = trapz(azmRadian,qIntegrand)./pi;
+                end
+            end
             
 %             %apply masks before data sets
 %             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);

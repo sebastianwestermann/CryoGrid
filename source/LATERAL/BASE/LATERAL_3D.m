@@ -106,6 +106,12 @@ classdef LATERAL_3D < matlab.mixin.Copyable
         end
 
  
+        function lateral = update_lateral(lateral, tile)
+            for i=1:size(lateral.IA_CLASSES,1)
+                lateral.IA_CLASSES{i} = set_ia_time(lateral.IA_CLASSES{i}, tile.t);
+                lateral.IA_CLASSES{i} = set_ACTIVE(lateral.IA_CLASSES{i}, i, tile.t - lateral.IA_TIME_INCREMENT);
+            end
+        end
         
     
         
@@ -113,31 +119,31 @@ classdef LATERAL_3D < matlab.mixin.Copyable
              lateral.PARA.num_realizations = num_realizations;           
         end
         
-        function lateral = get3d_PARA(lateral) %initializes 3D parameters, move this to Excel, etc. file later
-            lateral.PARA.run_number = [1; 2; 3];
-            lateral.PARA.connected = [0 1 0; 1 0 1; 0 1 0];
-            
-            lateral.PARA.contact_length = [0 24.1240351380764 0; 24.1240351380764 0 41.7840545427251;0 41.7840545427251 0]; %[0 1; 1  0];
-            lateral.PARA.distance = [0 3.549647869859770 0;3.549647869859770 0 2.366431913239846;0 2.366431913239846 0]; %[0 10; 10 0];
-            %lateral.PARA.class_list ={{'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; ...
-           %                             {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_WATER_SEEPAGE_FACE'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}};
+%         function lateral = get3d_PARA(lateral) %initializes 3D parameters, move this to Excel, etc. file later
+%             lateral.PARA.run_number = [1; 2; 3];
+%             lateral.PARA.connected = [0 1 0; 1 0 1; 0 1 0];
+%             
+%             lateral.PARA.contact_length = [0 24.1240351380764 0; 24.1240351380764 0 41.7840545427251;0 41.7840545427251 0]; %[0 1; 1  0];
+%             lateral.PARA.distance = [0 3.549647869859770 0;3.549647869859770 0 2.366431913239846;0 2.366431913239846 0]; %[0 10; 10 0];
+%             %lateral.PARA.class_list ={{'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; ...
+%            %                             {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_WATER_SEEPAGE_FACE'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}};
+% % 
+% %             lateral.PARA.run_number = [1; 2];
+% %             lateral.PARA.connected = [0 1; 1 0];
+% %             lateral.PARA.contact_length = [0 1; 1  0];
+% %             lateral.PARA.distance = [0 2; 2 0];
+% %             lateral.PARA.class_list ={{'LAT3D_WATER'}; {'LAT3D_WATER'}};      
 % 
-%             lateral.PARA.run_number = [1; 2];
-%             lateral.PARA.connected = [0 1; 1 0];
-%             lateral.PARA.contact_length = [0 1; 1  0];
-%             lateral.PARA.distance = [0 2; 2 0];
-%             lateral.PARA.class_list ={{'LAT3D_WATER'}; {'LAT3D_WATER'}};      
-
-%                 lateral.PARA.run_number = [2; 1; 1; 3];
-%                 lateral.PARA.connected = [0 1 0 0; 1 0 1 0; 0 1 0 1; 0 0 1 0]; %[0 1 1; 1 0 1; 1 1 0];
-%                 lateral.PARA.contact_length = [0 1 0 0; 1 0 1 0; 0 1 0 1; 0 0 1 0]; % [0 1 1; 1 0 1; 1 1 0];
-%                 lateral.PARA.distance = [0 2 0 0; 2 0 2 0; 0 2 0 2; 0 0 2 0]; %[0 2 5; 2 0 2; 5 2 0];
-%                 lateral.PARA.class_list ={{'LAT3D_WATER'; 'LAT3D_WATER_RESERVOIR2'}; {'LAT3D_WATER'};  {'LAT3D_WATER'}; {'LAT3D_WATER'; 'LAT3D_WATER_SEEPAGE_FACE2'}};
-            %lateral.PARA.class_list ={{'LAT3D_WATER'}; {'LAT3D_WATER'};  {'LAT3D_WATER'}; {'LAT3D_WATER'}};
-%             lateral.PARA.class_list ={{'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; ...
-%                                         {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'; 'LAT3D_WATER_SEEPAGE_FACE'}};             
-            lateral.PARA.central_worker = 2; %index of worker performing global computations (needed for LATERAL_3D_water) - should be set so that it has connections to as many as possible other workers
-        end
+% %                 lateral.PARA.run_number = [2; 1; 1; 3];
+% %                 lateral.PARA.connected = [0 1 0 0; 1 0 1 0; 0 1 0 1; 0 0 1 0]; %[0 1 1; 1 0 1; 1 1 0];
+% %                 lateral.PARA.contact_length = [0 1 0 0; 1 0 1 0; 0 1 0 1; 0 0 1 0]; % [0 1 1; 1 0 1; 1 1 0];
+% %                 lateral.PARA.distance = [0 2 0 0; 2 0 2 0; 0 2 0 2; 0 0 2 0]; %[0 2 5; 2 0 2; 5 2 0];
+% %                 lateral.PARA.class_list ={{'LAT3D_WATER'; 'LAT3D_WATER_RESERVOIR2'}; {'LAT3D_WATER'};  {'LAT3D_WATER'}; {'LAT3D_WATER'; 'LAT3D_WATER_SEEPAGE_FACE2'}};
+%             %lateral.PARA.class_list ={{'LAT3D_WATER'}; {'LAT3D_WATER'};  {'LAT3D_WATER'}; {'LAT3D_WATER'}};
+% %             lateral.PARA.class_list ={{'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'}; ...
+% %                                         {'LAT3D_WATER_UNCONFINED_AQUIFER'; 'LAT3D_HEAT'; 'LAT3D_SNOW_CROCUS'; 'LAT3D_WATER_SEEPAGE_FACE'}};             
+%             lateral.PARA.central_worker = 2; %index of worker performing global computations (needed for LATERAL_3D_water) - should be set so that it has connections to as many as possible other workers
+%         end
         
         function lateral = get_index(lateral)
             if lateral.PARA.num_realizations > 1
@@ -250,12 +256,7 @@ classdef LATERAL_3D < matlab.mixin.Copyable
                         CURRENT = check_trigger(CURRENT, tile);
                         CURRENT = CURRENT.PREVIOUS;
                     end
-%                     CURRENT = lateral.TOP.NEXT;
-%                     while ~(strcmp(class(CURRENT), 'Bottom'))
-%                         CURRENT = compute_diagnostic(CURRENT, tile);
-%                         CURRENT = check_trigger(CURRENT, tile);
-%                         CURRENT = CURRENT.NEXT;
-%                     end
+
                 end
               
                %set ACTIVE for next timestep
@@ -402,6 +403,52 @@ classdef LATERAL_3D < matlab.mixin.Copyable
                         end
                     end
                     i2 = i2_start;
+                end
+            end
+        end
+        
+        function lateral = get_overlap_cells_mass(lateral)
+            for i=1:size(lateral.ENSEMBLE,1)
+                if lateral.PARA.connected(lateral.STATVAR.index, lateral.ENSEMBLE{i,1}.index)
+                    variable_out = 'overlap_mass';
+                    
+                    thickness1 = sum(lateral.STATVAR.layerThick);
+                    thickness2 = sum(lateral.ENSEMBLE{i,1}.layerThick);
+                    
+                    %make a unified layerThick data set that is then used to get
+                    %cell overlap: mean glacier thickness = (g1+g2)/2. s1 =
+                    %(g1+g2)/(2 g1); sf2 = (g1+g2)/(2 g2)
+
+                    cell_1 = (thickness1 + thickness2) ./ 2 ./ thickness1 .* cumsum([0; lateral.STATVAR.layerThick]);
+                    cell_2 = (thickness1 + thickness2) ./ 2 ./ thickness2 .* cumsum([0; lateral.ENSEMBLE{i,1}.layerThick]);
+                    
+                    lateral.ENSEMBLE{i,1}.(variable_out) = [];
+                    
+                    if size(cell_1,1) > 1 && size(cell_2,1) > 1
+                        for i1=1:size(cell_1,1)-1
+                            i2=1;
+                            a = max(0, - max(cell_1(i1,1), cell_2(i2,1)) + min(cell_1(i1+1,1), cell_2(i2+1,1)));
+                            
+                            while a <= 0 && i2 < size(cell_2,1)-1
+                                i2 = i2+1;
+                                a = max(0, - max(cell_1(i1,1), cell_2(i2,1)) + min(cell_1(i1+1,1), cell_2(i2+1,1)));
+                            end
+                            if a>0
+                                lateral.ENSEMBLE{i,1}.(variable_out) = [lateral.ENSEMBLE{i,1}.(variable_out);  [i1  i2 a]];
+                            end
+                            
+                            i2_start = i2;
+                            while a > 0 && i2 < size(cell_2,1)-1
+                                
+                                i2 = i2+1;
+                                a = max(0, - max(cell_1(i1,1), cell_2(i2,1)) + min(cell_1(i1+1,1), cell_2(i2+1,1)));
+                                if a>0
+                                    lateral.ENSEMBLE{i,1}.(variable_out) = [lateral.ENSEMBLE{i,1}.(variable_out);  [i1  i2 a]];
+                                end
+                            end
+                            i2 = i2_start;
+                        end
+                    end
                 end
             end
         end

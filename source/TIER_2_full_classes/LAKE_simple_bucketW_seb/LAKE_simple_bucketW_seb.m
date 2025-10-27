@@ -201,8 +201,8 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
         function ground = compute_diagnostic(ground, tile)
             
             ground = move_ice_up(ground);
-            ground = stratify(ground);
-            ground = regrid_split(ground, {'layerThick'; 'energy'; 'waterIce'; 'mineral'; 'organic'}, {'area'; 'thermCond'}, 'waterIce');
+            ground = stratify_simple(ground);
+            ground = regrid_merge(ground, {'layerThick'; 'energy'; 'waterIce'; 'mineral'; 'organic'}, {'area'; 'thermCond'}, 'waterIce');
             ground = get_T_water_freeW(ground);
             ground = conductivity(ground);
             
@@ -322,8 +322,8 @@ classdef LAKE_simple_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & WATER_FLUXES &
             ground = get_T_water_freeW@HEAT_CONDUCTION(ground);
         end
         
-        function ground = stratify(ground)
-            ground = stratify@LAKE(ground);
+        function ground = stratify_simple(ground)
+            ground = stratify_simple@LAKE(ground);
         end
         
         function ground = regrid_full(ground, variable_list)

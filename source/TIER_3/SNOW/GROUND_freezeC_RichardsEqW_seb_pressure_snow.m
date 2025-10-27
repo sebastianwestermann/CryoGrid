@@ -48,11 +48,11 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
                 ground = get_boundary_condition_u@GROUND_freezeC_RichardsEqW_seb_pressure(ground, tile); %call the native function for the ground class
                 
                 if forcing.TEMP.snowfall > 0  %create CHILD 
-                    CURRENT = ground.PREVIOUS;  %go to Top() and get the stored SNOW class
-                    while ~strcmp(class(CURRENT), 'Top')
-                        CURRENT = CURRENT.PREVIOUS;
-                    end
-                    ground.CHILD = copy(CURRENT.STORE.SNOW);
+%                     CURRENT = ground.PREVIOUS;  %go to Top() and get the stored SNOW class
+%                     while ~strcmp(class(CURRENT), 'Top')
+%                         CURRENT = CURRENT.PREVIOUS;
+%                     end
+                    ground.CHILD = copy(tile.STORE.SNOW);
                     ground.CHILD.PARENT = ground;
                     ground.CHILD.NEXT = ground; 
                     ground.IA_CHILD = get_IA_class(class(ground.CHILD), class(ground));
@@ -169,44 +169,17 @@ classdef GROUND_freezeC_RichardsEqW_seb_pressure_snow < GROUND_freezeC_RichardsE
                     ground.CHILD.STATVAR.area = ground.STATVAR.area(1,1);
                     ground.CHILD.STATVAR.layerThick = snow_volume ./ ground.CHILD.STATVAR.area;
                    
-%                     %make snow a real class
-%                     ground.CHILD.PARENT = 0;
-%                     ground.CHILD.PREVIOUS = ground.PREVIOUS;
-%                     ground.CHILD.NEXT = ground;
-%                     ground.PREVIOUS.NEXT = ground.CHILD;
-%                     ground.PREVIOUS = ground.CHILD;
-%                     ground.CHILD = 0;
-%                     ground.IA_PREVIOUS = ground.IA_CHILD; 
-%                     ground.PREVIOUS.IA_NEXT = ground.IA_CHILD;
-%                     ground.IA_CHILD = 0;
-                    
                     %make snow a real class
                     ground.CHILD.PARENT = 0;
                     ground.CHILD.PREVIOUS = ground.PREVIOUS;
                     ground.CHILD.NEXT = ground;
                     ground.PREVIOUS.NEXT = ground.CHILD;
-                    ia_class = get_IA_class(class(ground.PREVIOUS), class(ground.CHILD));
-                    ground.PREVIOUS.IA_NEXT = ia_class;
-                    ground.CHILD.IA_PREVIOUS = ia_class;
-                    ground.CHILD.IA_PREVIOUS.NEXT = ground.CHILD;
-                    ground.CHILD.IA_PREVIOUS.PREVIOUS = ground.PREVIOUS;
-                    finalize_init(ground.CHILD.IA_PREVIOUS, tile);
-                    
                     ground.PREVIOUS = ground.CHILD;
                     ground.CHILD = 0;
                     ground.IA_PREVIOUS = ground.IA_CHILD; 
                     ground.PREVIOUS.IA_NEXT = ground.IA_CHILD;
                     ground.IA_CHILD = 0;
                 end
-            end
-        end
-        
-                
-        %----------
-        %reset timestamp when changing TILES
-        function ground = reset_timestamps(ground, tile)
-            if ground.CHILD ~= 0
-                ground.CHILD = reset_timestamps(ground.CHILD, tile);
             end
         end
         

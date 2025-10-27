@@ -344,6 +344,11 @@ classdef FREEZE_CURVE_KarraPainter < BASE
          
         function ground = get_T_water_freezeC_Xice_pressure(ground)
             
+            %Take together first gridcell and SurfaceWaterIce
+            ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) + ground.STATVAR.SurfaceWaterIce;
+            fraction_SurfaceWaterIce = ground.STATVAR.SurfaceWaterIce / ground.STATVAR.waterIce(1,1);
+            ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + ground.STATVAR.SurfaceLayerThick;
+            
             sat_waterIce_min = 0.005;
             LUT_size_gamma = 2.^9;
             LUT_size_T = 2.^10;
@@ -364,16 +369,17 @@ classdef FREEZE_CURVE_KarraPainter < BASE
             energy = ground.STATVAR.energy ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             mineral = ground.STATVAR.mineral ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             organic = ground.STATVAR.organic ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
-            waterIce = ground.STATVAR.waterIce./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             XwaterIce = ground.STATVAR.XwaterIce./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
+            waterIce = (ground.STATVAR.waterIce - ground.STATVAR.XwaterIce) ./ ground.STATVAR.layerThick ./ ground.STATVAR.area; %waterIce is here without X
             soil_type = ground.STATVAR.soil_type;
             
             n = ground.STATVAR.n;
             alpha = ground.STATVAR.alpha ./ rho_w ./ g;
             
             m=1-1./n;
-            porosity = ground.STATVAR.porosity;
-            sat_waterIce = (waterIce + XwaterIce) ./ porosity;
+            porosity = 1 - mineral - organic - XwaterIce;
+            sat_waterIce = waterIce ./ porosity;
+            %sat_waterIce = (waterIce + XwaterIce) ./ porosity;
           %  porosity = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic) ./(ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce);
           %  sat_waterIce = ground.STATVAR.waterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce) ./ porosity;
             
@@ -475,7 +481,7 @@ classdef FREEZE_CURVE_KarraPainter < BASE
                 
                 
                 %ground.STATVAR.waterPotential(nonlinear_range)  = -matric_pot_nonlinear ./ rho_w ./ g;
-                ground.STATVAR.waterPotential(nonlinear_range) = (L_sl .* T_nonlinear ./ T0 - mwp0) ./ rho_w ./ g;
+                ground.STATVAR.waterPotential(nonlinear_range) = min(0,(L_sl .* T_nonlinear ./ T0 - mwp0) ./ rho_w ./ g);
                 ground.STATVAR.water(nonlinear_range) = satWater_nonlinear .* porosity;
                 ground.STATVAR.Xwater(nonlinear_range) = 0;
                 ground.STATVAR.T(nonlinear_range) = T_nonlinear;
@@ -491,6 +497,34 @@ classdef FREEZE_CURVE_KarraPainter < BASE
             ground.STATVAR.ice(ground.STATVAR.T>0) = 0;
             ground.STATVAR.Xice = max(0, ground.STATVAR.XwaterIce - ground.STATVAR.Xwater);
             ground.STATVAR.Xice(ground.STATVAR.T>0) = 0;
+            
+            %Split first gridcell and SurfaceWaterIce
+            ground.STATVAR.SurfaceWaterIce = fraction_SurfaceWaterIce * ground.STATVAR.waterIce(1,1);
+            ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) - ground.STATVAR.SurfaceWaterIce;
+            ground.STATVAR.SurfaceWater = fraction_SurfaceWaterIce * ground.STATVAR.water(1,1);
+            ground.STATVAR.water(1,1) = ground.STATVAR.water(1,1) - ground.STATVAR.SurfaceWater;
+            ground.STATVAR.SurfaceIce = fraction_SurfaceWaterIce * ground.STATVAR.ice(1,1);
+            ground.STATVAR.ice(1,1) = ground.STATVAR.ice(1,1) - ground.STATVAR.SurfaceIce;
+            ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) - ground.STATVAR.SurfaceLayerThick;
+            
+
+            
+            %Put parts of Xwater in SurfaceWater --> otherwise gridcell gets too big
+            Xwater_out = 0;
+            if ground.STATVAR.Xwater(1,1) / ground.STATVAR.waterIce(1,1) > 0.01
+                Xwater_out = ground.STATVAR.Xwater(1,1) - 0.01 * ground.STATVAR.waterIce(1,1);
+                ground.STATVAR.Xwater(1,1) = ground.STATVAR.Xwater(1,1) - Xwater_out;
+                ground.STATVAR.water(1,1) = ground.STATVAR.water(1,1) - Xwater_out;
+                ground.STATVAR.XwaterIce(1,1) = ground.STATVAR.XwaterIce(1,1) - Xwater_out;
+                ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) - Xwater_out;
+                
+                ground.STATVAR.SurfaceWaterIce = ground.STATVAR.SurfaceWaterIce + Xwater_out;
+                ground.STATVAR.SurfaceWater = ground.STATVAR.SurfaceWater + Xwater_out;
+                
+                ground.STATVAR.SurfaceLayerThick = ground.STATVAR.SurfaceWaterIce ./ ground.STATVAR.area(1,1);
+                ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) - Xwater_out ./ ground.STATVAR.area(1,1);
+            end
+
          end
         
         %         function ground = get_T_water_freezeC_Xice(ground)
@@ -788,6 +822,71 @@ classdef FREEZE_CURVE_KarraPainter < BASE
             ground.STATVAR.waterPotential = (L_sl .* T ./ T0 .* double(T<0) - mwp0) ./ rho_w ./ g;
             
             
+        end
+        
+        function ground = get_E_freezeC_Xice_pressure(ground) %required for initialization
+            
+            L_sl = ground.CONST.L_f;
+            c_w = ground.CONST.c_w;
+            c_i = ground.CONST.c_i;
+            c_o = ground.CONST.c_o;
+            c_m = ground.CONST.c_m;
+            rho_w = ground.CONST.rho_w;
+            g = ground.CONST.g;
+            T0 = ground.CONST.Tmfw;
+            
+            T = ground.STATVAR.T;
+            mineral= ground.STATVAR.mineral ./ min(ground.STATVAR.layerThick,ground.STATVAR.initial_layerThick) .* ground.STATVAR.area; % Percentage of gridcell without X
+            organic= ground.STATVAR.organic ./ min(ground.STATVAR.layerThick,ground.STATVAR.initial_layerThick) .* ground.STATVAR.area; % Percentage of gridcell without X
+            waterIce = ground.STATVAR.saturation .* ground.STATVAR.porosity; % ATTENTION: here with X, in rest of code, X is included in this variable
+
+            layerThick = ground.STATVAR.layerThick;
+            area = ground.STATVAR.area;
+            soil_type = ground.STATVAR.soil_type;
+            
+%            Xice = ground.STATVAR.Xice .* double(T <= 0); % Xice initially only possible when frozen, provided in multiples of the "matrix", 1 means 50 vol% Xice, 50 % normal soil
+            Xice = ground.STATVAR.XwaterIce ./ (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce);        
+            
+            n = double(soil_type == 1) .* ground.CONST.vanGen_n(1) + double(soil_type == 2) .* ground.CONST.vanGen_n(2) + double(soil_type == 3) .* ground.CONST.vanGen_n(3) + double(soil_type == 4) .* ground.CONST.vanGen_n(4) + double(soil_type == 5) .* ground.CONST.vanGen_n(5);
+            ground.STATVAR.n = n;
+            alpha = double(soil_type == 1) .* ground.CONST.vanGen_alpha(1) + double(soil_type == 2) .* ground.CONST.vanGen_alpha(2) + double(soil_type == 3) .* ground.CONST.vanGen_alpha(3) + double(soil_type == 4) .* ground.CONST.vanGen_alpha(4) + + double(soil_type == 5) .* ground.CONST.vanGen_alpha(5);
+            ground.STATVAR.alpha = alpha;
+           
+            
+            initial_porosity = ground.STATVAR.initial_voidRatio ./ (1 + ground.STATVAR.initial_voidRatio);
+            porosity = min(ground.STATVAR.porosity,initial_porosity);
+            sat_waterIce = min(1,waterIce ./ porosity);
+            alpha = alpha ./ g ./ rho_w; %convert to Pa^-1;
+            beta_interface = 2.2;  %make this a constant!
+            m=1-1./n;
+            
+            mwp0 = real(1./alpha .* ((sat_waterIce.^(-1./m)-1)).^(1./n)); 
+            mwp = -L_sl .* T ./ T0 .* beta_interface .* double(T<0) + mwp0;
+            sat_water = double(mwp > 0) .* (1+(alpha.*mwp).^n).^(-m) + double(mwp <= 0);
+            sat_ice = sat_waterIce - sat_water;
+            energy = T.* (mineral .* c_m + organic .* c_o + porosity .* sat_waterIce .* (c_w .* double(T > 0)+ c_i.* double(T <= 0))); %add XwaterIce here!!!
+            energy = energy - double(T <= 0) .* L_sl .* porosity .* (sat_waterIce - sat_water);
+            
+            ground.STATVAR.water = sat_water .* porosity .* layerThick ./ (1 + Xice) .* area;  % [m3]
+            ground.STATVAR.ice = sat_ice .* porosity .*  layerThick ./ (1 + Xice) .* area; %[m3]
+            
+            ground.STATVAR.waterIce = waterIce .* layerThick ./ (1 + Xice) .* area; % [m3]
+            ground.STATVAR.mineral = mineral .* layerThick ./ (1 + Xice) .* area; % [m3]
+            ground.STATVAR.organic = organic .* layerThick ./ (1 + Xice) .* area; % [m3]
+            %ground.STATVAR.energy = energy .* layerThick ./ (1 + Xice) .* area;  % [J]
+            ground.STATVAR.energy = (energy + Xice .* (ground.STATVAR.T .* ground.CONST.c_i - ground.CONST.L_f)) ./ (1 + Xice) .* layerThick .* area;  % [J]
+            ground.STATVAR.XwaterIce = Xice ./ (1 + Xice) .* layerThick .* area;
+            ground.STATVAR.Xice = ground.STATVAR.XwaterIce .*double(T<=0);
+            ground.STATVAR.Xwater = ground.STATVAR.XwaterIce .* double(T>0);
+            
+            ground.STATVAR.air = (1-mineral-organic-waterIce) .* layerThick ./ (1 + Xice).* area;  % [m3]
+            
+            %ground.STATVAR.waterPotential = -mwp ./ rho_w ./ g;
+            ground.STATVAR.waterPotential = (L_sl .* T ./ T0 .* double(T<0) - mwp0) ./ rho_w ./ g;
+            
+            ground.STATVAR.waterIce = ground.STATVAR.waterIce + ground.STATVAR.XwaterIce;
+            ground.STATVAR.water = ground.STATVAR.water + ground.STATVAR.Xwater;
+            ground.STATVAR.ice = ground.STATVAR.ice + ground.STATVAR.Xice;
         end
         
         

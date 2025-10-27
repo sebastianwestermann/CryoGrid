@@ -2,7 +2,6 @@
 % CryoGrid GROUND class GROUND_freezeC_RichardsEqW_Xice_seb
 % heat conduction, Richards equation water scheme, freeze curve based on
 % freezing=drying assumption, surface energy balance, excess ice 
-% DISCONTINUED, do not use any more!
 % S. Westermann, October 2020
 %========================================================================
 
@@ -203,7 +202,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         
         function timestep = get_timestep(ground, tile)  
            timestep = get_timestep_heat_coduction(ground);
-           timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground)); 
+           timestep = min(timestep, get_timestep_water_RichardsEq_Xice2(ground));
            timestep = min(timestep, ground.PARA.dt_max);
 
         end
@@ -260,7 +259,7 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             air = ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.XwaterIce - ground.STATVAR.waterIce - ground.STATVAR.mineral - ground.STATVAR.organic; 
             move_cells = (ground.STATVAR.Xwater > 0) & (air > 0);
             move_Xwater = min(ground.STATVAR.Xwater(move_cells), air(move_cells));
-            ground.STATVAR.XwaterIce(move_cells) = max(0, ground.STATVAR.XwaterIce(move_cells) - move_Xwater);
+            ground.STATVAR.XwaterIce(move_cells) = ground.STATVAR.XwaterIce(move_cells) - move_Xwater;
             ground.STATVAR.waterIce(move_cells) = ground.STATVAR.waterIce(move_cells) + move_Xwater;
             ground.STATVAR.layerThick(move_cells) = ground.STATVAR.layerThick(move_cells) - move_Xwater ./  ground.STATVAR.area(move_cells);
             
@@ -367,7 +366,16 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
             q_g = q_g_sat.*(f_ice + f_water.*alpha_soil); % Eq. 5.72
             ground.STATVAR.q_g = q_g; % save for calculation of ground Qe
         end
+
+
+        %-------------restore_from_out-----
+        function ground = reset_from_OUT(ground, tile)
+            ground.CHILD = 0;
+            ground = create_LUT_freezeC(ground);
+            ground = set_TEMP_2zero(ground);
+        end
         
+                
         
         %-----LATERAL-------------------
         
@@ -412,6 +420,19 @@ classdef GROUND_freezeC_RichardsEqW_Xice_seb < SEB & HEAT_CONDUCTION & FREEZE_CU
         function ground = lateral3D_pull_water_overland_flow(ground, lateral)
             ground = lateral3D_pull_water_overland_flow_XICE(ground, lateral);
         end
+        
+        %----LAT3D_WATER_UNCONFINED_AQUIFER_RICHARDS_EQ------------
+        function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq(ground, lateral)
+            ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq_Xice(ground, lateral);
+        end
+        
+         function ground = lateral3D_push_water_unconfined_aquifer_RichardsEq(ground, lateral)
+             ground = lateral3D_push_water_unconfined_aquifer_Xice(ground, lateral);
+         end
+
+         function ground = lateral3D_pull_Xwater_unconfined_aquifer(ground, lateral)
+             ground = lateral3D_pull_Xwater_unconfined_aquifer_RichardsEq(ground, lateral);
+         end
         
         %LAT3D_WATER_RESERVOIR and LAT3D_WATER_SEEPAGE_FACE do not require specific functions
         

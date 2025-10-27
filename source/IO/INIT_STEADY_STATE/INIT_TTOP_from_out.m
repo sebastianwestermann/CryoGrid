@@ -27,7 +27,7 @@ classdef INIT_TTOP_from_out < matlab.mixin.Copyable
 
             init.PARA.out_folder = []; %if empty, use the result folder
             init.PARA.out_file = [];
-
+            init.PARA.tag = [];
         end
         
         function init = provide_CONST(init)
@@ -41,8 +41,15 @@ classdef INIT_TTOP_from_out < matlab.mixin.Copyable
 		function init = finalize_init(init, tile)
              if isempty(init.PARA.out_folder) || sum(isnan(init.PARA.out_folder))>0
                  init.PARA.out_folder = [tile.PARA.result_path tile.PARA.run_name '/'];
-                 init.PARA.out_file = [tile.PARA.run_name '_OUT_FDD_TDD.mat'];
              end
+             if isempty(init.PARA.out_file) || sum(isnan(init.PARA.out_file))>0
+                 if isempty(init.PARA.tag) || all(isnan(init.PARA.tag))
+                     init.PARA.out_file = [tile.PARA.run_name '_OUT_FDD_TDD.mat'];
+                 else
+                     init.PARA.out_file = [tile.PARA.run_name '_OUT_FDD_TDD_' init.PARA.tag '.mat'];
+                 end
+             end
+                 
              temp=load([init.PARA.out_folder init.PARA.out_file], 'out');
              out = temp.out;
              tile.PARA.T_first_cell = out.STATVAR.TTOP;

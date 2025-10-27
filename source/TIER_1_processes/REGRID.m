@@ -61,8 +61,7 @@ classdef REGRID < BASE
         end
         
         %simple merge function, merges cells if minimum thickness is
-        %reached ATTENTION: this function should be renamed to regrid_merge
-        function ground = regrid_split(ground, variable_list, intensive_variables, intensive_scaling_variable) 
+        function ground = regrid_merge(ground, variable_list, intensive_variables, intensive_scaling_variable) 
             top_pos = ground.STATVAR.top_depth_rel2groundSurface;
             min_thickness = ground.PARA.target_layerThick(1,1);
 
@@ -82,8 +81,26 @@ classdef REGRID < BASE
             end
         end
         
+        function ground = regrid_split_first_cell(ground, extensive_variables, intensive_variables)
+            if  ground.STATVAR.layerThick(1,1) > 1.5 .* ground.PARA.target_layerThick(1,1)
+                 split_fraction2 = ground.PARA.target_layerThick(1,1) ./ ground.STATVAR.layerThick(1,1);
+                 split_fraction1 = 1 - split_fraction2;
+                 for i=1:size(extensive_variables)
+                     ground.STATVAR.(extensive_variables{i,1}) = [ground.STATVAR.(extensive_variables{i,1})(1,1) .* split_fraction1; ground.STATVAR.(extensive_variables{i,1})];
+                     ground.STATVAR.(extensive_variables{i,1})(2,1) = ground.STATVAR.(extensive_variables{i,1})(2,1).* split_fraction2;
+                 end
+                 for i=1:size(intensive_variables)
+                     ground.STATVAR.(intensive_variables{i,1}) = [ground.STATVAR.(intensive_variables{i,1})(1,1); ground.STATVAR.(intensive_variables{i,1})];
+                 end
+                
+            end
+                
+        end
+        
+        
         %complete regridding to the orginal grid  provided in initialization
         function ground = regrid_full(ground, variable_list) 
+            a= sum(ground.STATVAR.layerThick);
             top_pos = ground.STATVAR.top_depth_rel2groundSurface;
             target_grid = ground.PARA.target_grid;
                         
@@ -139,6 +156,9 @@ classdef REGRID < BASE
                 ground.NEXT.STATVAR.top_depth_rel2groundSurface = top_pos + sum(ground.STATVAR.layerThick, 1);
             end
             
+           if abs(a- sum(ground.STATVAR.layerThick))>1e-5
+                disp('test')
+           end
         end
         
         %regridding routine for snow

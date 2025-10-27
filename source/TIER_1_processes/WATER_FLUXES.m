@@ -252,6 +252,19 @@ classdef WATER_FLUXES < BASE
             ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
         end
         
+        function ground = get_boundary_condition_u_water_LAKE_mixed_layer(ground, forcing)
+            rainfall = forcing.TEMP.rainfall ./ 1000 ./ 24 ./3600 .* ground.STATVAR.area(1);  
+            snowfall = (forcing.TEMP.snowfall ./ 1000 ./ 24 ./3600 .* ground.STATVAR.area(1)) .* double(ground.STATVAR.energy(1,1)>=0);
+            ground.TEMP.F_ub_water = rainfall + snowfall;
+            
+            T_rainWater =  max(0,forcing.TEMP.Tair);
+            T_snow = min(0,forcing.TEMP.Tair);
+            ground.TEMP.F_ub_water_energy = rainfall .* ground.CONST.c_w .* T_rainWater + snowfall .* (ground.CONST.c_i .* T_snow - ground.CONST.L_f); 
+            
+            ground.TEMP.d_water(1) = ground.TEMP.d_water(1) + ground.TEMP.F_ub_water;
+            ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
+        end
+        
         %zero water flux lower boundary condition
         function ground = get_boundary_condition_l_water2(ground)
             ground.TEMP.F_lb_water = 0;
@@ -324,9 +337,7 @@ classdef WATER_FLUXES < BASE
             
             guaranteed_flow = ground.TEMP.d_water_ET;  %add other external fluxes here
             guaranteed_flow_energy = ground.TEMP.d_water_ET_energy;
-            
-            %saturation(10)-1
-            
+                        
             %outflow
             d_water_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; % area cancels out; make this depended on both involved cells? 
             guaranteed_inflow = guaranteed_flow.* double(guaranteed_flow > 0); 
@@ -400,6 +411,29 @@ classdef WATER_FLUXES < BASE
             ground.TEMP.d_Xwater_energy = ground.TEMP.d_Xwater_energy - d_Xwater_out_energy + d_Xwater_in_energy;
             %ground.TEMP.d_Xwater_energy(1) = ground.TEMP.d_Xwater_energy(1) + ground.TEMP.F_ub_Xwater_energy;
         end
+
+        function ground = get_derivative_Xwater_GLACIER_GROUND(ground)  %routes Xwater up when Xice has melted
+            %saturation = ground.STATVAR.Xwater ./ ground.STATVAR.area ./ (ground.PARA.hydraulicConductivity .* ground.PARA.dt_max);
+            %saturation = max(0,min(1,saturation)); % 0 no Xwater, 1: water routed up within maximum timestep
+            d_Xwater_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; %  .* reduction_factor_out(saturation, ground); 
+            d_Xwater_out(1,1) = 0; %Xwater stays in uppermost cell, must be removed elesewhere
+            
+            d_Xwater_out(d_Xwater_out > 0) = min(d_Xwater_out(d_Xwater_out > 0), ground.STATVAR.Xwater(d_Xwater_out > 0) ./ ground.PARA.dt_max); %makes explicit timestep check unnecessary
+
+            d_Xwater_in = d_Xwater_out .*0;
+            d_Xwater_in(1:end-1) = d_Xwater_out(2:end); % .* double(ground.STATVAR.T(1:end-1)>0); % water can only be taken up by unfrozen cells, important for lateral Xice melt (e.g. palsa case)
+            
+            d_Xwater_out(2:end) = d_Xwater_in(1:end-1); %reduce outflow if inflow is impossible
+            
+            d_Xwater_out_energy = d_Xwater_out .* ground.CONST.c_w .* ground.STATVAR.T;
+            d_Xwater_in_energy = d_Xwater_out .*0;
+            d_Xwater_in_energy(1:end-1) = d_Xwater_out_energy(2:end);
+            
+            ground.TEMP.d_Xwater = ground.TEMP.d_Xwater - d_Xwater_out + d_Xwater_in; 
+            %ground.TEMP.d_Xwater(1) = ground.TEMP.d_Xwater(1) + ground.TEMP.F_ub_Xwater;
+            ground.TEMP.d_Xwater_energy = ground.TEMP.d_Xwater_energy - d_Xwater_out_energy + d_Xwater_in_energy;
+            %ground.TEMP.d_Xwater_energy(1) = ground.TEMP.d_Xwater_energy(1) + ground.TEMP.F_ub_Xwater_energy;
+        end
         
         %bucketW hydrological scheme for SNOW classes
         function ground = get_derivative_water_SNOW(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
@@ -416,8 +450,15 @@ classdef WATER_FLUXES < BASE
             d_water_out = ground.STATVAR.hydraulicConductivity .* ground.STATVAR.area; % area cancels out; make this depended on both involved cells?
             d_water_out = d_water_out .* reduction_factor_out(saturation, ground); %this is positive when flowing out
             d_water_out(end,1) = 0; % lower boundary handled elsewhere
-            %d_water_out(end,1) = -ground.TEMP.F_lb_water; %positive
             
+            %New SW - no outflow if overall water content is small, this
+            %matters only when the pore space is very small, since the
+            %saturation can still be high in this case, which would lead to very small
+            %timesteps
+            vol_water = ground.STATVAR.water ./ (ground.STATVAR.layerThick.*ground.STATVAR.area);
+            d_water_out(vol_water <= 1e-4) = 0;
+            % end new
+
             %inflow
             d_water_in = d_water_out .*0;
             d_water_in(2:end) = d_water_out(1:end-1);
@@ -533,76 +574,163 @@ classdef WATER_FLUXES < BASE
         end
         
         %Richards equation with pressure
-        function ground = get_derivative_water_RichardsEq_pressure(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
-                                   
+%         function ground = get_derivative_water_RichardsEq_pressure(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
+%                                    
+%             k_eff = ground.STATVAR.hydraulicConductivity(1:end-1,1).*ground.STATVAR.hydraulicConductivity(2:end,1) ./ ...
+%                 (ground.STATVAR.hydraulicConductivity(1:end-1,1).*ground.STATVAR.layerThick(2:end,1)./2 + ground.STATVAR.hydraulicConductivity(2:end,1).*ground.STATVAR.layerThick(1:end-1,1)./2);
+% 
+%             ground.TEMP.d_head_waterPotential = ground.STATVAR.waterPotential(1:end-1,1) - ground.STATVAR.waterPotential(2:end,1);
+%             ground.TEMP.d_head_gravitationalPotential = ground.STATVAR.gravitationalPotential(1:end-1,1) - ground.STATVAR.gravitationalPotential(2:end,1);
+%             %ground.TEMP.d_head_gravity = (double(ground.STATVAR.saturation(1:end-1,1) <= 1-1e-6) .* ground.STATVAR.layerThick(1:end-1,1) + double(ground.STATVAR.saturation(2:end,1) <= 1-1e-6) .* ground.STATVAR.layerThick(2:end,1))./2;
+%             %ground.TEMP.d_head_hydrostatic_pressure = double(ground.STATVAR.saturation(1:end-1,1) >= 1-1e-6 & ground.STATVAR.saturation(2:end,1) >= 1-1e-6) .* ((ground.STATVAR.hydrostatic_pressure(1:end-1,1) - ground.STATVAR.hydrostatic_pressure(2:end,1))./ground.CONST.density_water./ground.CONST.g);
+%             %ground.TEMP.d_head_soilMechanics = (double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* ((ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1)) ...
+%             %    - ( ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;           
+%             %ground.TEMP.d_head_soilMechanics = (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* ((ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1)) ...
+%             %    - ( ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;           
+%             %%%ground.TEMP.d_head_soilMechanics = ((double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1))) ...
+%             %%%    - (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;
+%             
+%             ground.TEMP.d_head_soilMechanics = ((double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1))) ...
+%                 - (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .*(ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;
+%             
+%             ground.TEMP.d_head = ground.TEMP.d_head_waterPotential + ground.TEMP.d_head_gravitationalPotential + ground.TEMP.d_head_soilMechanics;
+%             
+%             if ground.TEMP.d_head(5,1) < 0.01
+%                 xxx = 0;
+%             end
+%             
+%             %fluxes from one cell into another
+%             fluxes = -k_eff.* ground.TEMP.d_head .* 0.5.* (ground.STATVAR.area(1:end-1,1) + ground.STATVAR.area(2:end,1));
+%             %fluxes to the surface --> has to be positive as water can be pressed out of soil but no water available to be drawn into the soil
+%             %flux_out_surface_soilMechanics = max(0,double(ground.STATVAR.saturation(1,1) >= 1-1e-6) .* ((ground.STATVAR.hydraulicConductivity(1,1) ./ (ground.STATVAR.layerThick(1,1)./2)) .* (ground.STATVAR.overburden_pressure(1,1) - ground.STATVAR.bearing_capacity(1,1) - 0) .* ground.STATVAR.area(1,1)));
+%            
+%             ground.TEMP.fluxes = fluxes;
+%          
+%             for i = 2 : size(ground.STATVAR.porosity,1)
+%                 if ground.STATVAR.porosity(i,1) > 0.49
+%                     xxxx = 0;
+%                 end
+%             end
+%             for i = 7
+%                 if ground.STATVAR.porosity(i,1) < 0.4
+%                     xxxx = 0;
+%                 end
+%             end
+%             
+%             %same as for bucketW
+%             d_water_out = ground.STATVAR.hydraulicConductivity .* 0;
+%             d_water_out(1:end-1,1) = -fluxes .* double(fluxes <0);
+%             d_water_out(2:end,1) = d_water_out(2:end,1)  + fluxes .* double(fluxes >0);
+%             
+%             %d_water_out(1,1) = d_water_out(1,1) + flux_out_surface_soilMechanics;
+%             Xwater_out = 0;
+%             if ground.STATVAR.Xwater(1,1) / ground.STATVAR.waterIce(1,1) > 0.05
+%                 Xwater_out = ground.STATVAR.Xwater(1,1) - 0.05 * ground.STATVAR.waterIce(1,1);
+%             end
+%             d_water_out(1,1) = d_water_out(1,1) + Xwater_out;
+%             
+%             d_water_in_from_above = ground.STATVAR.hydraulicConductivity .* 0;
+%             d_water_in_from_above(2:end,1) = -fluxes .* double(fluxes<0);
+%             d_water_in_from_below = ground.STATVAR.hydraulicConductivity .* 0;
+%             d_water_in_from_below(1:end-1,1) = fluxes .* double(fluxes>0);
+% 
+%             %energy advection
+%             d_water_out_energy = d_water_out .* (double(ground.STATVAR.T>=0) .* ground.CONST.c_w + double(ground.STATVAR.T<0) .* ground.CONST.c_i) .* ground.STATVAR.T;
+%             d_water_in_energy = d_water_out_energy.*0;
+%             d_water_in_energy(2:end,1) = d_water_in_energy(2:end,1) + d_water_in_from_above(2:end,1) .* ...
+%                 (double(ground.STATVAR.T(1:end-1,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(1:end-1,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(1:end-1,1);
+%             d_water_in_energy(1:end-1,1) = d_water_in_energy(1:end-1,1) + d_water_in_from_below(1:end-1,1) .* ...
+%                 (double(ground.STATVAR.T(2:end,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(2:end,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(2:end,1);
+%  
+%             %sum up
+%             ground.TEMP.d_water = ground.TEMP.d_water + ground.TEMP.d_water_ET - d_water_out + d_water_in_from_above + d_water_in_from_below;
+%             ground.TEMP.d_water_energy = ground.TEMP.d_water_energy + ground.TEMP.d_water_ET_energy - d_water_out_energy + d_water_in_energy;
+%             
+%             ground.TEMP.d_water_in_from_above = d_water_in_from_above; % at this stage nice-to-have variables, good for troubleshooting
+%             ground.TEMP.d_water_in_from_below = d_water_in_from_below;
+%             ground.TEMP.d_water_out = d_water_out;
+%             
+%             %this assumes that air can always be sucked in from "the side"
+%             %if the cell above or below is not suaturated.
+%             air_available_above = ground.STATVAR.saturation(1:end-1,1) < 1-1e-6;
+%             air_available_above = [1; air_available_above]; %add condition if air can be drawn from above this class (e.g. in case of lake)
+%             air_available_below = ground.STATVAR.saturation(2:end,1) < 1-1e-6;
+%             air_available_below = [air_available_below; 0]; % no air reservoir below last cell
+%             ground.TEMP.no_air = ground.TEMP.d_water <0 & ~air_available_above & ~air_available_below;
+% 
+%             dBearingCapacity_dPorosity = ground.STATVAR.reference_pressure .* log(10) .* 10.^((ground.STATVAR.initial_voidRatio - ground.STATVAR.porosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.porosity) ./ ...
+%                 (ground.STATVAR.compression_index - ground.STATVAR.porosity .* ground.STATVAR.compression_index)) .* ...
+%                 ((-1-ground.STATVAR.initial_voidRatio).*(ground.STATVAR.compression_index - ground.STATVAR.porosity.*ground.STATVAR.compression_index) + ...
+%                 ground.STATVAR.compression_index.*(ground.STATVAR.initial_voidRatio - ground.STATVAR.porosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.porosity)) ./ ...
+%                 ((ground.STATVAR.compression_index - ground.STATVAR.porosity .* ground.STATVAR.compression_index).^2);
+%             dPorosity_dWater = (ground.STATVAR.mineral + ground.STATVAR.organic) ./ ((ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic)).^2;
+%             
+%             ground.TEMP.dBearingCapacity_dWater = dBearingCapacity_dPorosity .* dPorosity_dWater;
+%                
+%         end
+        
+       function ground = get_derivative_water_RichardsEq_pressure(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
+            
+            
+            
             k_eff = ground.STATVAR.hydraulicConductivity(1:end-1,1).*ground.STATVAR.hydraulicConductivity(2:end,1) ./ ...
                 (ground.STATVAR.hydraulicConductivity(1:end-1,1).*ground.STATVAR.layerThick(2:end,1)./2 + ground.STATVAR.hydraulicConductivity(2:end,1).*ground.STATVAR.layerThick(1:end-1,1)./2);
-
-            ground.TEMP.d_head_waterPotential = ground.STATVAR.waterPotential(1:end-1,1) - ground.STATVAR.waterPotential(2:end,1);
-            ground.TEMP.d_head_gravitationalPotential = ground.STATVAR.gravitationalPotential(1:end-1,1) - ground.STATVAR.gravitationalPotential(2:end,1);
-            %ground.TEMP.d_head_gravity = (double(ground.STATVAR.saturation(1:end-1,1) <= 1-1e-6) .* ground.STATVAR.layerThick(1:end-1,1) + double(ground.STATVAR.saturation(2:end,1) <= 1-1e-6) .* ground.STATVAR.layerThick(2:end,1))./2;
-            %ground.TEMP.d_head_hydrostatic_pressure = double(ground.STATVAR.saturation(1:end-1,1) >= 1-1e-6 & ground.STATVAR.saturation(2:end,1) >= 1-1e-6) .* ((ground.STATVAR.hydrostatic_pressure(1:end-1,1) - ground.STATVAR.hydrostatic_pressure(2:end,1))./ground.CONST.density_water./ground.CONST.g);
-            %ground.TEMP.d_head_soilMechanics = (double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* ((ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1)) ...
-            %    - ( ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;           
-            %ground.TEMP.d_head_soilMechanics = (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* ((ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1)) ...
-            %    - ( ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;           
-            %%%ground.TEMP.d_head_soilMechanics = ((double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1))) ...
-            %%%    - (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;
+            %k_eff for surfaceWater
+            k_eff = [ground.STATVAR.hydraulicConductivity(1,1)/(ground.STATVAR.layerThick(1,1)/2);k_eff];
             
+            ground.TEMP.d_head_waterPotential = ground.STATVAR.waterPotential(1:end-1,1) - ground.STATVAR.waterPotential(2:end,1);
+            ground.TEMP.d_head_gravitationalPotential = ground.STATVAR.gravitationalPotential(1:end-1,1) - ground.STATVAR.gravitationalPotential(2:end,1);           
             ground.TEMP.d_head_soilMechanics = ((double(ground.STATVAR.saturation(1:end-1,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(1:end-1,1) - ground.STATVAR.bearing_capacity(1:end-1,1))) ...
-                - (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .*(ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.density_water./ground.CONST.g;
+                - (double(ground.STATVAR.saturation(2:end,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(2:end,1) - ground.STATVAR.bearing_capacity(2:end,1)))) ./ ground.CONST.rho_w ./ ground.CONST.g;
+            %d_head for surface water
+            ground.TEMP.d_head_waterPotential = [0 - ground.STATVAR.waterPotential(1,1); ground.TEMP.d_head_waterPotential];
+            ground.TEMP.d_head_gravitationalPotential = [ground.TEMP.d_head_gravitationalPotential];
+            ground.TEMP.d_head_soilMechanics = [(0 - (double(ground.STATVAR.saturation(1,1) > 1-1e-6) .* (ground.STATVAR.overburden_pressure(1,1) - ground.STATVAR.bearing_capacity(1,1)))) ./ ground.CONST.rho_w ./ ground.CONST.g; ground.TEMP.d_head_soilMechanics];
             
             ground.TEMP.d_head = ground.TEMP.d_head_waterPotential + ground.TEMP.d_head_gravitationalPotential + ground.TEMP.d_head_soilMechanics;
             
-            if ground.TEMP.d_head(5,1) < 0.01
-                xxx = 0;
+            %fluxes from one cell into another
+            area = [ground.STATVAR.SurfaceArea; ground.STATVAR.area];
+            fluxes = -k_eff.* ground.TEMP.d_head .* 0.5.* (area(1:end-1,1) + area(2:end,1)); 
+            
+            %set flux from surface gridcell to zero in case there is no surfaceWater --> would not be necessary but avoids very small timesteps
+            if ground.STATVAR.SurfaceWater == 0
+                fluxes(1,1) = max(0,fluxes(1,1)); %water from first soil grid cell can still go into surface grid cell
+            end
+            %set flux from surface gridcell to zero in case first grid cell is saturated
+            if ground.STATVAR.SurfaceWater == 0
+                fluxes(1,1) = max(0,fluxes(1,1)); %water from first soil grid cell can still go into surface grid cell
             end
             
-            %fluxes from one cell into another
-            fluxes = -k_eff.* ground.TEMP.d_head .* 0.5.* (ground.STATVAR.area(1:end-1,1) + ground.STATVAR.area(2:end,1));
-            %fluxes to the surface --> has to be positive as water can be pressed out of soil but no water available to be drawn into the soil
-            %flux_out_surface_soilMechanics = max(0,double(ground.STATVAR.saturation(1,1) >= 1-1e-6) .* ((ground.STATVAR.hydraulicConductivity(1,1) ./ (ground.STATVAR.layerThick(1,1)./2)) .* (ground.STATVAR.overburden_pressure(1,1) - ground.STATVAR.bearing_capacity(1,1) - 0) .* ground.STATVAR.area(1,1)));
-           
             ground.TEMP.fluxes = fluxes;
-         
-            for i = 2 : size(ground.STATVAR.porosity,1)
-                if ground.STATVAR.porosity(i,1) > 0.49
-                    xxxx = 0;
-                end
-            end
-            for i = 7
-                if ground.STATVAR.porosity(i,1) < 0.4
-                    xxxx = 0;
-                end
-            end
             
             %same as for bucketW
-            d_water_out = ground.STATVAR.hydraulicConductivity .* 0;
+            d_water_out = [0; ground.STATVAR.hydraulicConductivity .* 0];
             d_water_out(1:end-1,1) = -fluxes .* double(fluxes <0);
             d_water_out(2:end,1) = d_water_out(2:end,1)  + fluxes .* double(fluxes >0);
             
-            %d_water_out(1,1) = d_water_out(1,1) + flux_out_surface_soilMechanics;
-            Xwater_out = 0;
-            if ground.STATVAR.Xwater(1,1) / ground.STATVAR.waterIce(1,1) > 0.05
-                Xwater_out = ground.STATVAR.Xwater(1,1) - 0.05 * ground.STATVAR.waterIce(1,1);
-            end
-            d_water_out(1,1) = d_water_out(1,1) + Xwater_out;
-            
-            d_water_in_from_above = ground.STATVAR.hydraulicConductivity .* 0;
+            d_water_in_from_above = [0; ground.STATVAR.hydraulicConductivity .* 0];
             d_water_in_from_above(2:end,1) = -fluxes .* double(fluxes<0);
-            d_water_in_from_below = ground.STATVAR.hydraulicConductivity .* 0;
+            d_water_in_from_below = [0; ground.STATVAR.hydraulicConductivity .* 0];
             d_water_in_from_below(1:end-1,1) = fluxes .* double(fluxes>0);
 
             %energy advection
-            d_water_out_energy = d_water_out .* (double(ground.STATVAR.T>=0) .* ground.CONST.c_w + double(ground.STATVAR.T<0) .* ground.CONST.c_i) .* ground.STATVAR.T;
+%             d_water_out_energy = d_water_out .* (double(ground.STATVAR.T>=0) .* ground.CONST.c_w + double(ground.STATVAR.T<0) .* ground.CONST.c_i) .* ground.STATVAR.T;
+%             d_water_in_energy = d_water_out_energy.*0;
+%             d_water_in_energy(2:end,1) = d_water_in_energy(2:end,1) + d_water_in_from_above(2:end,1) .* ...
+%                 (double(ground.STATVAR.T(1:end-1,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(1:end-1,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(1:end-1,1);
+%             d_water_in_energy(1:end-1,1) = d_water_in_energy(1:end-1,1) + d_water_in_from_below(1:end-1,1) .* ...
+%                 (double(ground.STATVAR.T(2:end,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(2:end,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(2:end,1);
+            d_water_out_energy = d_water_out(2:end,1) .* (double(ground.STATVAR.T>=0) .* ground.CONST.c_w + double(ground.STATVAR.T<0) .* ground.CONST.c_i) .* ground.STATVAR.T;
             d_water_in_energy = d_water_out_energy.*0;
-            d_water_in_energy(2:end,1) = d_water_in_energy(2:end,1) + d_water_in_from_above(2:end,1) .* ...
+            d_water_in_energy(2:end,1) = d_water_in_energy(2:end,1) + d_water_in_from_above(3:end,1) .* ...
                 (double(ground.STATVAR.T(1:end-1,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(1:end-1,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(1:end-1,1);
-            d_water_in_energy(1:end-1,1) = d_water_in_energy(1:end-1,1) + d_water_in_from_below(1:end-1,1) .* ...
+            d_water_in_energy(1:end-1,1) = d_water_in_energy(1:end-1,1) + d_water_in_from_below(2:end-1,1) .* ...
                 (double(ground.STATVAR.T(2:end,1)>=0) .* ground.CONST.c_w + double(ground.STATVAR.T(2:end,1)<0) .* ground.CONST.c_i) .* ground.STATVAR.T(2:end,1);
- 
+  
             %sum up
-            ground.TEMP.d_water = ground.TEMP.d_water + ground.TEMP.d_water_ET - d_water_out + d_water_in_from_above + d_water_in_from_below;
+            ground.TEMP.d_rain_evap = ground.TEMP.d_water(2,1) + ground.TEMP.d_water_ET(1,1);
+            ground.TEMP.d_water = ground.TEMP.d_water + [0;ground.TEMP.d_water_ET] - d_water_out + d_water_in_from_above + d_water_in_from_below;
             ground.TEMP.d_water_energy = ground.TEMP.d_water_energy + ground.TEMP.d_water_ET_energy - d_water_out_energy + d_water_in_energy;
             
             ground.TEMP.d_water_in_from_above = d_water_in_from_above; % at this stage nice-to-have variables, good for troubleshooting
@@ -611,23 +739,25 @@ classdef WATER_FLUXES < BASE
             
             %this assumes that air can always be sucked in from "the side"
             %if the cell above or below is not suaturated.
-            air_available_above = ground.STATVAR.saturation(1:end-1,1) < 1-1e-6;
+            saturation = [double(ground.STATVAR.SurfaceWaterIce > 0); ground.STATVAR.saturation];
+            air_available_above = saturation(1:end-1,1) < 1-1e-6;
             air_available_above = [1; air_available_above]; %add condition if air can be drawn from above this class (e.g. in case of lake)
-            air_available_below = ground.STATVAR.saturation(2:end,1) < 1-1e-6;
+            air_available_below = saturation(2:end,1) < 1-1e-6;
             air_available_below = [air_available_below; 0]; % no air reservoir below last cell
             ground.TEMP.no_air = ground.TEMP.d_water <0 & ~air_available_above & ~air_available_below;
 
-            dBearingCapacity_dPorosity = ground.STATVAR.reference_pressure .* log(10) .* 10.^((ground.STATVAR.initial_voidRatio - ground.STATVAR.porosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.porosity) ./ ...
-                (ground.STATVAR.compression_index - ground.STATVAR.porosity .* ground.STATVAR.compression_index)) .* ...
-                ((-1-ground.STATVAR.initial_voidRatio).*(ground.STATVAR.compression_index - ground.STATVAR.porosity.*ground.STATVAR.compression_index) + ...
-                ground.STATVAR.compression_index.*(ground.STATVAR.initial_voidRatio - ground.STATVAR.porosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.porosity)) ./ ...
-                ((ground.STATVAR.compression_index - ground.STATVAR.porosity .* ground.STATVAR.compression_index).^2);
+            dBearingCapacity_dPorosity = ground.STATVAR.reference_pressure .* log(10) .* 10.^((ground.STATVAR.initial_voidRatio - ground.STATVAR.Xporosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.Xporosity) ./ ...
+                (ground.STATVAR.compression_index - ground.STATVAR.Xporosity .* ground.STATVAR.compression_index)) .* ...
+                ((-1-ground.STATVAR.initial_voidRatio).*(ground.STATVAR.compression_index - ground.STATVAR.Xporosity.*ground.STATVAR.compression_index) + ...
+                ground.STATVAR.compression_index.*(ground.STATVAR.initial_voidRatio - ground.STATVAR.Xporosity - ground.STATVAR.initial_voidRatio .* ground.STATVAR.Xporosity)) ./ ...
+                ((ground.STATVAR.compression_index - ground.STATVAR.Xporosity .* ground.STATVAR.compression_index).^2);
             dPorosity_dWater = (ground.STATVAR.mineral + ground.STATVAR.organic) ./ ((ground.STATVAR.waterIce + ground.STATVAR.mineral + ground.STATVAR.organic)).^2;
             
             ground.TEMP.dBearingCapacity_dWater = dBearingCapacity_dPorosity .* dPorosity_dWater;
                
         end
-        
+ 
+
         %Richards equation excess ice, also handles fluxes of excess water
         %including formation of segregation ice - DISCONTINUED
         function ground = get_derivative_water_RichardsEq_Xice(ground) %adapts the fluxes automatically so that no checks are necessary when advancing the prognostic variable
@@ -850,15 +980,68 @@ classdef WATER_FLUXES < BASE
       
         end
         
+% %         function ground = gravitational_potential(ground) %calculates gravitational potential
+%             
+%             %Find all saturated cells
+%             saturated = ground.STATVAR.saturation > 1-1e-6;
+%             id_unsaturated = find(saturated == 0);
+%             
+%             %Calculate gravitational potential, assuming that all gridcells are unsaturated
+%             for i = size(saturated,1) : -1 : 1
+%                 gravitationalPotential_unsaturated(i,1) = sum(ground.STATVAR.layerThick(i:size(saturated,1),1));
+%             end
+%             
+%             %Calculate gravitational potential
+%             gravitationalPotential = [];
+%             for i = 1 : size(saturated,1)
+%                 if saturated(i,1) == 0
+%                     gravitationalPotential(i,1) = gravitationalPotential_unsaturated(i,1);
+%                     if i ~= size(saturated,1) && saturated(i+1,1) == 1 && ground.STATVAR.T(i+1,1) > 0 %&& abs(ground.STATVAR.waterPotential(i,1)-ground.STATVAR.waterPotential(i+1,1)) < gravitationalPotential_unsaturated(i,1)-gravitationalPotential_unsaturated(i+1,1)
+%                         %If gridcell below is saturated and unfrozen
+%                         %--> Water would be pressed into saturated zone --> should not be the case
+%                         %--> Add waterPotential to gravitationalPotential so that flux into saturated zone is prevented(d_head = 0)
+%                         gravitationalPotential(i+1,1) = gravitationalPotential_unsaturated(i,1) + ground.STATVAR.waterPotential(i,1);
+%                         %Should not be the case if the saturated cell below is just a waterfront after precipitation that moves down
+%                         %--> Water accumulates in saturated cell and porosity becomes unnaturally large
+%                         %--> Check if there is an unsaturated cell below
+%                         for j = 1 : size(id_unsaturated)
+%                             if id_unsaturated(j,1) > i
+%                                 gravitationalPotential(i+1,1) = gravitationalPotential_unsaturated(i+1,1);
+%                                 break
+%                             end
+%                         end    
+%                     end
+%                 elseif saturated(i,1) == 1
+%                     if size(gravitationalPotential,1) == i
+%                         gravitationalPotential(i+1,1) = gravitationalPotential(i,1);
+%                     else
+%                         gravitationalPotential(i,1) = gravitationalPotential_unsaturated(i,1);
+%                         gravitationalPotential(i+1,1) = gravitationalPotential(i,1);
+%                     end
+%                 end
+%             end
+%             if size(gravitationalPotential,1) > size(saturated,1)
+%                 gravitationalPotential(end) = [];
+%             end
+%             
+%             ground.STATVAR.gravitationalPotential = gravitationalPotential;
+%   
+%         end
+
         function ground = gravitational_potential(ground) %calculates gravitational potential
             
+            %Set up variables with surface water layer
+            saturation = [double(ground.STATVAR.SurfaceWaterIce > 0); ground.STATVAR.saturation];
+            layerThick = [ground.STATVAR.SurfaceLayerThick; ground.STATVAR.layerThick];
+            T = [ground.STATVAR.T(1,1); ground.STATVAR.T];
+            
             %Find all saturated cells
-            saturated = ground.STATVAR.saturation > 1-1e-6;
+            saturated = saturation > 1-1e-6;
             id_unsaturated = find(saturated == 0);
             
             %Calculate gravitational potential, assuming that all gridcells are unsaturated
             for i = size(saturated,1) : -1 : 1
-                gravitationalPotential_unsaturated(i,1) = sum(ground.STATVAR.layerThick(i:size(saturated,1),1));
+                gravitationalPotential_unsaturated(i,1) = sum(layerThick(i:size(saturated,1),1));
             end
             
             %Calculate gravitational potential
@@ -866,7 +1049,7 @@ classdef WATER_FLUXES < BASE
             for i = 1 : size(saturated,1)
                 if saturated(i,1) == 0
                     gravitationalPotential(i,1) = gravitationalPotential_unsaturated(i,1);
-                    if i ~= size(saturated,1) && saturated(i+1,1) == 1 && ground.STATVAR.T(i+1,1) > 0 %&& abs(ground.STATVAR.waterPotential(i,1)-ground.STATVAR.waterPotential(i+1,1)) < gravitationalPotential_unsaturated(i,1)-gravitationalPotential_unsaturated(i+1,1)
+                    if i ~= size(saturated,1) && saturated(i+1,1) == 1 && T(i+1,1) > 0 %&& abs(ground.STATVAR.waterPotential(i,1)-ground.STATVAR.waterPotential(i+1,1)) < gravitationalPotential_unsaturated(i,1)-gravitationalPotential_unsaturated(i+1,1)
                         %If gridcell below is saturated and unfrozen
                         %--> Water would be pressed into saturated zone --> should not be the case
                         %--> Add waterPotential to gravitationalPotential so that flux into saturated zone is prevented(d_head = 0)
@@ -897,7 +1080,7 @@ classdef WATER_FLUXES < BASE
             ground.STATVAR.gravitationalPotential = gravitationalPotential;
   
         end
-        
+  
         
         function rf = reduction_factor_out(saturation, ground)  %part of get_derivative_water2(ground)
             %smoothness = 3e-2;
@@ -987,27 +1170,78 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
              timestep = min(timestep, timestep2);
         end
         
+% %         function timestep = get_timestep_water_RichardsEq_pressure(ground)
+%             %no negative values
+%             range1 = find(ground.TEMP.d_water > 0 & ground.STATVAR.saturation <= 1-1e-6);
+%             range2 = find(ground.TEMP.d_water > 0 & ground.STATVAR.saturation > 1-1e-6);
+%             range3 = find(ground.TEMP.d_water < 0 & (ground.STATVAR.saturation <= 1-1e-6 | (ground.STATVAR.saturation > 1-1e-6 & ~ground.TEMP.no_air)));
+%             range4 = find(ground.TEMP.d_water < 0 & ground.STATVAR.saturation > 1-1e-6 & ground.TEMP.no_air); %no air available, cell contracts
+%             range6 = find(ground.STATVAR.saturation > 1-1e-6);
+%             
+%             timestep = zeros(6,1).*NaN;
+%             if ~isempty(range1)
+%                 timestep(1) = min((ground.STATVAR.layerThick(range1) .* ground.STATVAR.area(range1) - ground.STATVAR.mineral(range1) - ground.STATVAR.organic(range1) - ground.STATVAR.waterIce(range1) ) ./ ground.TEMP.d_water(range1));
+%             end
+%             if ~isempty(range3)
+%                 timestep(3) = min(ground.STATVAR.water(range3)./4 ./ -ground.TEMP.d_water(range3));
+%             end
+%             timestep(5) = nanmin(ground.PARA.dWater_max .* ground.STATVAR.layerThick .* ground.STATVAR.area ./ abs(ground.TEMP.d_water));
+% 
+%             timestep(timestep<=0) = ground.PARA.dt_max;
+%             timestep=nanmin(timestep);          
+%         end
+        
         function timestep = get_timestep_water_RichardsEq_pressure(ground)
             %no negative values
-            range1 = find(ground.TEMP.d_water > 0 & ground.STATVAR.saturation <= 1-1e-6);
-            range2 = find(ground.TEMP.d_water > 0 & ground.STATVAR.saturation > 1-1e-6);
-            range3 = find(ground.TEMP.d_water < 0 & (ground.STATVAR.saturation <= 1-1e-6 | (ground.STATVAR.saturation > 1-1e-6 & ~ground.TEMP.no_air)));
-            range4 = find(ground.TEMP.d_water < 0 & ground.STATVAR.saturation > 1-1e-6 & ground.TEMP.no_air); %no air available, cell contracts
-            range6 = find(ground.STATVAR.saturation > 1-1e-6);
-            
-            timestep = zeros(6,1).*NaN;
-            if ~isempty(range1)
-                timestep(1) = min((ground.STATVAR.layerThick(range1) .* ground.STATVAR.area(range1) - ground.STATVAR.mineral(range1) - ground.STATVAR.organic(range1) - ground.STATVAR.waterIce(range1) ) ./ ground.TEMP.d_water(range1));
+                range1 = find(ground.TEMP.d_water(2:end,1) > 0 & ground.STATVAR.saturation <= 1-1e-6);
+                range2 = find(ground.TEMP.d_water(2:end,1) > 0 & ground.STATVAR.saturation > 1-1e-6 & ground.STATVAR.Xvoid_ratio < ground.STATVAR.initial_voidRatio);
+                range3 = find(ground.TEMP.d_water(2:end,1) < 0 & (ground.STATVAR.saturation <= 1-1e-6 | (ground.STATVAR.saturation > 1-1e-6 & ~ground.TEMP.no_air(2:end,1))));
+                range4 = find(ground.TEMP.d_water(2:end,1) < 0 & ground.STATVAR.saturation > 1-1e-6 & ground.TEMP.no_air(2:end,1)); %no air available, cell contracts
+                range6 = find(ground.STATVAR.saturation > 1-1e-6);
+                
+                timestep = zeros(6,1).*NaN;
+                if ~isempty(range1)
+                    timestep(1) = min((ground.STATVAR.layerThick(range1) .* ground.STATVAR.area(range1) - ground.STATVAR.mineral(range1) - ground.STATVAR.organic(range1) - ground.STATVAR.waterIce(range1) ) ./ ground.TEMP.d_water(range1+1)); % +1 because d_water includes surface gridcell
+                end
+%                 if ~isempty(range2)
+%                    porosity_loaded = (ground.STATVAR.initial_voidRatio(range2) - ground.STATVAR.compression_index(range2) .* log10(ground.STATVAR.overburden_pressure(range2)./ground.STATVAR.reference_pressure(range2))) ./ ...
+%                         (1 + ground.STATVAR.initial_voidRatio(range2) - ground.STATVAR.compression_index(range2) .* log10(ground.STATVAR.overburden_pressure(range2)./ground.STATVAR.reference_pressure(range2))); 
+%                    porosity_unloaded = (ground.STATVAR.initial_voidRatio(range2)) ./ ...
+%                         (1 + ground.STATVAR.initial_voidRatio(range2) ); 
+%                    max_waterChange = ((porosity_unloaded - porosity_loaded) .* ground.STATVAR.area(range2) .* ground.STATVAR.layerThick(range2))/10;
+%                    timestep(2) = min(max_waterChange ./ ground.TEMP.d_water(range2+1)); % +1 because d_water includes surface gridcell
+%                 end   
+                 if ~isempty(range2)
+                      timestep(2) = min((ground.STATVAR.overburden_pressure(range2) - ground.STATVAR.reference_pressure(range2)) ./ 10 ./ ground.TEMP.dBearingCapacity_dWater(range2) ./ ground.TEMP.d_water(range2));
+                 end
+                
+                
+                if ~isempty(range3)
+                    timestep(3) = min(ground.STATVAR.water(range3)./4 ./ -ground.TEMP.d_water(range3+1)); % +1 because d_water includes surface gridcell
+                end
+                timestep(5) = nanmin(rand(1).* ground.PARA.dWater_max .* ground.STATVAR.layerThick .* ground.STATVAR.area ./ abs(ground.TEMP.d_water(2:end,1)));
+                
+                timestep(timestep<=0) = ground.PARA.dt_max;
+                timestep=nanmin(timestep);
+                
+            if ground.STATVAR.SurfaceWaterIce > 0
+                saturation = [double(ground.STATVAR.SurfaceWaterIce > 0); ground.STATVAR.saturation];
+                range2_surface = find(ground.TEMP.d_water(1,1) > 0 & saturation(1,1) > 1-1e-6);
+                range3_surface = find(ground.TEMP.d_water(1,1) < 0 & (saturation(1,1) > 1-1e-6 & ~ground.TEMP.no_air(1,1)));
+                range6 = find(saturation(1,1) > 1-1e-6);
+                                
+                timestep_surface = zeros(6,1).*NaN;
+                if ~isempty(range3_surface)
+                    timestep_surface(3) = nanmin(rand(1) .* ground.STATVAR.water(range3_surface)./4 ./ -ground.TEMP.d_water(range3_surface));
+                end
+                
+                timestep_surface(timestep_surface<=0) = ground.PARA.dt_max;
+                timestep_surface=nanmin(timestep_surface);
+                timestep = nanmin(timestep,timestep_surface);
             end
-            if ~isempty(range3)
-                timestep(3) = min(ground.STATVAR.water(range3)./4 ./ -ground.TEMP.d_water(range3));
-            end
-            timestep(5) = nanmin(ground.PARA.dWater_max .* ground.STATVAR.layerThick .* ground.STATVAR.area ./ abs(ground.TEMP.d_water));
-
-            timestep(timestep<=0) = ground.PARA.dt_max;
-            timestep=nanmin(timestep);          
         end
-        
+    
+
         %Discontiued
         function timestep = get_timestep_water_RichardsEq_Xice(ground)
              %no negative values and no overtopping
@@ -1058,8 +1292,10 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
 %                 double(ground.TEMP.d_water > 0) .* (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic - ground.STATVAR.waterIce ) ./ ground.TEMP.d_water) + ...
 %                 double(ground.TEMP.d_water <0 & ground.STATVAR.water <= ground.PARA.field_capacity .* remaining_pore_space ) .*ground.STATVAR.water ./ -ground.TEMP.d_water ./10; %[m3 / (m3/sec) = sec]
 %             
-            timestep = double(ground.TEMP.d_water <0) .* ground.STATVAR.water ./ -ground.TEMP.d_water ./10 + ...
-                double(ground.TEMP.d_water > 0) .* double(1-(ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.waterIce)./(ground.STATVAR.layerThick .* ground.STATVAR.area)>1e-11) .* ...
+            %Changed SW 01/25, timestep getting too small if only 1st term is there
+            % timestep = double(ground.TEMP.d_water <0) .* max(ground.STATVAR.water./ -ground.TEMP.d_water./10, min(0.5, ground.STATVAR.water./ -ground.TEMP.d_water)) + ...
+            timestep = double(ground.TEMP.d_water <0) .* ground.STATVAR.water./ -ground.TEMP.d_water./10 + ...
+               double(ground.TEMP.d_water > 0) .* double(1-(ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.waterIce)./(ground.STATVAR.layerThick .* ground.STATVAR.area)>1e-11) .* ...
                 (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic - ground.STATVAR.waterIce ) ./ ground.TEMP.d_water;
 
             timestep(timestep<=0) = ground.PARA.dt_max;
@@ -1075,7 +1311,7 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
             saturation = max(0,min(1,saturation));
             ice_saturation = ground.STATVAR.ice ./ (ground.STATVAR.layerThick.*ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic);
             ice_saturation = max(0,min(1,ice_saturation));
-            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico     
+            ground.STATVAR.hydraulicConductivity = ground.STATVAR.satHydraulicConductivity .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico     
         end
         
         %bucketW
@@ -1133,10 +1369,30 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
 
         end
         
-        %SNOW classes
+        
+        function ground = hydraulic_conductivity_GLACIER_GROUND(ground)
+            
+            ground.STATVAR.hydraulicConductivity = ground.STATVAR.layerThick .* 0;
+            glacier = ground.STATVAR.layerThick_glacier > 0;
+            pore_space = 1 - (ground.STATVAR.ice(glacier) + ground.STATVAR.mineral(glacier) + ground.STATVAR.organic(glacier)) ./ ground.STATVAR.layerThick(glacier) ./ ground.STATVAR.area(glacier);
+            pore_space = pore_space .* double(pore_space > 0.05);
+%             ground.STATVAR.hydraulicConductivity(glacier) = ground.PARA.hydraulicConductivity_glacier .* (0.95 - min(0.95,ground.STATVAR.ice_fraction(glacier)))./0.95;
+            ground.STATVAR.hydraulicConductivity(glacier) = ground.PARA.hydraulicConductivity_glacier .* pore_space;
+            
+            saturation = ground.STATVAR.water(~glacier) ./ (ground.STATVAR.layerThick(~glacier).*ground.STATVAR.area(~glacier) - ground.STATVAR.mineral(~glacier) - ground.STATVAR.organic(~glacier));
+            saturation = max(0,min(1,saturation));
+            ice_saturation = ground.STATVAR.ice(~glacier) ./ (ground.STATVAR.layerThick(~glacier).*ground.STATVAR.area(~glacier) - ground.STATVAR.mineral(~glacier) - ground.STATVAR.organic(~glacier));
+            ice_saturation = max(0,min(1,ice_saturation));
+            ground.STATVAR.hydraulicConductivity(~glacier) = ground.STATVAR.satHydraulicConductivity_sediment(~glacier) .* saturation .* 10.^(-7.*ice_saturation); %final term from dall amico
+            
+         end
+        
+         %SNOW classes
         function ground = calculate_hydraulicConductivity_SNOW(ground)
-            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* ground.STATVAR.water./ground.STATVAR.layerThick./ground.STATVAR.area;   
+            ground.STATVAR.hydraulicConductivity = ground.PARA.hydraulicConductivity .* max(0.1, ground.STATVAR.water./ground.STATVAR.layerThick./ground.STATVAR.area);   
         end
+        
+        
         
         %viscosity
         function ground = calculate_viscosity_water(ground)
@@ -1174,6 +1430,29 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
             ground.STATVAR.hydraulicConductivity = ground.STATVAR.satHydraulicConductivity .* saturation.^0.5 .* (1 - (1 - saturation.^(n./(n+1))).^(1-1./n)).^2 .* 10.^(-7.*ice_saturation); %dall amico
         end
         
+        %--------------VEGETATION------------------
+        function ground = get_boundary_condition_water_SNOW_canopy_m(ground, tile) % as function above, but for snow below canopy
+            forcing = tile.FORCING;
+            rainfall = ground.PARENT.PREVIOUS.TEMP.rain_thru .* ground.STATVAR.area(1);  
+            
+            %partition already here in infiltration and surface runoff,
+            %considering ET losses and potentially external fluxes
+            remaining_pore_space = ground.STATVAR.layerThick(1).* ground.STATVAR.area(1) - ground.STATVAR.mineral(1) - ground.STATVAR.organic(1) - ground.STATVAR.ice(1);
+            saturation_first_cell = (ground.STATVAR.waterIce(1) - ground.PARA.field_capacity .* remaining_pore_space) ./ ...
+                (ground.STATVAR.layerThick(1).*ground.STATVAR.area(1) - remaining_pore_space); 
+            saturation_first_cell = max(0,min(1,saturation_first_cell)); % 0 water at field capacity, 1: water at saturation
+            %NEW SW
+            saturation_first_cell(saturation_first_cell >= (1 - 1e-9)) = 1;
+            
+            ground.TEMP.F_ub_water = rainfall .* reduction_factor_in(saturation_first_cell, ground);
+            ground.TEMP.surface_runoff = rainfall - ground.TEMP.F_ub_water;  %route this to surface pool
+            
+            ground.TEMP.T_rainWater =  max(0,forcing.TEMP.Tair);
+            ground.TEMP.F_ub_water_energy = ground.TEMP.F_ub_water .* ground.CONST.c_w .* ground.TEMP.T_rainWater;
+            
+            ground.TEMP.d_water(1) = ground.TEMP.d_water(1) + ground.TEMP.F_ub_water;
+            ground.TEMP.d_water_energy(1) = ground.TEMP.d_water_energy(1) + ground.TEMP.F_ub_water_energy;
+        end
     end
 end
 

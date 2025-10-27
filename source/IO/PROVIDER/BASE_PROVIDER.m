@@ -24,6 +24,7 @@ classdef BASE_PROVIDER
             class_names = fieldnames(provider.CLASSES);
             for i=1:size(class_names,1)
                 for j=1:size(provider.CLASSES.(class_names{i,1}),1)
+                    % disp([class_names{i,1} ' ' num2str(j)])
                     check_if_PARA_assigned(provider.CLASSES.(class_names{i,1}){j,1});
                     check_if_CONST_assigned(provider.CLASSES.(class_names{i,1}){j,1});
                 end

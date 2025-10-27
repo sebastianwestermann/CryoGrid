@@ -84,16 +84,14 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
 
 
         function ground = finalize_init(ground, tile)
-
-            %ground.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
-            %ground.PARA.airT_height = tile.FORCING.PARA.airT_height;
-            %ground.STATVAR.area = tile.PARA.area + ground.STATVAR.T .* 0;
             
             if isempty(ground.PARA.conductivity_function) || sum(isnan(ground.PARA.conductivity_function))>0
                 ground.PARA.conductivity_function = 'conductivity_mixing_squares';
             end
             
-            ground = get_E_water_salt_FreezeDepress_Xice(ground); %calculate energy, water and ice contents and brine salt concentration
+            %ground = get_E_water_salt_FreezeDepress_Xice(ground); %calculate energy, water and ice contents and brine salt concentration
+            ground = get_E_water_salt_freeW(ground); %calculate energy, water and ice contents and brine salt concentration
+
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
             
@@ -107,7 +105,7 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
         
         function ground = finalize_init2(ground, tile)
 
-            ground = get_E_water_salt_FreezeDepress_Xice(ground); %calculate energy, water and ice contents and brine salt concentration
+            ground = get_E_water_salt_freeW(ground); %calculate energy, water and ice contents and brine salt concentration
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
 
@@ -161,7 +159,7 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
         
         function ground = compute_diagnostic(ground, tile)
             forcing = tile.FORCING;
-            ground = get_T_water_salt_fcSimple_Xice(ground); % calculate temperature, water and ice contents and brine salt concentration 
+            ground = get_T_water_salt_freeW(ground); % calculate temperature, water and ice contents and brine salt concentration 
             ground = conductivity(ground); %calculate thermal conductivity
             ground = diffusivity_salt(ground); % calculate salt diffusivity 
             
@@ -190,7 +188,6 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
         function ground = conductivity(ground)
             conductivity_function = str2func(ground.PARA.conductivity_function);
             ground = conductivity_function(ground);
-            %ground = conductivity_mixing_squares(ground);
         end
 
         
@@ -236,9 +233,6 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
             ground = L_star@SEB(ground, forcing);
         end
         
-        function ground = get_E_water_salt_FreezeDepress_Xice(ground)
-            ground = get_E_water_salt_FreezeDepress_Xice@SALT(ground);
-        end
         
         function ground = diffusivity_salt(ground)
              ground = diffusivity_salt@SALT(ground);
@@ -248,6 +242,9 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
             [ground, S_up] = penetrate_SW_no_transmission@SEB(ground, S_down);
         end
         
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables ={'waterIce'; 'mineral'; 'organic'; 'T'; 'energy'; 'area'; 'layerThick';  'water'; 'ice'; 'saltConc'; 'salt_c_brine'};
+        end
         
         %-------------param file generation-----
         function ground = param_file_info(ground)

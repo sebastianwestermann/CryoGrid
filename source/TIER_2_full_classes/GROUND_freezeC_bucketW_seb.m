@@ -22,7 +22,7 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             ground.PARA.rootDepth = []; %e-folding constant of transpiration reduction with depth [1/m]
             ground.PARA.evaporationDepth = []; %e-folding constant of evaporation reduction reduction with depth [1/m]
             ground.PARA.ratioET = []; %fraction of transpiration of total evapotranspiration [-]
-            ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
+%             ground.PARA.hydraulicConductivity = [];  %saturated hydraulic conductivity [m/sec]
 
             ground.PARA.conductivity_function = [];
 
@@ -49,7 +49,8 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             ground.STATVAR.organic = [];   % total volume of organics [m3]
             ground.STATVAR.energy = [];    % total internal energy [J]
             ground.STATVAR.soil_type = []; % integer code for soil_type; 1: sand; 2: silt: 3: clay: 4: peat; 5: water (i.e. approximation of free water, very large-pore ground material).
-                        
+            ground.STATVAR.satHydraulicConductivity = [];
+            
             ground.STATVAR.T = [];  % temperature [degree C]
             ground.STATVAR.water = [];  % total volume of water [m3]
             ground.STATVAR.waterPotential = []; %soil water potential [Pa]
@@ -246,6 +247,11 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
             ground = conductivity_function(ground);
 %             ground = conductivity_mixing_squares(ground);
         end
+
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables ={'waterIce'; 'mineral'; 'organic'; 'soil_type'; 'field_capacity'; 'satHydraulicConductivity'; 'T'; 'energy'; 'area'; 'layerThick'; 'n'; 'alpha'; 'air'; 'water'; 'ice'; 'waterPotential'};
+        end
+
         
         
         %-----LATERAL-------------------
@@ -371,7 +377,7 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
              ground.PARA.class_category = 'GROUND';
              
              %ground.PARA.options = [];
-             ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'soil_type' 'field_capacity' 'T'};
+             ground.PARA.STATVAR = {'waterIce' 'mineral' 'organic' 'soil_type' 'field_capacity' 'satHydraulicConductivity' 'T'};
              
              ground.PARA.default_value.albedo = {0.2};
              ground.PARA.comment.albedo = {'surface albedo [-]'};
@@ -391,8 +397,8 @@ classdef GROUND_freezeC_bucketW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_Karra
              ground.PARA.default_value.ratioET = {0.5};
              ground.PARA.comment.ratioET = {'fraction of transpiration of total evapotranspiration [-]'};
              
-             ground.PARA.default_value.hydraulicConductivity = {1e-5};
-             ground.PARA.comment.hydraulicConductivity = {'saturated hydraulic conductivity [m/sec]'};
+%              ground.PARA.default_value.hydraulicConductivity = {1e-5};
+%              ground.PARA.comment.hydraulicConductivity = {'saturated hydraulic conductivity [m/sec]'};
              
              ground.PARA.default_value.conductivity_function = {'conductivity_mixing_squares'};
              ground.PARA.comment.conductivity_function = {'function employed to calculate thermal conductivity, leave empty for default'};

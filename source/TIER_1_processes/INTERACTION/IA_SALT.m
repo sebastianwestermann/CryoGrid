@@ -19,6 +19,40 @@ classdef IA_SALT < IA_BASE
             ia_heat_water.PREVIOUS.TEMP.d_salt(end) = ia_heat_water.PREVIOUS.TEMP.d_salt(end) + 0;
         end
   
+        function get_boundary_condition_SALT_m(ia_heat_water)
+            stratigraphy1 = ia_heat_water.PREVIOUS;
+            stratigraphy2 = ia_heat_water.NEXT;
+            flux = (stratigraphy1.STATVAR.salt_c_brine(end) - stratigraphy2.STATVAR.salt_c_brine(1)) .* stratigraphy1.STATVAR.diffusivitySalt(end) .* stratigraphy2.STATVAR.diffusivitySalt(1) ./...
+                (stratigraphy1.STATVAR.diffusivitySalt(end).* stratigraphy2.STATVAR.layerThick(1)./2 + stratigraphy2.STATVAR.diffusivitySalt(1).* stratigraphy1.STATVAR.layerThick(end)./2 );
+            flux = flux .* min(stratigraphy1.STATVAR.area(end), stratigraphy2.STATVAR.area(1));
+            
+            stratigraphy1.TEMP.d_salt(end) = stratigraphy1.TEMP.d_salt(end) - flux;
+            stratigraphy2.TEMP.d_salt(1) = stratigraphy2.TEMP.d_salt(1) + flux;
+        end
+
+        function get_boundary_condition_SALT_LAKE_m(ia_heat_water)
+            stratigraphy1 = ia_heat_water.PREVIOUS;
+            stratigraphy2 = ia_heat_water.NEXT;
+            flux = (stratigraphy1.STATVAR.salt_c_brine(end) - stratigraphy2.STATVAR.salt_c_brine(1))  .* stratigraphy2.STATVAR.diffusivitySalt(1) ./ (stratigraphy2.STATVAR.layerThick(1) ./ 2);
+            flux = flux .* min(stratigraphy1.STATVAR.area(end), stratigraphy2.STATVAR.area(1));
+
+            stratigraphy1.TEMP.d_salt(end) = stratigraphy1.TEMP.d_salt(end) - flux;
+            stratigraphy2.TEMP.d_salt(1) = stratigraphy2.TEMP.d_salt(1) + flux;
+        end
+
+        function get_boundary_condition_SALTbuoyancy_LAKE_m(ia_heat_water)
+            stratigraphy1 = ia_heat_water.PREVIOUS;
+            stratigraphy2 = ia_heat_water.NEXT;
+            flux_diffusion = (stratigraphy1.STATVAR.salt_c_brine(end) - stratigraphy2.STATVAR.salt_c_brine(1,1))  .* stratigraphy2.STATVAR.diffusivitySalt(1) ./ stratigraphy2.STATVAR.layerThick(1);
+            flux_buoyancy = double(stratigraphy1.STATVAR.density_water(end,1) > stratigraphy2.STATVAR.density_water(1,1)) .* (stratigraphy1.STATVAR.density_water(end,1)-stratigraphy2.STATVAR.density_water(1,1)) .* ...
+                (stratigraphy1.STATVAR.salt_c_brine(end,1) - stratigraphy2.STATVAR.salt_c_brine(1,1)) .* stratigraphy2.STATVAR.diffusivity_buoyancy(1,1) ./ stratigraphy2.STATVAR.layerThick(1) ;
+            flux = flux_diffusion + flux_buoyancy;
+            flux = flux .* min(stratigraphy1.STATVAR.area(end), stratigraphy2.STATVAR.area(1));
+
+            stratigraphy1.TEMP.d_salt(end) = stratigraphy1.TEMP.d_salt(end) - flux;
+            stratigraphy2.TEMP.d_salt(1) = stratigraphy2.TEMP.d_salt(1) + flux;
+        end        
+
     end
 end
 

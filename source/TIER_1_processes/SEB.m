@@ -162,7 +162,7 @@ classdef SEB < BASE
                 seb.STATVAR.sublimation =  -Qe_sublim ./(seb.CONST.rho_w .* L_i) .* seb.STATVAR.area(1);
                 seb.TEMP.sublimation_energy = seb.STATVAR.sublimation .* (seb.STATVAR.T(1) .* seb.CONST.c_i - seb.CONST.L_f);
                 seb.STATVAR.evaporation =  -Qe_evap ./(seb.CONST.rho_w .* L_w) .* seb.STATVAR.area(1);
-                seb.TEMP.evaporation_energy = seb.STATVAR.sublimation .* seb.STATVAR.T(1) .* seb.CONST.c_w;
+                seb.TEMP.evaporation_energy = seb.STATVAR.evaporation .* seb.STATVAR.T(1) .* seb.CONST.c_w;
                 
                % Q_e = evap_fraction .* Qe_evap + sublim_fraction .* Qe_sublim;
                 Q_e = Qe_evap + Qe_sublim;

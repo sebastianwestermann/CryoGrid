@@ -35,6 +35,7 @@ classdef OUT_regridded < matlab.mixin.Copyable
             out.PARA.variables = [];
             out.PARA.upper_elevation = [];
             out.PARA.lower_elevation = [];
+            out.PARA.relative2surface = [];
             out.PARA.target_grid_size = [];
             out.PARA.output_timestep = [];
             out.PARA.save_date = [];
@@ -69,6 +70,11 @@ classdef OUT_regridded < matlab.mixin.Copyable
             out.result.depths = [];
             out.result.class_number = [];
             
+            if ~isempty(out.PARA.relative2surface) && ~isnan(out.PARA.relative2surface) && out.PARA.relative2surface
+                out.PARA.upper_elevation = tile.PARA.altitude + out.PARA.upper_elevation;
+                out.PARA.lower_elevation = tile.PARA.altitude - out.PARA.lower_elevation;
+            end
+
             % Set the next (first) save time. This is the next (first) time all the
             % collected output is saved to disk.
             if isempty(out.PARA.save_interval) || isnan(out.PARA.save_interval) 

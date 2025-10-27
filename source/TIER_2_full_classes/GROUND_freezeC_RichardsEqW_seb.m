@@ -298,7 +298,7 @@ classdef GROUND_freezeC_RichardsEqW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_K
         function Tg = get_surface_T(ground, tile)
             Tg = ground.STATVAR.T(1);
         end
-
+        
         function q_g = get_humidity_surface(ground, tile)
             % Specific humidity of ground surface as in CLM5 documentation
             % (sect. 5.2)
@@ -364,6 +364,10 @@ classdef GROUND_freezeC_RichardsEqW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_K
         function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq(ground, lateral)
             ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq_simple(ground, lateral);
         end
+        
+        function ground = lateral3D_push_water_unconfined_aquifer_RichardsEq(ground, lateral)
+             ground = lateral3D_push_water_unconfined_aquifer_simple(ground, lateral);
+         end
         
 
         

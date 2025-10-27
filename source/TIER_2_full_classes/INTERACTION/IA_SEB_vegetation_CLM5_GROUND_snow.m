@@ -1,7 +1,6 @@
 %========================================================================
 % CryoGrid INTERACTION (IA) class handling interactions between
-% VEGETATION_CLM5_seb and
-% GROUND (RichardsEqW, no Xice)
+% VEGETATION_CLM5_seb and GROUND (RichardsEqW, no Xice)
 % with CHILD SNOW_crocus_bucketW_seb
 % R. B. Zwegiel, February 2022
 %========================================================================

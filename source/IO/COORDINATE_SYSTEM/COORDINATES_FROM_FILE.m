@@ -39,6 +39,8 @@ classdef COORDINATES_FROM_FILE < matlab.mixin.Copyable
             
             proj.PARA.assign_tile_properties_class = [];
             proj.PARA.assign_tile_properties_class_index = [];
+
+            proj.PARA.new_reference = 1;
         end
         
         function proj = provide_STATVAR(proj)
@@ -90,7 +92,7 @@ classdef COORDINATES_FROM_FILE < matlab.mixin.Copyable
                 data_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.data_class{i,1}){proj.PARA.data_class_index(i,1),1});
                 data_class.PARENT = proj;
                 data_class = finalize_init(data_class);
-                data_class = load_data(data_class); %can be additive or subtractive
+                data_class = load_data(data_class); 
             end
             
             %remove all cells with NaN values

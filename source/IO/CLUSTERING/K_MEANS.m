@@ -46,6 +46,7 @@ classdef K_MEANS < matlab.mixin.Copyable
             Zs = zscore(data_cube,1,1); % Does this make sense for bounded variables, or should you transform first?
             
             % Note, may require many iterations (more than standard 1e2) for large Nc
+            rng(size(data_cube,2))
             [cn,~,~,D]=kmeans(Zs, cluster.PARA.number_of_clusters, 'MaxIter',cluster.PARA.max_iterations); 
             
             % Find points closest to centroids within each cluster, henceforth these
@@ -61,6 +62,8 @@ classdef K_MEANS < matlab.mixin.Copyable
             end
             cluster.STATVAR.cluster_number = cn;
             cluster.STATVAR.sample_centroid_index = indsc;
+            cluster.STATVAR.key_centroid_index = cluster.RUN_INFO.SPATIAL.STATVAR.key(indsc,1);
+            
          end
         
         

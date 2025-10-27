@@ -72,7 +72,7 @@ classdef VEGETATION_ml_canopy < BASE
 %             ground.STATVAR.thermCond = [];
             
             %forcing variables need for snow and ground upper boundary
-            %ground.ForcingV.TEMP.tair = [];
+            ground.ForcingV.TEMP.tair = [];
             ground.ForcingV.TEMP.wind = [];
             ground.ForcingV.TEMP.Qh = []; % [m]
             
@@ -131,20 +131,17 @@ classdef VEGETATION_ml_canopy < BASE
             
             ground.STATVAR.PARENT_GROUND = ground.PARENT_GROUND;
             ground.STATVAR.PARENT_SURFACE = ground.PARENT_SURFACE;
-
-            
-        end
-        
-
-      
-        
-        
-        %---------------------------------------
+       end
+                %---------------------------------------
         
         
         function [ground] = get_boundary_condition_u(ground, tile) %functions specific for individual class, allow changing from Dirichlet to SEB
             
             forcing = tile.FORCING;
+            
+%             ground = choose_canopy(ground, tile.t); % simone LAI
+%             disp('LAI');
+%             disp(ground.VEGETATION.STATVAR.canopy.lai);
             
             ground = surface_energy_forest(ground, forcing);
             
@@ -185,7 +182,7 @@ classdef VEGETATION_ml_canopy < BASE
 %             timestep = 24*60*60;
             %SEBAS: this makes more sense, since it corresponds to the main
             %timestep of the vegegation scheme
-            timestep = 3600;
+            timestep = 3600; %60*60
         end
         
         function ground = advance_prognostic(ground, tile) %real timestep derived as minimum of several classes in [sec] here!
@@ -202,6 +199,9 @@ classdef VEGETATION_ml_canopy < BASE
         
         function ground = check_trigger(ground, tile)
             %SIMONE: Add change between summer and winter properties here!!!
+            ground = choose_canopy(ground, tile.t); % Simone LAI
+%             disp('LAI');
+%             disp(ground.STATVAR.canopy.lai);
         end
         
         
@@ -214,7 +214,7 @@ classdef VEGETATION_ml_canopy < BASE
         function ground = surface_energy_forest(ground, forcing)
             
             if forcing.TEMP.t >= ground.STATVAR.execution_t || forcing.TEMP.t == forcing.PARA.start_time
-                disp(datestr(forcing.TEMP.t))
+% % %                 disp(datestr(forcing.TEMP.t))
 
                 
                 vegetation = ground.STATVAR;
@@ -267,9 +267,7 @@ classdef VEGETATION_ml_canopy < BASE
                 
                 %and ground.STATVAR = vegetation here?
                 ground.STATVAR = vegetation;
-                
-%                 disp(ground.STATVAR.vegetation.soilvar.transp_per_layer)
-                
+                                
                 ground.STATVAR.execution_t = ground.STATVAR.execution_t + 1/24;
        
             end
@@ -286,6 +284,56 @@ classdef VEGETATION_ml_canopy < BASE
             range = [1:vegetation.soilvar.nsoi]';
             vegetation.soilvar.h2osoi_ice = ground.PARENT_GROUND.STATVAR.ice(range)' ./ (ground.PARENT_GROUND.STATVAR.area(range)' .* ground.PARENT_GROUND.STATVAR.layerThick(range)');
             vegetation.soilvar.h2osoi_vol = ground.PARENT_GROUND.STATVAR.water(range)' ./ (ground.PARENT_GROUND.STATVAR.area(range)' .* ground.PARENT_GROUND.STATVAR.layerThick(range)');
+            
+%             disp(ground.PARENT_GROUND.STATVAR.water);
+%             disp('h2osoi_ice and h2osoi_vol:')
+%             disp(vegetation.soilvar.h2osoi_ice)
+%             disp(vegetation.soilvar.h2osoi_vol)
+%  
+
+            
+%             if vegetation.soilvar.h2osoi_vol > 0
+%             vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol>0.8) = 0.8; 
+%                 if vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol>0.5)
+%                     disp('Soil moisture to wet for plant survival, lake should be triggered');
+%                     disp('h2osoi_vol:');
+%                     disp(vegetation.soilvar.h2osoi_vol);
+%                 end 
+%             end 
+% 
+%             if vegetation.soilvar.h2osoi_vol(1,1) ~= 0
+%             disp('h2osoi_vol:');
+%             disp(vegetation.soilvar.h2osoi_vol);
+% %             if vegetation.soilvar.h2osoi_vol > 0.05
+%             %minimize soil water received by vegetation to 0.05
+%             vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol<0.1) = 0.1; 
+%                 if vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol<0.08)
+%                     disp('Soil moisture to dry for plant survival');
+%                     disp('h2osoi_vol:');
+%                     disp(vegetation.soilvar.h2osoi_vol);
+%                 end
+%             end    
+            
+%             %255/256
+%             if vegetation.soilvar.h2osoi_vol(1,1) > 0.4
+%             vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol>0.45) = 0.45; 
+%                 if vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol==0.45)
+%                     disp('Soil moisture to wet for plant survival, set to 0.45, lake will be triggered');
+%                     disp('h2osoi_vol:');
+%                     disp(vegetation.soilvar.h2osoi_vol);
+%                 end 
+%             end 
+% 
+%             if vegetation.soilvar.h2osoi_vol(1,1) > 0.05
+%             disp('h2osoi_vol:');
+%             disp(vegetation.soilvar.h2osoi_vol);
+% %             if vegetation.soilvar.h2osoi_vol > 0.05
+%             %minimize soil water received by vegetation to 0.05
+%             vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol<0.08) = 0.08; 
+%                 if vegetation.soilvar.h2osoi_vol(vegetation.soilvar.h2osoi_vol==0.08)
+%                     disp('Soil moisture to dry for plant survival, set to 0.08');
+%                 end
+%             end    
         end
 
         
@@ -298,7 +346,6 @@ classdef VEGETATION_ml_canopy < BASE
         
         function vegetation = get_transpiration(ground, vegetation)
             
-            
             %convert from mol/sec to me3 per sec using molar mass 0.018
             %kg/mol of water and the density
             %transpiration = (0.0181528 .* vegetation.STATVAR.vegetation.soilvar.transp_per_layer)./1000;
@@ -306,11 +353,11 @@ classdef VEGETATION_ml_canopy < BASE
             frac_sun_shade = cat(3, vegetation.flux.fracsun, vegetation.flux.fracsha);
             leaf_et = vegetation.mlcanopyinst.trleaf .* frac_sun_shade;
             leaf_et = sum(leaf_et,3); %mol water per sec per m2 leaf per m2 ground 
-            leaf_et = leaf_et .* vegetation.canopy.dlai; %mol water per sec per m2 ground per canopy layer
+            leaf_et = leaf_et .* vegetation.canopy.dlai; %mol water per sec per m2 ground per canopy layer % Simone LAI
             leaf_et = 0.0181528e-3 .* sum(leaf_et); %in m3/m2 water/sec
             vegetation.mlcanopyinst.transpiration = leaf_et .* vegetation.mlcanopyinst.soil_et_loss; %weight with fraction assigned for each layer
             
-
+%             disp(vegetation.mlcanopyinst.transpiration);
 %             transp = transpiration(1) .* ground.STATVAR.area(1,1);
 %             trans = min(transp, ground.STATVAR.water(1,1) /(3600.*2));
 %             ground.TEMP.d_water_ET(1,1) = ground.TEMP.d_water_ET(1,1) - transp;
@@ -331,9 +378,7 @@ classdef VEGETATION_ml_canopy < BASE
 %             ground.TEMP.d_water_ET(4:9,1) = ground.TEMP.d_water_ET(4:9,1) - transp;
 %             ground.TEMP.d_water_ET_energy(4:9,1) =  ground.TEMP.d_water_ET_energy(4:9,1) - transp  .* (double(ground.STATVAR.T(4:9,1)>=0) .* ground.CONST.c_w .* ground.STATVAR.T(4:9,1) + ...
 %                 double(ground.STATVAR.T(4:9,1)<0) .* ground.CONST.c_i .* ground.STATVAR.T(4:9,1));            
-
-
-        end
+       end
 
 %         function vegetation = get_evaporation(vegetation)
 %             ground = vegetation.PARENT_GROUND;

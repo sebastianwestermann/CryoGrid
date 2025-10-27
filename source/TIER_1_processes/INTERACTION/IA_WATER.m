@@ -114,7 +114,11 @@ classdef IA_WATER < IA_BASE
                 (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
             
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
-            
+            %added SW April 2024 -prevent small timesteps when porosity is near zero 
+            saturation_previous(remaining_pore_space<1e-3) = 0;
+            % water =  ia_heat_water.PREVIOUS.STATVAR.water(end)./ia_heat_water.PREVIOUS.STATVAR.area(end);
+            % saturation_previous(water<1e-9) = 0;
+            %end added
 
             saturation_next = (ia_heat_water.NEXT.STATVAR.waterIce(1) - ia_heat_water.NEXT.STATVAR.field_capacity(1) .* ia_heat_water.NEXT.STATVAR.layerThick(1).*ia_heat_water.NEXT.STATVAR.area(1))./ ...
                 (ia_heat_water.NEXT.STATVAR.layerThick(1).*ia_heat_water.NEXT.STATVAR.area(1) - ia_heat_water.NEXT.STATVAR.mineral(1) - ia_heat_water.NEXT.STATVAR.organic(1) - ...
@@ -159,7 +163,7 @@ classdef IA_WATER < IA_BASE
             saturation_previous = (ia_heat_water.PREVIOUS.STATVAR.water(end) - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space) ./ ...
                 (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
-            
+            water_content_previous = ia_heat_water.PREVIOUS.STATVAR.water(end)./ ia_heat_water.PREVIOUS.STATVAR.layerThick(end)./ ia_heat_water.PREVIOUS.STATVAR.area(end);
 
             volume_matrix = ia_heat_water.NEXT.STATVAR.layerThick(1) .* ia_heat_water.NEXT.STATVAR.area(1) - ia_heat_water.NEXT.STATVAR.XwaterIce(1);
             saturation_next = (ia_heat_water.NEXT.STATVAR.waterIce(1)  - ia_heat_water.NEXT.STATVAR.field_capacity(1) .* volume_matrix)./...
@@ -169,7 +173,7 @@ classdef IA_WATER < IA_BASE
             
             %outflow
             d_water_out = ia_heat_water.PREVIOUS.STATVAR.hydraulicConductivity(end) .* ia_heat_water.PREVIOUS.STATVAR.area(end); 
-            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water); %this is positive when flowing out
+            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water) .* double(water_content_previous)>1e-3; %this is positive when flowing out
             
             %inflow
             d_water_in = d_water_out .* reduction_factor_in(saturation_next, ia_heat_water);
@@ -262,6 +266,9 @@ classdef IA_WATER < IA_BASE
                 (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
             
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
+            %changed SE 03/25
+            vol_water_content_previous = ia_heat_water.PREVIOUS.STATVAR.water(end)./ia_heat_water.PREVIOUS.STATVAR.layerThick(end)./ ia_heat_water.PREVIOUS.STATVAR.area(end);
+
             
             %check if water can penetrate through ice, and get first (almost) unfrozen cell
             i=1;
@@ -279,7 +286,8 @@ classdef IA_WATER < IA_BASE
                 %outflow
                 d_water_out = ia_heat_water.PREVIOUS.STATVAR.hydraulicConductivity(end) .* ia_heat_water.PREVIOUS.STATVAR.area(end);
                 d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water); %this is positive when flowing out
-                
+                 %changed SE 03/25
+                d_water_out = d_water_out .* reduction_factor_out(vol_water_content_previous, ia_heat_water); %this is positive when flowing out
                 
                 %energy advection
                 d_water_out_energy = d_water_out .* ia_heat_water.PREVIOUS.CONST.c_w .* ia_heat_water.PREVIOUS.STATVAR.T(end);
@@ -384,15 +392,20 @@ classdef IA_WATER < IA_BASE
             saturation_previous = (ia_heat_water.PREVIOUS.STATVAR.water(end) - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space) ./ ...
                 (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
-            
+             
+            %new SW 01/2025 to reduce outflux if absolute water content is
+            %very small, also 1st line in "outflow"
+            vol_water_content_previous = ia_heat_water.PREVIOUS.STATVAR.water(end)./ia_heat_water.PREVIOUS.STATVAR.layerThick(end)./ ia_heat_water.PREVIOUS.STATVAR.area(end);
+
             saturation_next = ia_heat_water.NEXT.STATVAR.waterIce(1,1) ./ (ia_heat_water.NEXT.STATVAR.layerThick(1,1).*ia_heat_water.NEXT.STATVAR.area(1,1) - ia_heat_water.NEXT.STATVAR.mineral(1,1) - ia_heat_water.NEXT.STATVAR.organic(1,1));
             saturation_next = max(0,min(1,saturation_next)); % 0 water at field capacity, 1: water at saturation
             saturation_next(saturation_next >= (1 - 1e-9)) = 1;
             
             %outflow
             d_water_out = ia_heat_water.PREVIOUS.STATVAR.hydraulicConductivity(end) .* ia_heat_water.PREVIOUS.STATVAR.area(end); 
-            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water); %this is positive when flowing out
-            
+            %d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water); %this is positive when flowing out
+            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water) .* reduction_factor_out(vol_water_content_previous, ia_heat_water); %this is positive when flowing out
+
             %inflow
             d_water_in = d_water_out .* reduction_factor_in(saturation_next, ia_heat_water);
                
@@ -434,6 +447,7 @@ classdef IA_WATER < IA_BASE
             %outflow
             %d_water_out = ia_heat_water.NEXT.PARA.hydraulicConductivity .* ia_heat_water.PREVIOUS.STATVAR.water(end) ./ ia_heat_water.PREVIOUS.STATVAR.layerThick(end); % area cancels out; make this depended on both involved cells?
             d_water_out = ia_heat_water.NEXT.STATVAR.hydraulicConductivity(1,1) .* ia_heat_water.NEXT.STATVAR.area(1,1);
+            
             %inflow
             d_water_in = d_water_out .* reduction_factor_in(saturation_next, ia_heat_water);
             
@@ -473,10 +487,13 @@ classdef IA_WATER < IA_BASE
         function get_boundary_condition_RichardsEq_Xice_SNOW_m(ia_heat_water) %water fluxes between classes with bucket water scheme
             remaining_pore_space = ia_heat_water.PREVIOUS.STATVAR.layerThick(end).* ia_heat_water.PREVIOUS.STATVAR.area(end) - ia_heat_water.PREVIOUS.STATVAR.mineral(end) - ia_heat_water.PREVIOUS.STATVAR.organic(end) - ia_heat_water.PREVIOUS.STATVAR.ice(end);
             saturation_previous = (ia_heat_water.PREVIOUS.STATVAR.water(end) - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space) ./ ...
-                (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space); 
+                (remaining_pore_space - ia_heat_water.PREVIOUS.PARA.field_capacity .* remaining_pore_space);
             saturation_previous = max(0,min(1,saturation_previous)); % 0 water at field capacity, 1: water at saturation
             
-            
+            %new SW 01/2025 to reduce outflux if absolute water content is
+            %very small, also 1st line in "outflow"
+            vol_water_content_previous = ia_heat_water.PREVIOUS.STATVAR.water(end)./ia_heat_water.PREVIOUS.STATVAR.layerThick(end)./ ia_heat_water.PREVIOUS.STATVAR.area(end);
+
             saturation_next = ia_heat_water.NEXT.STATVAR.waterIce(1,1) ./ (ia_heat_water.NEXT.STATVAR.layerThick(1,1).*ia_heat_water.NEXT.STATVAR.area(1,1) ...
                 - ia_heat_water.NEXT.STATVAR.mineral(1,1) - ia_heat_water.NEXT.STATVAR.organic(1,1) - ia_heat_water.NEXT.STATVAR.XwaterIce(1,1));
             %saturation_next = ia_heat_water.NEXT.STATVAR.waterIce(1,1) ./ (ia_heat_water.NEXT.STATVAR.layerThick(1,1).*ia_heat_water.NEXT.STATVAR.area(1,1) - ia_heat_water.NEXT.STATVAR.mineral(1,1) - ia_heat_water.NEXT.STATVAR.organic(1,1));
@@ -485,7 +502,7 @@ classdef IA_WATER < IA_BASE
             
             %outflow
             d_water_out = ia_heat_water.PREVIOUS.STATVAR.hydraulicConductivity(end) .* ia_heat_water.PREVIOUS.STATVAR.area(end);
-            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water); %this is positive when flowing out
+            d_water_out = d_water_out .* reduction_factor_out(saturation_previous, ia_heat_water) .* reduction_factor_out(vol_water_content_previous, ia_heat_water); %this is positive when flowing out
             
             %inflow
             d_water_in = d_water_out .* reduction_factor_in(saturation_next, ia_heat_water);
@@ -529,9 +546,9 @@ classdef IA_WATER < IA_BASE
 
     
     
-%--------------- Vegetation ----------------------
+            %---------- Vegetation ----------------------
         
-        function ia_seb_water = get_boundary_condition_m_RichardsEq_below_canopy(ia_seb_water, tile)
+            function ia_seb_water = get_boundary_condition_m_RichardsEq_below_canopy(ia_seb_water, tile)
             % Equivalent to get_boundary_condition_u_RichardsEq(...) in WATER_FLUXES
             forcing = tile.FORCING;
             
@@ -675,6 +692,7 @@ classdef IA_WATER < IA_BASE
             water_out(isnan(water_out)) = 0;
             water_out_energy = water_out .* stratigraphy2.STATVAR.T .* (double(stratigraphy2.STATVAR.T>=0).*stratigraphy2.CONST.c_w + double(stratigraphy2.STATVAR.T<0).*stratigraphy2.CONST.c_i);
 
+            %CHANGED SW Dec 2022, must be times area?
             stratigraphy2.TEMP.d_water_ET = stratigraphy2.TEMP.d_water_ET - water_out .* stratigraphy2.STATVAR.area;
             stratigraphy2.TEMP.d_water_ET_energy = stratigraphy2.TEMP.d_water_ET_energy - water_out_energy.* stratigraphy2.STATVAR.area;
         end
@@ -824,6 +842,7 @@ classdef IA_WATER < IA_BASE
                 snow = compute_diagnostic_CHILD(snow, tile);
             end
         end
+        
     end
 end
 

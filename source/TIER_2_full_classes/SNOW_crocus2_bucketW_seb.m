@@ -341,7 +341,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             snow.STATVAR.waterIce(1,1) = snow.STATVAR.waterIce(1,1) + evap;
             snow.STATVAR.water(1,1) = snow.STATVAR.water(1,1) + evap;
             snow.STATVAR.energy(1,1) = snow.STATVAR.energy(1,1) + evap_energy;
-            snow.STATVAR.layerThickSnowFirstCell = max(snow.STATVAR.layerThickSnowFirstCell, snow.STATVAR.waterIce(1,1)./snow.STATVAR.area(1,1));
+            %snow.STATVAR.layerThickSnowFirstCell = max(snow.STATVAR.layerThickSnowFirstCell, snow.STATVAR.waterIce(1,1)./snow.STATVAR.area(1,1));
             
             snow.STATVAR.layerThick(1) =  snow.STATVAR.layerThickSnowFirstCell;
             %new snow
@@ -420,6 +420,10 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         function snow = compute_diagnostic(snow, tile)
             forcing = tile.FORCING;
             
+            %ADDED SW 04/24
+            layerThick_snow_only_before = max(1e-12, snow.STATVAR.ice ./ snow.STATVAR.target_density ./ snow.STATVAR.area);
+            %end ADDED
+            
             ice_before = max(1e-12, snow.STATVAR.ice(1,1));
             T_before = snow.STATVAR.T;
             snow = get_T_water_freeW(snow);
@@ -427,6 +431,12 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             if melt_fraction <1-1e-6
                 snow = split_first_cell_snowfall_times(snow, melt_fraction, 'reduce');
             end
+            
+            %ADDED SW 04/24
+            %density increases due to refreezing, while it stays constant
+            %when ice is melting
+            snow.STATVAR.target_density = min(1, max(snow.STATVAR.target_density, snow.STATVAR.ice ./ layerThick_snow_only_before ./ snow.STATVAR.area));
+            %end ADDED
             
             snow = subtract_water2(snow);
             
@@ -449,6 +459,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             snow.STATVAR.upperPos = snow.NEXT.STATVAR.upperPos + sum(snow.STATVAR.layerThick);
             
             snow = calculate_albedo_crocus(snow, forcing); %albedo calculation is a diagnostic operation
+
             
             snow.TEMP.d_energy = snow.STATVAR.energy.*0;
             snow.TEMP.d_water = snow.STATVAR.energy .*0;
@@ -457,12 +468,23 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         
         function snow = compute_diagnostic_CHILD(snow, tile)
             forcing = tile.FORCING;
+            
+            %ADDED SW 04/24
+            volume_snow_only_before = max(1e-12, snow.STATVAR.ice ./ snow.STATVAR.target_density);
+            %end ADDED
+            
             ice_before = max(1e-12, snow.STATVAR.ice);
             snow = get_T_water_freeW(snow);
             melt_fraction = 1- max(0, min(1, snow.STATVAR.ice./ice_before));
             if melt_fraction <1-1e-6
                 snow = split_first_cell_snowfall_times(snow, melt_fraction, 'reduce');
             end
+            
+            %ADDED SW 04/24
+            %density increases due to refreezing, while it stays constant
+            %when ice is melting
+            snow.STATVAR.target_density = min(1, max(snow.STATVAR.target_density, snow.STATVAR.ice ./ volume_snow_only_before));
+            %end ADDED
             
             snow = subtract_water_CHILD2(snow);
             
@@ -500,8 +522,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         %-----non-mandatory functions-------
         function snow = surface_energy_balance(snow, forcing)
             snow.STATVAR.Lout = (1-snow.PARA.epsilon) .* forcing.TEMP.Lin + snow.PARA.epsilon .* snow.CONST.sigma .* (snow.STATVAR.T(1)+ 273.15).^4;
-            snow.STATVAR.Lin = forcing.TEMP.Lin;
-
+            
             [snow, S_up] = penetrate_SW(snow, forcing.TEMP.Sin .* snow.STATVAR.area(1)); %distribute SW radiation
             
             snow.STATVAR.Sout = S_up ./ snow.STATVAR.area(1);
@@ -558,7 +579,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         function Ts = get_surface_T(snow, tile)
             Ts = snow.STATVAR.T(1);
         end
-        
+
         function q_g = get_humidity_surface(snow, tile)
             forcing = tile.FORCING;
             p = forcing.TEMP.p;
@@ -592,8 +613,19 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         end
         
         %---LAT_OVERLAND_FLOW----------
-        function ground = lateral_push_remove_water_overland_flow(ground, lateral)
-            ground = lateral_push_water_overland_flow_SNOW_crocus2(ground, lateral);
+        function snow = lateral_push_remove_water_overland_flow(snow, lateral)
+            snow = lateral_push_water_overland_flow_SNOW_crocus2(snow, lateral);
+        end
+        
+        %---LAT_SNOW_CROCUS_wind_drift--------
+        function snow = lateral_pull_snow_wind_drift(snow, lateral)
+            snow = lateral_pull_snow_crocus_wind_drift(snow, lateral);
+        end
+        
+        function snow = lateral_pull_snow_wind_drift_threshold(snow, lateral)
+            lateral.PARA.exposure = max(lateral.PARA.exposure_min_alt, min(lateral.PARA.exposure_max_alt, lateral.PARA.exposure_min_alt  + ...
+                (lateral.PARA.exposure_max_alt - lateral.PARA.exposure_min_alt) ./ (lateral.PARA.max_altitude - lateral.PARA.min_altitude) .* (snow.STATVAR.upperPos - lateral.PARA.min_altitude)));
+            snow = lateral_pull_snow_crocus_wind_drift(snow, lateral);
         end
         
         %----LAT3D_WATER_UNCONFINED_AQUIFER------------
@@ -610,8 +642,20 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         end
         
         %---LAT3D_WATER_OVERLAND_FLOW-----------------
-        function snow = lateral3D_pull_water_overland_flow(snow, lateral)
-            snow = lateral3D_pull_water_overland_flow_SNOW_crocus2(snow, lateral);
+%         function snow = lateral3D_pull_water_overland_flow(snow, lateral)
+%             snow = lateral3D_pull_water_overland_flow_SNOW_crocus2(snow, lateral);
+%         end
+        
+        function ground = lateral3D_pull_water_overland_flow(ground, lateral)
+            ground = lateral3D_pull_water_overland_flow_SNOW_crocus2(ground, lateral);
+            lateral.PARENT.STATVAR.depths(1,1) = ground.STATVAR.upperPos; %overwritten in case it is used with a subsurface water flow class
+            lateral.PARENT.STATVAR.T_water(1,1) = ground.STATVAR.T(1,1);
+        end
+        
+        function ground = lateral3D_push_water_overland_flow(ground, lateral)
+            ground.STATVAR.waterIce(1,1) = ground.STATVAR.waterIce(1,1) + lateral.PARENT.STATVAR.water_flux(1,1);
+            ground.STATVAR.energy(1,1) = ground.STATVAR.energy(1,1) + lateral.PARENT.STATVAR.water_flux_energy(1,1);
+            ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) + lateral.PARENT.STATVAR.water_flux(1,1) ./ ground.STATVAR.area(1,1);
         end
         
         %LAT3D_WATER_RESERVOIR and LAT3D_WATER_SEEPAGE_FACE do not require specific functions

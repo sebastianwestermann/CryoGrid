@@ -171,7 +171,16 @@ classdef GROUND_freeW_seb < SEB & HEAT_CONDUCTION & HEAT_FLUXES_LATERAL & ADJUST
         function ground = conductivity(ground)
             conductivity_function = str2func(ground.PARA.conductivity_function);
             ground = conductivity_function(ground);
-%             ground = conductivity_mixing_squares(ground);
+        end
+
+        function gridcell_variables = get_gridcell_variables(ground)
+            gridcell_variables = {'waterIce'; 'mineral'; 'organic'; 'T'; 'energy'; 'area'; 'layerThick';  'air'; 'water'; 'ice'};
+
+        end
+
+        %-------------restore_from_out-----
+        function ground = reset_from_OUT(ground, tile)
+            ground.TEMP.d_energy = ground.TEMP.d_energy.*0; 
         end
         
         

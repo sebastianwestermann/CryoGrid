@@ -32,6 +32,14 @@ classdef HEAT_CONDUCTION < BASE
             timestep = ground.PARA.dE_max ./ (max(abs(ground.TEMP.d_energy) ./ ground.STATVAR.layerThick./ ground.STATVAR.area));
         end
         
+        function timestep = get_timestep_heat_conduction_ice(ground)
+            timestep = ground.PARA.dE_max ./ (abs(ground.TEMP.d_energy) ./ ground.STATVAR.layerThick./ ground.STATVAR.area);
+            melting = ground.STATVAR.T==0 & ground.TEMP.d_energy > 0;
+            timestep(melting) = max(timestep(melting), 0.25 .* ground.STATVAR.ice(melting) .* ground.CONST.L_f ./ abs(ground.TEMP.d_energy(melting)));
+            timestep = min(timestep);
+            
+        end
+        
         %----diagnostic functions---------
         %free water freeze curve
         function ground = get_T_water_freeW(ground)
@@ -104,7 +112,7 @@ classdef HEAT_CONDUCTION < BASE
         
         function ground = thermalConductivity_CLM4_5(ground)
             
-            k_dry_organic = 0.05; %after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
+            k_dry_organic = 0.2; % 0.1; after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
                         
             waterIce = ground.STATVAR.waterIce./ground.STATVAR.layerThick ./ ground.STATVAR.area;
             water = ground.STATVAR.water./ground.STATVAR.layerThick ./ ground.STATVAR.area;
@@ -130,7 +138,7 @@ classdef HEAT_CONDUCTION < BASE
         
         function ground = thermalConductivity_CLM4_5_Xice(ground)
             
-            k_dry_organic = 0.05; % after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
+            k_dry_organic = 0.2; %0.1; % after moss in https://gmd.copernicus.org/articles/13/2259/2020/#bib1.bibx7&gid=1&pid=1 %original: 0.05; %slightly nonsense...
                         
             waterIce = (ground.STATVAR.waterIce+ground.STATVAR.XwaterIce)./ground.STATVAR.layerThick ./ ground.STATVAR.area;
             water = (ground.STATVAR.water+ground.STATVAR.Xwater)./ground.STATVAR.layerThick ./ ground.STATVAR.area;
@@ -143,8 +151,8 @@ classdef HEAT_CONDUCTION < BASE
             
             k_solids = organic_fraction .* ground.CONST.k_o + (1- organic_fraction) .* ground.CONST.k_m;
             k_sat = k_solids.^(1-porosity) .* ground.CONST.k_w .^(water./waterIce.* porosity) .* ground.CONST.k_i .^(ice./waterIce.* porosity);
-            k_sat(waterIce == 0) = 0;
-            
+            k_sat(waterIce == 0) = 0; % RBZ: Added to avoid NaNs for completely dry situations
+
             bulk_density = 2700 .* (1-porosity);
             k_dry_mineral = (0.135 .* bulk_density + 64.7) ./ (2700 - 0.947 .* bulk_density);
             k_dry = organic_fraction .* k_dry_organic + (1- organic_fraction) .* k_dry_mineral;
@@ -152,6 +160,7 @@ classdef HEAT_CONDUCTION < BASE
             Kersten_number = double(ground.STATVAR.T>=0) .* max(0, log(saturation) ./ log(10) + 1) +  double(ground.STATVAR.T<0) .* saturation;
             
             ground.STATVAR.thermCond = Kersten_number .* k_sat + (1- Kersten_number) .* k_dry;
+            
         end
         
         function ground = thermalConductivity_CLM4_5_Xice_litter(ground)
@@ -218,7 +227,6 @@ classdef HEAT_CONDUCTION < BASE
             ground.STATVAR.T = ground.STATVAR.T(2:end);
         end
         
-        
         function snow = conductivity_snow_Yen(snow)
             
             %ki = 2.2196 - 0.0062489 .* snow.STATVAR.T + 0.00010154.*snow.STATVAR.T.^2;
@@ -227,11 +235,11 @@ classdef HEAT_CONDUCTION < BASE
             
             %additional term from Sun et al., 1999, increasing k for high
             %snow T
-            k1 = -0.06023;
-            k2 = 2.5425;
-            k3 = 289.99-273.15;
-            snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
-            
+%             k1 = -0.06023;
+%             k2 = 2.5425;
+%             k3 = 289.99-273.15;
+%             snow.STATVAR.thermCond + snow.STATVAR.thermCond +  max(0,k1-k2./(snow.STATVAR.T-k3));% tile.FORCING.TEMP.p ./ 1.05e5 .*
+%             
         end
         
         function snow = conductivity_snow_Sturm(snow)

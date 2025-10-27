@@ -31,50 +31,6 @@ classdef STRAT_classes < matlab.mixin.Copyable
     
     methods
         
-% 		function self = STRAT_classes(varargin)               % Temporary definition, to allow old code to run
-%         %function self = STRAT_classes(index, pprovider, grid)      % Definition to be used when old code is no longer supported
-%             % CONSTRUCTOR for STRAT_classes
-%             %   Reads in variable profile from the specified file.
-%             %
-%             %   ARGUMENTS:
-%             %   index:      user defined class index
-%             %   pprovider:  instance of PARAMETER_PROVIDER class
-% 			%	grid:		instance of GRID class
-%             
-%             % The following is only needed to allow legacy code to run
-%             % May be removed when deprecated functions are removed
-%             if nargin==3
-%                 index = varargin{1};
-%                 pprovider = varargin{2};
-% 				grid = varargin{3};
-%             else
-%                 st = dbstack;
-%                 warning(['DEPRECATION WARNING: Instantiating ' st.name '() with no arguments is deprecated.' newline,...
-%                          'You should update your code to take advantage of new IO interface.']);
-%                 return
-%             end
-%             % End allow legacy code
-%             
-%             self.strat_classes_index = index;
-%             self = self.initialize();
-%             self = self.populate_variables(pprovider);
-%             self = assign_sleeping_classes(self);
-%             self = self.finalize_setup(grid);
-%         end
-
-%         function self = initialize_excel(self)
-%             
-%         end
-		
-% 		function self = initialize(self)
-%             % INITIALIZE  Initializes all properties needed by the class.
-% 
-%             self.depth = [];
-% 			self.class_name = [];
-% 			self.class_index = [];
-% 			self = self.initialize_PARA();
-% 			self = self.initialize_snow_class();
-%         end
 		
 		function self = provide_PARA(self)
 			% INITIALIZE_PARA  Initializes PARA structure.
@@ -92,7 +48,11 @@ classdef STRAT_classes < matlab.mixin.Copyable
         
         function self = provide_STATVAR(self)
 
-        end       
+        end 
+        
+        function self = finalize_init(self, tile)
+
+        end 
         
         
         %-------------param file generation-----

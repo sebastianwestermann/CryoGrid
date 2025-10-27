@@ -1,9 +1,8 @@
 %========================================================================
-% CryoGrid GROUND class GROUND_freezeC_RichardsEqW_Xice_seb_snow
-% heat conduction, Richards equation water scheme, freeze curve based on
-% freezing=drying assumption, surface energy balance, excess ice
-% DISCONTINUED, do not use!!!
-% S. Westermann, October 2020
+% CryoGrid GROUND class GROUND_freezeC_RichardsEqW_Xice_seb_snow_vegetation
+% Allows for VEGETATION to be stored as CHILD, otherwise identical to
+% existing class GROUND_freezeC_RichardsEqW_Xice_seb
+% Robin B. Zweigel, July 2024 
 %========================================================================
 
 classdef GROUND_freezeC_RichardsEqW_Xice_seb_snow_vegetation < GROUND_freezeC_RichardsEqW_Xice_seb

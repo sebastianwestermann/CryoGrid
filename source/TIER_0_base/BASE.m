@@ -100,6 +100,14 @@ classdef BASE < matlab.mixin.Copyable
             
         end
         
+        function ground = lateral_push_lake_water_exchange(ground, lateral)
+
+        end
+        
+        function ground = lateral_push_lake_adjust_water_depth(ground, lateral)
+
+        end
+
         function ground = lateral_push_heat(ground, lateral)
             
         end
@@ -113,7 +121,11 @@ classdef BASE < matlab.mixin.Copyable
         end
         
         function ground = lateral3D_pull_water_unconfined_aquifer_RichardsEq(ground, lateral)
-   
+            lateral.TEMP.open_system = 0;
+        end
+        
+        function ground = lateral3D_push_water_unconfined_aquifer_RichardsEq(ground, lateral)
+
         end
         
         function ground = lateral3D_pull_water_general_aquifer(ground, lateral)
@@ -122,6 +134,11 @@ classdef BASE < matlab.mixin.Copyable
         
         function ground = lateral3D_push_water_general_aquifer(ground, lateral)
             
+        end
+
+        function ground = lateral3D_pull_Xwater_unconfined_aquifer(ground, lateral) %no uptake of Xwater
+            lateral.PARENT.STATVAR.Xwater = [lateral.PARENT.STATVAR.Xwater; ground.STATVAR.layerThick .*0];
+            lateral.PARENT.STATVAR.layerThick = [lateral.PARENT.STATVAR.layerThick; ground.STATVAR.layerThick];
         end
         
         function [saturated_next, hardBottom_next] = get_saturated_hardBottom_first_cell(ground, lateral)
@@ -140,6 +157,16 @@ classdef BASE < matlab.mixin.Copyable
         function ground = lateral3D_push_heat(ground, lateral)
             
         end
+        
+        %---LAT3D_MASS_GLACIER------------------------------------------
+        function ground = lateral3D_pull_mass_GLACIER(ground, lateral)
+            
+        end
+        
+        function ground = lateral3D_push_mass_GLACIER(ground, lateral)
+            
+        end
+        
         
         function ground = reset_timestamps(ground, tile)
             
@@ -162,6 +189,21 @@ classdef BASE < matlab.mixin.Copyable
         function ground = adjust_stratigraphy(ground, tile)
             
         end
+
+        function ground = truncate_STATVAR(ground, first_truncated_cell, truncate_depth_within_cell)
+            gridcell_variables = get_gridcell_variables(ground);
+            for i=1:size(gridcell_variables,1)
+                ground.STATVAR.(gridcell_variables{i,1})=ground.STATVAR.(gridcell_variables{i,1})(first_truncated_cell:end,:);
+            end
+        end
+
+        function ground = merge_STATVAR(ground, ground_below)
+            gridcell_variables = get_gridcell_variables(ground);
+            for i=1:size(gridcell_variables,1)
+                ground.STATVAR.(gridcell_variables{i,1})=[ground.STATVAR.(gridcell_variables{i,1}); ground_below.STATVAR.(gridcell_variables{i,1})];
+            end
+        end
+
         
         %-------------param file generation-----
         function ground = param_file_info(ground)
