@@ -71,7 +71,7 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
                 
                 aspectRadian = (pi/180)*(point.STATVAR.aspect);
                 % modify limits of integration for slopes facing away from horizons
-                t = cosd(point.STATVAR.aspect-point.STATVAR.horizon_bins)<0;
+                t = cosd(point.STATVAR.aspect-horizon_bins)<0;
                 %Simplified trig, the original was H(t) = min(H(t),...
                 %  acos(-cos(azmRadian(t)-aspectRadian)*sind(slopeDegrees)./...
                 %  sqrt(cosd(slopeDegrees)^2+sind(slopeDegrees)^2*cos(azmRadian(t)-aspectRadian).^2)));
