@@ -17,7 +17,7 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
     
     methods
         function proj = provide_PARA(proj)
-            %optoional parameters, can be used to set constant values for
+            %optional parameters, can be used to set constant values for
             %all points, overwritten if they are contained in
             %parameter_list
             proj.PARA.latitude = [];

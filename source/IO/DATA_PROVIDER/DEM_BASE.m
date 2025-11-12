@@ -48,7 +48,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
                 
                 lat=R.LatitudeLimits(2):-R.CellExtentInLatitude:R.LatitudeLimits(1);
                 lon=R.LongitudeLimits(1):R.CellExtentInLongitude:R.LongitudeLimits(2);
-                
+
                 lat2=(lat(1:end-1)+lat(2:end))/2;
                 lon2=(lon(1:end-1)+lon(2:end))/2;
                 
@@ -82,7 +82,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
                 if dem.PARA.reproject2utm
                     [dem.TEMP.X_target,dem.TEMP.Y_target] = ll2utm(dem, dem.PARA.latitude, dem.PARA.longitude, dem.TEMP.utm_zone);
                 else
-                    dem.TEMP.X_target = dem.PARA.longitude ;
+                    dem.TEMP.X_target = dem.PARA.longitude;
                     dem.TEMP.Y_target = dem.PARA.latitude;
                     %[LAT,LON]=projinv(info.CoordinateReferenceSystem,X,Y);
                 end
