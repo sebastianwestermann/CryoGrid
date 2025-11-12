@@ -227,6 +227,37 @@ classdef SNOW < BASE
             end
         end
         
+        function snow = get_snow_properties_Schmucki(snow, forcing)
+            % Snow properties function similar to
+            % get_snow_properties_crocus(...), but with new snow density as
+            % in SNOWPACK, according to Schmucki et al. (2014),  S14 here https://tc.copernicus.org/articles/11/1173/2017/tc-11-1173-2017.pdf
+            % S. Westermann, Nov 2025
+
+            if snow.TEMP.snowfall >0
+                T_air=min(forcing.TEMP.Tair, 0);
+                windspeed = forcing.TEMP.wind;
+                
+                e_rho = 3.28; 
+                f_rho = 0.03; %K^−1
+                g_rho = -0.36;
+                h_rho = -0.75; 
+                i_rho = 1.1071; % 63.4349 i_rho= 0.8; 
+                j_rho = 0.3;
+
+                log10_density = e_rho + f_rho .* forcing.TEMP.Tair + double(forcing.TEMP.Tair>=-14) .* g_rho + h_rho.* i_rho + j_rho .* log10(max(windspeed,2));
+                snow.TEMP.newSnow.STATVAR.density = 10.^log10_density.*1000 ./920;
+
+                snow.TEMP.newSnow.STATVAR.d = min(max(1.29-0.17.*windspeed,0.2),1);
+                snow.TEMP.newSnow.STATVAR.s = min(max(0.08.*windspeed + 0.38,0.5),0.9);
+                snow.TEMP.newSnow.STATVAR.gs = 0.1e-3+(1-snow.TEMP.newSnow.STATVAR.d).*(0.3e-3-0.1e-3.*snow.TEMP.newSnow.STATVAR.s);
+                snow.TEMP.newSnow.STATVAR.time_snowfall = forcing.TEMP.t;
+                
+                %new Sebastian
+                snow.TEMP.newSnow.STATVAR.top_snow_date = forcing.TEMP.t;
+                snow.TEMP.newSnow.STATVAR.bottom_snow_date = forcing.TEMP.t; % a few minites earluer
+            end
+        end
+
         function snow = get_snow_properties_vanKampenhout(snow, forcing)
             % Snow properties function similar to
             % get_snow_properties_crocus(...), but with new snow density

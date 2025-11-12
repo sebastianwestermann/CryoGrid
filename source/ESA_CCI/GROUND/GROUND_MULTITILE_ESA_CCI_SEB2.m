@@ -1,5 +1,5 @@
 
-classdef GROUND_MULTITILE_ESA_CCI_SEB < SEB
+classdef GROUND_MULTITILE_ESA_CCI_SEB2 < SEB
     
 
     methods
@@ -152,7 +152,7 @@ classdef GROUND_MULTITILE_ESA_CCI_SEB < SEB
             %available
             
             snowfall = tile.FORCING.TEMP.snowfall ./1000  ./ ground.CONST.day_sec;
-%             rainfall = tile.FORCING.TEMP.rainfall ./1000  ./ ground.CONST.day_sec;            
+            rainfall = tile.FORCING.TEMP.rainfall ./1000  ./ ground.CONST.day_sec;            
             
             for i=1:4 %assign boundary condition T to correct cell and all cells above, needed to get the conductive heat fluxes right
                 ground.STATVAR.T(i, :) =  ground.STATVAR.T(i, :) + double(i<ground.STATVAR.upper_cell) .* (ground.STATVAR.surf_T - ground.STATVAR.T(i, :));
@@ -163,11 +163,14 @@ classdef GROUND_MULTITILE_ESA_CCI_SEB < SEB
            SEB = SEB - ground.STATVAR.emissivity .* ground.CONST.sigma .* (ground.STATVAR.surf_T + ground.CONST.Tmfw).^4; %Lout
            SEB = SEB - ground.PARA.turbulent_exchange_coefficient .* ground.CONST.cp .* (ground.STATVAR.surf_T - tile.FORCING.TEMP.Tair); %sensible heat flux
             
+           is_snow = sum(ground.STATVAR.waterIce_snow,1) > 1e-12;
+           water_fraction_snow = sum(ground.TEMP.snow_mat1 .* ground.STATVAR.water_snow./ max(ground.STATVAR.waterIce_snow,1e-12);
            ET = 1./(1./ground.PARA.turbulent_exchange_coefficient + ground.STATVAR.resistance_ET) .* 2500e3 .* ...
                (tile.FORCING.TEMP.q - 0.622.* 6.112 .* 100 .* exp(17.62.*ground.STATVAR.surf_T./(243.12 + ground.STATVAR.surf_T))./tile.FORCING.TEMP.p);
 %            ground.PARA.turbulent_exchange_coefficient = rho.*kappa.* uz.*kappa./log(z./z0).^2;
-% ET = 1 .* ground.PARA.turbulent_exchange_coefficient .* 2500e3 .* ...
-%     (tile.FORCING.TEMP.q - 0.622.* 6.112 .* 100 .* exp(17.62.*ground.STATVAR.surf_T./(243.12 + ground.STATVAR.surf_T))./tile.FORCING.TEMP.p);
+
+
+
            SEB = SEB + ET;
            
            ground.TEMP.d_energy(1:4,:) = ground.TEMP.d_energy(1:4,:) + ground.TEMP.snow_mat1 .* repmat(SEB, 4, 1);

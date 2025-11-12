@@ -1,10 +1,10 @@
 %========================================================================
-% CryoGrid SPATIAL_REFERENCE class LIST_OF_POINTS
-% S. Westermann, Oct 2025
+% CryoGrid COORDINATE_SYSTEM class ENSEMBLE_OF_POINTS
+% R. B. Zweigel, Oct 2025
 %========================================================================
 
 
-classdef LIST_OF_POINTS2 < matlab.mixin.Copyable
+classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
 
     properties
         RUN_INFO
@@ -56,23 +56,60 @@ classdef LIST_OF_POINTS2 < matlab.mixin.Copyable
         
         function proj = finalize_init(proj)
             
-            vars = fieldnames(proj.PARA.parameter_list);
+        % 1: build a list of simulation points
 
-            for i=1:size(vars,1)
-                if ~strcmp(vars{i,1}, 'depth')
-                    proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
-                    number_of_points = size(proj.STATVAR.(vars{i,1}),1);
+        % Case 1: Only parameter_list provided - read parameter_list as in LIST_OF_POINTS
+            if ~isempty(proj.PARA.parameter_list.depth) && isempty(proj.PARA.parameter_class) % varible 'depth' is automatically included when using STRAT_MATRIX
+                vars = fieldnames(proj.PARA.parameter_list);
+                proj.STATVAR.variables = [];
+                for i=1:size(vars,1)
+                    if ~strcmp(vars{i,1}, 'depth')
+                        proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
+                        proj.STATVAR.variables = [proj.STATVAR.variables; vars(i,1)];
+                    end
                 end
+                proj.STATVAR.key = 1:size(proj.STATVAR.(vars{i,1}),1);
+
+        % Case 2: Only parameter_class provided - gerenate an ensemble
+        % based on combinations of variable sets in parameter_class
+            elseif isempty(proj.PARA.parameter_list.depth) && ~isempty(proj.PARA.parameter_class)
+                ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
+                ensemble_class.PARENT = proj;
+                finalize_init(ensemble_class);
+                ensemble_class = generate_ensemble(ensemble_class);
+
+        % Case 3: Both parameter_list and parameter_class is provided -
+        % make and ensamble of the variable set in parameter_list incl.
+        % all combanitaions with variable sets in parameter_class
+            elseif ~isempty(proj.PARA.parameter_list.depth) && ~isempty(proj.PARA.parameter_class)
+                % read parameter_list as in Case 1
+                vars = fieldnames(proj.PARA.parameter_list);
+                proj.STATVAR.variables = [];
+                for i=1:size(vars,1)
+                    if ~strcmp(vars{i,1}, 'depth')
+                        proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
+                        proj.STATVAR.variables = [proj.STATVAR.variables; vars(i,1)];
+                    end
+                end
+                proj.STATVAR.key = 1:size(proj.STATVAR.(vars{i,1}),1);
+                
+                % expand points with all combinations in parameter_class
+                ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
+                ensemble_class.PARENT = proj;
+                finalize_init(ensemble_class);
+                ensemble_class = expand_ensemble(ensemble_class);
+
+            else % 
+                 error('Need to provide parameter_list or parameter_class in ENSEMBLE_OF_POINTS')
             end
+    
             vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
             for i=1:size(vars,1)
                 if ~any(strcmp(vars{i,1}, fieldnames(proj.STATVAR)))
-                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), number_of_points,1);
+                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), size(proj.STATVAR.key,1), 1);
                 end
             end
-           
-            proj.STATVAR.key = [1:size(proj.STATVAR.latitude,1)]';
-            
+                       
             %apply masks before data sets
             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);
             for i=1:size(proj.PARA.mask_class_index,1)

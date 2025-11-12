@@ -69,6 +69,8 @@ classdef POINT_3D_DEM < POINT_DEM
                 point.STATVAR.skyview_factor = repmat(point.STATVAR.skyview_factor, 1, point.PARA.number_of_tiles);
                 point.STATVAR.horizon_angles = repmat(point.STATVAR.horizon_angles, 1, point.PARA.number_of_tiles);
                 point.STATVAR.horizon_bins = repmat(point.STATVAR.horizon_bins, 1, point.PARA.number_of_tiles);
+                point.STATVAR.horizon_angles = point.STATVAR.horizon_angles';
+                point.STATVAR.horizon_bins = point.STATVAR.horizon_bins';
             else
                 point.STATVAR.latitude = point.PARA.latitude';
                 point.STATVAR.longitude = point.PARA.longitude';
@@ -99,6 +101,7 @@ classdef POINT_3D_DEM < POINT_DEM
                     point.STATVAR.horizon_bins = [point.STATVAR.horizon_bins point2.STATVAR.horizon_bins];
                 end
             end
+
 
             if size(point.PARA.area,1) == 1
                 point.STATVAR.area = repmat(point.PARA.area, 1, point.PARA.number_of_tiles);

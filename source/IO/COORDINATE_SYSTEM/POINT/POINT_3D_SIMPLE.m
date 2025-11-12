@@ -103,6 +103,9 @@ classdef POINT_3D_SIMPLE < matlab.mixin.Copyable
             else
                 point.STATVAR.horizon_bins = point.PARA.horizon_bins';
             end
+            point.STATVAR.horizon_bins = point.PARA.horizon_bins';
+            point.STATVAR.horizon_angles = point.PARA.horizon_angles';
+
         end
         
         

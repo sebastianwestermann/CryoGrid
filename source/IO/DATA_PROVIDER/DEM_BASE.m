@@ -218,8 +218,8 @@ classdef DEM_BASE < matlab.mixin.Copyable
             dem.STATVAR.skyview_factor = trapz(azmRadian,qIntegrand)./pi;
             
             %add 360 degree angle
-            dem.STATVAR.horizon_bins = [dem.STATVAR.horizon_bins; 360];
-            dem.STATVAR.horizon_angles = [dem.STATVAR.horizon_angles; dem.STATVAR.horizon_angles(1,:)];
+            dem.STATVAR.horizon_bins = [dem.STATVAR.horizon_bins; 360]';
+            dem.STATVAR.horizon_angles = [dem.STATVAR.horizon_angles; dem.STATVAR.horizon_angles(1,:)]';
             
         end
         
