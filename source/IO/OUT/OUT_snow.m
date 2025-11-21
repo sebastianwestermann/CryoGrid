@@ -1,6 +1,5 @@
 %========================================================================
-% CryoGrid OUT class OUT_snow
-% CryoGrid OUT class defining storage format of the output 
+% CryoGrid OUT class OUT_snow delivering simple snow depths
 % S. Westermann, Sep 2025
 %========================================================================
 

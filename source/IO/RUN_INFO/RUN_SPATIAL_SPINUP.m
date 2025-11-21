@@ -166,7 +166,7 @@ classdef RUN_SPATIAL_SPINUP < matlab.mixin.Copyable
                         tile.PARA.worker_number = 1;
                         tile.PARA.range = run_number;
 
-                        [tile.PARA.latitude tile.PARA.longitude]
+                        disp([tile.PARA.latitude tile.PARA.longitude])
 
                         tile = run_model(tile);  %time integration
                     end

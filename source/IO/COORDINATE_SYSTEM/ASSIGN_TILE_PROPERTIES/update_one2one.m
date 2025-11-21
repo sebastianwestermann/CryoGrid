@@ -37,9 +37,13 @@ classdef update_one2one < matlab.mixin.Copyable
         
         function update = assign_tile_properties(update, run_number)
             for i=1:size(update.PARA.target_class_name,1)
-                update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable{i,1}) = ...
-                    update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:);
-              
+                if iscell(update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:))
+                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable{i,1}) = ...
+                        update.PROJ.STATVAR.(update.PARA.variable{i,1}){run_number,:};
+                else
+                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable{i,1}) = ...
+                        update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:);
+                end
             end
         end
         

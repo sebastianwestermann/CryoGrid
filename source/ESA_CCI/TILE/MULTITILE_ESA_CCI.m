@@ -144,8 +144,10 @@ classdef MULTITILE_ESA_CCI < matlab.mixin.Copyable
 %               tile.ENSEMBLE{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class{i,1}){tile.PARA.ensemble_class_index(i,1)});  
 %               tile.ENSEMBLE{i,1} = finalize_init(tile.ENSEMBLE{i,1}, tile);  
 %             end
-            tile.ENSEMBLE = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class){tile.PARA.ensemble_class_index});
-            tile.ENSEMBLE = finalize_init(tile.ENSEMBLE, tile);
+            if ~isempty(tile.PARA.ensemble_class) && sum(isnan(tile.PARA.ensemble_class))==0
+                tile.ENSEMBLE = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class){tile.PARA.ensemble_class_index});
+                tile.ENSEMBLE = finalize_init(tile.ENSEMBLE, tile);
+            end
                         
             %2. forcing -> special forcing class required
             tile.FORCING = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.forcing_class){tile.PARA.forcing_class_index,1});
@@ -187,7 +189,11 @@ classdef MULTITILE_ESA_CCI < matlab.mixin.Copyable
             variables = fieldnames(tile.SUBSURFACE_CLASS.STATVAR);
             for j=1:size(variables,1)
                 if isfield(tile.GRID.STATVAR, variables{j,1})
-                    tile.SUBSURFACE_CLASS.STATVAR.(variables{j,1}) = tile.GRID.STATVAR.(variables{j,1});
+                    if size(tile.GRID.STATVAR.(variables{j,1}),2) == 1
+                        tile.SUBSURFACE_CLASS.STATVAR.(variables{j,1}) = repmat(tile.GRID.STATVAR.(variables{j,1}), 1, size(tile.GRID.STATVAR.layerThick,2));
+                    else %correct dimensions
+                        tile.SUBSURFACE_CLASS.STATVAR.(variables{j,1}) = tile.GRID.STATVAR.(variables{j,1});
+                    end
                 end
             end
        

@@ -48,17 +48,25 @@ classdef compute_time_average_ensemble < FORCING_base
         
         function proc = finalize_init(proc, tile)
             
-            if size(proc.PARA.absolute_change_Tair,2)==1 
+            if size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1)==1
                 proc.PARA.absolute_change_Tair = repmat(proc.PARA.absolute_change_Tair,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1) > 1
+                proc.PARA.absolute_change_Tair = proc.PARA.absolute_change_Tair';
             end   
-            if size(proc.PARA.snow_fraction,2)==1 
+            if size(proc.PARA.snow_fraction,2)==1 && size(proc.PARA.snow_fraction,1)==1 
                 proc.PARA.snow_fraction = repmat(proc.PARA.snow_fraction,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.snow_fraction,2)==1 && size(proc.PARA.snow_fraction,1) > 1 
+                proc.PARA.snow_fraction = proc.PARA.snow_fraction';
             end
-            if size(proc.PARA.rain_fraction,2)==1
+            if size(proc.PARA.rain_fraction,2)==1 && size(proc.PARA.rain_fraction,1)==1 
                 proc.PARA.rain_fraction = repmat(proc.PARA.rain_fraction,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.rain_fraction,2)==1 && size(proc.PARA.rain_fraction,1) > 1 
+                proc.PARA.rain_fraction = proc.PARA.rain_fraction';
             end
-            if size(proc.PARA.relative_change_Sin,2)==1
+            if size(proc.PARA.relative_change_Sin,2)==1 && size(proc.PARA.relative_change_Sin,1)==1
                 proc.PARA.relative_change_Sin = repmat(proc.PARA.relative_change_Sin,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.relative_change_Sin,2)==1 && size(proc.PARA.relative_change_Sin,1) > 1
+                proc.PARA.relative_change_Sin = proc.PARA.relative_change_Sin';
             end
         end
         
@@ -107,6 +115,13 @@ classdef compute_time_average_ensemble < FORCING_base
                                 
             end
             
+            vars={'Lin'; 'Sin'; 'Tair'; 'q'; 'p'; 'rainfall'; 'snowfall'; 'wind'};
+            for i=1:size(vars,1)
+                if size(forcing.DATA.(vars{i,1}),2)==1
+                    forcing.DATA.(vars{i,1}) = repmat(forcing.DATA.(vars{i,1}),1, proc.PARA.ensemble_size);
+                end
+            end
+
             if size(forcing.PARA.heatFlux_lb,2) == 1
                 tile.PARA.geothermal = repmat(forcing.PARA.heatFlux_lb, 1, proc.PARA.ensemble_size);
             end
