@@ -9,7 +9,7 @@
 %
 %========================================================================
 
-classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable  
+classdef convert2ESA_CCI_ensemble2 < FORCING_base
     
     properties
         
@@ -41,6 +41,7 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
             proc.PARA.albsmin=0.5; % Minimum snow albedo.
             
             proc.PARA.degree_day_factor=0.2/1e2 .* 3.34e8 ./ (24.*3600); % Restricted degree day factor (m*degC/day , value from Burbaker et al. 1996)  ./day_sec .* L_i
+            proc.PARA.degree_day_factor=0.5/1e2 .* 3.34e8 ./ (24.*3600); 
         end
         
         
@@ -59,26 +60,40 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
         
         
         function proc = finalize_init(proc, tile)
+
+            proc.PARA.ensemble_size = tile.PARA.tile_size;
             proc.STATVAR.Lupwelling = proc.PARA.emissivity_snow.*proc.CONST.sigma.*proc.CONST.Tmfw.^4; % upwelling longwave radiation for melting snow, T=273.15K
             proc.STATVAR.albedo = repmat(proc.PARA.albsmax, 1, proc.PARA.ensemble_size); %initialize 1st albedo values 
             
-            if size(proc.PARA.absolute_change_Tair,2)==1 
+            if size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1)==1
                 proc.PARA.absolute_change_Tair = repmat(proc.PARA.absolute_change_Tair,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1) > 1
+                proc.PARA.absolute_change_Tair = proc.PARA.absolute_change_Tair';
             end   
-            if size(proc.PARA.wind_speed_class,2)==1
-                proc.PARA.wind_speed_class = repmat(proc.PARA.wind_speed_class,1, proc.PARA.ensemble_size);
-            end
-            if size(proc.PARA.snow_fraction,2)==1 
+            if size(proc.PARA.snow_fraction,2)==1 && size(proc.PARA.snow_fraction,1)==1 
                 proc.PARA.snow_fraction = repmat(proc.PARA.snow_fraction,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.snow_fraction,2)==1 && size(proc.PARA.snow_fraction,1) > 1 
+                proc.PARA.snow_fraction = proc.PARA.snow_fraction';
             end
-            if size(proc.PARA.rain_fraction,2)==1
+            if size(proc.PARA.rain_fraction,2)==1 && size(proc.PARA.rain_fraction,1)==1 
                 proc.PARA.rain_fraction = repmat(proc.PARA.rain_fraction,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.rain_fraction,2)==1 && size(proc.PARA.rain_fraction,1) > 1 
+                proc.PARA.rain_fraction = proc.PARA.rain_fraction';
             end
-            if size(proc.PARA.relative_change_Sin,2)==1
+            if size(proc.PARA.relative_change_Sin,2)==1 && size(proc.PARA.relative_change_Sin,1)==1
                 proc.PARA.relative_change_Sin = repmat(proc.PARA.relative_change_Sin,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.relative_change_Sin,2)==1 && size(proc.PARA.relative_change_Sin,1) > 1
+                proc.PARA.relative_change_Sin = proc.PARA.relative_change_Sin';
             end
-            if size(proc.PARA.relative_change_degree_day_factor,2)==1
+            if size(proc.PARA.wind_speed_class,2)==1 && size(proc.PARA.wind_speed_class,1)==1
+                proc.PARA.wind_speed_class = repmat(proc.PARA.wind_speed_class,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.wind_speed_class,2)==1 && size(proc.PARA.wind_speed_class,1) > 1
+                proc.PARA.wind_speed_class = proc.PARA.wind_speed_class';
+            end
+            if size(proc.PARA.relative_change_degree_day_factor,2)==1 && size(proc.PARA.relative_change_degree_day_factor,1)==1
                 proc.PARA.relative_change_degree_day_factor = repmat(proc.PARA.relative_change_degree_day_factor,1, proc.PARA.ensemble_size);
+            elseif size(proc.PARA.relative_change_degree_day_factor,2)==1 && size(proc.PARA.relative_change_degree_day_factor,1) > 1
+                proc.PARA.relative_change_degree_day_factor = proc.PARA.relative_change_degree_day_factor';
             end
         end
         
@@ -90,10 +105,12 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
             forcing.DATA.snowfall = [];
             forcing.DATA.rainfall = [];
             forcing.DATA.sublimation = [];
-            forcing.DATA.sublimation2 = [];            
             forcing.DATA.melt = [];
             forcing.DATA.surfT = [];
             forcing.DATA.timeForcing = [];
+            forcing.DATA.albedo = [];
+            albedo_reset = 0;
+
             
             for i = data_full.timeForcing(1,1):proc.PARA.averaging_period:data_full.timeForcing(end,1)-proc.PARA.averaging_period
                 range = find(data_full.timeForcing>=i & data_full.timeForcing < min(data_full.timeForcing(end,1), i + proc.PARA.averaging_period));
@@ -132,7 +149,7 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
                         Lin = Lin + sky_emissivity .* proc.CONST.sigma .* (data_full.Tair(range(k),1) + 273.15 + proc.PARA.absolute_change_Tair).^4;
                         Sin = Sin + data_full.Sin(range(k),1) .*  proc.PARA.relative_change_Sin;
                         precip = data_full.snowfall(range(k),1) + data_full.rainfall(range(k),1);
-                        factor = max(0, min(1, (data_full.Tair(range(k),1) - proc.PARA.all_snow_T) ./ max(1e-12, (proc.PARA.all_rain_T - proc.PARA.all_snow_T))));
+                        factor = max(0, min(1, (data_full.Tair(range(k),1) + proc.PARA.absolute_change_Tair - proc.PARA.all_snow_T) ./ max(1e-12, (proc.PARA.all_rain_T - proc.PARA.all_snow_T))));
                         sf = sf + precip.*(1 - factor);
                         
 %                         %sublimation
@@ -142,11 +159,12 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
 %                         sublimation2 = sublimation2 +  max(0, rho_a ./ rho_w.*kappa.^2.*proc.PARA.wind_speed_class ./(log(2./1e-3)).^2 .* max(0, (-data_full.q(range(k),1) + q_surf)));
                     end
                     
-                    LW_net = proc.PARA.emissivity_snow .* Lin ./ size(range,1) - proc.STATVAR.Lupwelling; % Net  longwave
+                    LW_net = proc.PARA.emissivity_snow .* Lin ./ size(range,1) - proc.STATVAR.Lupwelling; % Net  longwave in W/m2
                     SW_net = (1-proc.STATVAR.albedo) .* Sin ./ size(range,1); % Net shortwave
-                    SH_net = proc.PARA.relative_change_degree_day_factor .* proc.PARA.degree_day_factor .* mean(data_full.Tair(range,1)); % Warming through turbulent heat fluxes, parametrized using a restricted degree day approach.
+                    %SH_net = proc.PARA.relative_change_degree_day_factor .* proc.PARA.degree_day_factor .* mean(data_full.Tair(range,1)); % Warming through turbulent heat fluxes, parametrized using a restricted degree day approach.
+                    SH_net = 8e-3.*1005 .* (mean(data_full.Tair(range,1)) + proc.PARA.absolute_change_Tair); % Warming through turbulent heat fluxes, parametrized using a restricted degree day approach.
                     
-                    daily_melt_depth = (LW_net + SW_net + SH_net) .* proc.CONST.day_sec ./ proc.CONST.L_f .* 1000;
+                    daily_melt_depth = (LW_net + SW_net + SH_net) .* proc.CONST.day_sec ./ proc.CONST.L_f .* 1000; %in mm/day
                     melt_depth = melt_depth + daily_melt_depth; % Melt depth over the time step.
 
                     
@@ -162,10 +180,17 @@ classdef convert2ESA_CCI_ensemble2 < < matlab.mixin.Copyable
                     constr = net_acc<0;
                     proc.STATVAR.albedo(1, constr) = (proc.STATVAR.albedo(1, constr) - proc.PARA.albsmin) .* exp(-proc.PARA.tauf) + proc.PARA.albsmin;
                     proc.STATVAR.albedo(proc.STATVAR.albedo < proc.PARA.albsmin) = proc.PARA.albsmin;
+                    if albedo_reset == 1 && month(i)>=9
+                        albedo_reset=0;
+                        proc.STATVAR.albedo = proc.STATVAR.albedo .*0 + proc.PARA.albsmax;
+                    elseif albedo_reset == 0 && month(i)>=12 
+                        albedo_reset=1;
+                    end
 
                 end
                % melt_depth(melt_depth <0) = 0;
                 forcing.DATA.melt = [forcing.DATA.melt; melt_depth ./ proc.PARA.averaging_period];  %in mm/day
+                forcing.DATA.albedo = [forcing.DATA.albedo; proc.STATVAR.albedo];
            %     forcing.DATA.sublimation2 = [forcing.DATA.sublimation2; sublimation2 ./size(range,1) ./ proc.PARA.averaging_period .* 1000 .* proc.CONST.day_sec];
             end
             

@@ -169,8 +169,8 @@ classdef GROUND_MULTITILE_ESA_CCI_SEB2 < SEB
             snowfall = tile.FORCING.TEMP.snowfall ./1000  ./ ground.CONST.day_sec;
             ground.STATVAR.rainfall = tile.FORCING.TEMP.rainfall ./1000  ./ ground.CONST.day_sec;            
             
-            for i=1:4 %assign boundary condition T to correct cell and all cells above, needed to get the conductive heat fluxes right
-                ground.STATVAR.T(i, :) =  ground.STATVAR.T(i, :) + double(i<ground.STATVAR.upper_cell) .* (ground.STATVAR.surf_T - ground.STATVAR.T(i, :));
+            for i=4:-1:1 %assign boundary condition T to correct cell and all cells above, needed to get the conductive heat fluxes right
+                ground.STATVAR.T(i, :) =  ground.STATVAR.T(i, :) + double(i<=ground.STATVAR.upper_cell) .* (ground.STATVAR.T(i+1, :) - ground.STATVAR.T(i, :));
             end
 
 %          ground.PARA.turbulent_exchange_coefficient = rho.*kappa.* uz.*kappa./log(z./z0).^2;     
@@ -192,8 +192,8 @@ classdef GROUND_MULTITILE_ESA_CCI_SEB2 < SEB
 
            % evap = ground.STATVAR.upper_cell .*0; %assign something
            % evap(~is_snow) = LH(~is_snow) ./ (2500e3 .* 1000); %not needed now, but can be used for bucket water scheme
-           sublimation = ground.STATVAR.upper_cell .*0; %assign something
-           sublimation(is_snow) = LH(is_snow) ./ (2834e3 .* 1000);
+           sublimation = ground.STATVAR.upper_cell .* 0; %assign something
+           %sublimation(is_snow) = LH(is_snow) ./ (2838e3 .* 1000);
 
            ground.TEMP.d_energy(1:4,:) = ground.TEMP.d_energy(1:4,:) + ground.TEMP.snow_mat1 .* repmat(SEB, 4, 1);
 
@@ -397,8 +397,10 @@ classdef GROUND_MULTITILE_ESA_CCI_SEB2 < SEB
             ground.STATVAR.albedo = double(~ground.TEMP.snow_yes_no) .* ground.PARA.albedo_ground + double(ground.TEMP.snow_yes_no) .* ground.STATVAR.albedo_snow;
 
             ground.STATVAR.emissivity = double(~ground.TEMP.snow_yes_no) .* ground.PARA.emissivity_ground + double(ground.TEMP.snow_yes_no) .* ground.PARA.emissivity_snow;            
+            
+            ground.STATVAR.surf_T = 0;
             for i=1:4
-                ground.STATVAR.surf_T = double(ground.STATVAR.upper_cell == i) .* ground.STATVAR.T(i+1,:);
+                ground.STATVAR.surf_T = ground.STATVAR.surf_T + double(ground.STATVAR.upper_cell == i) .* ground.STATVAR.T(i+1,:);
             end
 
             ground.TEMP.d_energy = ground.STATVAR.energy .* 0;

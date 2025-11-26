@@ -61,6 +61,9 @@ classdef RUN_SPATIAL_SPINUP < matlab.mixin.Copyable
                 run_info.SPATIAL.RUN_INFO = run_info;
                 run_info.SPATIAL = finalize_init(run_info.SPATIAL);
             end
+            if sum(isnan(run_info.PARA.max_number_of_gridcells)) > 1 || ischar(run_info.PARA.max_number_of_gridcells)
+                run_info.PARA.max_number_of_gridcells = Inf;
+            end
         end
 
         

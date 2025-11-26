@@ -61,7 +61,7 @@ classdef SNOW_MULTITILE_BUCKET_GROUND < BASE
             ground.STATVAR.SWE_water = max(0, ground.STATVAR.SWE_water - refreeze);
 
             ground.STATVAR.SWE = max(0, ground.STATVAR.SWE);
-            ground.STATVAR.SWE_water = min(ground.STATVAR.SWE ./ 0.1, ground.STATVAR.SWE_water);
+            ground.STATVAR.SWE_water = min(ground.STATVAR.SWE ./ 0.5, ground.STATVAR.SWE_water);
 
             %update of subsurface ground temperature  
             ground.STATVAR.energy = ground.STATVAR.energy + ground.PARA.timestep .* (-double(~melting & ground.STATVAR.SWE > 0) .* (ground.STATVAR.T - tile.FORCING.TEMP.surfT) .* ground.PARA.conductivity_ground .* ground.PARA.conductivity_snow  ./ ...

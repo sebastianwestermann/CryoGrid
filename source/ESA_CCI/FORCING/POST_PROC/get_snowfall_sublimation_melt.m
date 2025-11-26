@@ -41,7 +41,10 @@ classdef get_snowfall_sublimation_melt < FORCING_base
             post_proc.PARA.albsmin_forest=0.3; % Minimum snow albedo.
             
             post_proc.PARA.ar=0.2/1e2 .* 3.34e8 ./ (24.*3600); % Restricted degree day factor (m*degC/day , value from Burbaker et al. 1996)
-            
+            %CHECK THIS, it goes onto energy, and should be 3.3.* windspeed
+            %for neutral stratifications, so a bit less for melting snow -
+            %the value is 7.7, this is somewhere in the range
+
             post_proc.PARA.canopy_transmissivity = 0.3;
             post_proc.PARA.emissivity_canopy = 0.96;
             

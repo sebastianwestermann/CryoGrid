@@ -33,6 +33,7 @@ classdef FORCING_MULTITILE_from_TILE < FORCING_base
             [~,ia, ic] = unique(parameters,'rows','legacy'); %finds the unique variables
             first_round = 1;
             tile2.RUN_INFO = tile.RUN_INFO;
+            tile2.PARA.tile_size = tile.PARA.tile_size;
             for i=1:size(ia,1)
                 for j=1:size(vars,1)
                     tile2.PARA.(vars{j,1}) = tile.PARA.(vars{j,1})(i,:);

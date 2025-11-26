@@ -1,6 +1,7 @@
 %========================================================================
 % CryoGrid DATA_PROVIDER class GET_VARIABLES_DEM
-% Loads/calculates spatial variables similar to dem_DEM
+% Loads/calculates spatial variables similar to DEM.m, but for a list/ensemble of points, not for the entire area covered by the DEM
+%designed to work together with spatila classes LIST_OF_POINTS/ENSEMBLE_OF_POINTS 
 % R.B. Zweigel, November 2025
 %========================================================================
 

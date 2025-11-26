@@ -29,7 +29,7 @@ classdef MULTITILE_SIMPLE < matlab.mixin.Copyable
             
             tile.PARA.builder = [];
             tile.PARA.number_of_realizations = [];
-            tile.PARA.ensemble_size = [];
+            tile.PARA.ensemble_size = 1;
             tile.PARA.ensemble_class =[];
             tile.PARA.ensemble_class_index =[];
             tile.PARA.subsurface_class =[];
@@ -123,12 +123,12 @@ classdef MULTITILE_SIMPLE < matlab.mixin.Copyable
             tile.PARA.tile_size = tile.PARA.number_of_realizations .* tile.PARA.ensemble_size;
 
             %assign ensemble classes
-%             for i = 1:size(tile.PARA.ensemble_class,1)
-%               tile.ENSEMBLE{i,1} = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class{i,1}){tile.PARA.ensemble_class_index(i,1)});  
-%               tile.ENSEMBLE{i,1} = finalize_init(tile.ENSEMBLE{i,1}, tile);  
-%             end
-            tile.ENSEMBLE = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class){tile.PARA.ensemble_class_index});
-            tile.ENSEMBLE = finalize_init(tile.ENSEMBLE, tile);
+            if ~isempty(tile.PARA.ensemble_class) && sum(isnan(tile.PARA.ensemble_class))==0
+                tile.ENSEMBLE = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class){tile.PARA.ensemble_class_index});
+                tile.ENSEMBLE = finalize_init(tile.ENSEMBLE, tile);
+            end
+            % tile.ENSEMBLE = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.ensemble_class){tile.PARA.ensemble_class_index});
+            % tile.ENSEMBLE = finalize_init(tile.ENSEMBLE, tile);
                         
             %2. forcing -> special forcing class required
             tile.timestep = tile.RUN_INFO.PPROVIDER.CLASSES.(tile.PARA.subsurface_class){tile.PARA.subsurface_class_index,1}.PARA.timestep;

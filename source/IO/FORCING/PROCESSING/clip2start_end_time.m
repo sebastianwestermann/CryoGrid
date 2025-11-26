@@ -15,7 +15,8 @@ classdef clip2start_end_time < process_BASE
     
     methods
         function proc = provide_PARA(proc)
-
+            proc.PARA.start_time_slice = [];
+            proc.PARA.end_time_slice = [];
         end
         
         
@@ -30,12 +31,23 @@ classdef clip2start_end_time < process_BASE
         
         
         function proc = finalize_init(proc, tile)
-
+            if ~isempty(proc.PARA.start_time_slice) && sum(isnan(proc.PARA.start_time_slice)) == 0
+                proc.PARA.start_time_slice = datenum(proc.PARA.start_time_slice(1), proc.PARA.start_time_slice(2), proc.PARA.start_time_slice(3));
+            else
+                proc.PARA.start_time_slice = tile.FORCING.PARA.start_time;
+            end
+            if ~isempty(proc.PARA.end_time_slice) && sum(isnan(proc.PARA.end_time_slice)) == 0
+                proc.PARA.end_time_slice = datenum(proc.PARA.end_time_slice(1), proc.PARA.end_time_slice(2), proc.PARA.end_time_slice(3));
+            else
+                proc.PARA.end_time_slice = tile.FORCING.PARA.end_time;
+            end
         end
         
         
         function forcing = process(proc, forcing, tile)
-                range = find(forcing.DATA.timeForcing>=forcing.PARA.start_time & forcing.DATA.timeForcing <= forcing.PARA.end_time);
+                % range = find(forcing.DATA.timeForcing>=forcing.PARA.start_time & forcing.DATA.timeForcing <= forcing.PARA.end_time);
+                range = find(forcing.DATA.timeForcing>=proc.PARA.start_time_slice & forcing.DATA.timeForcing < proc.PARA.end_time_slice);
+
                 variable_list = fieldnames(forcing.DATA);
                 for i=1:size(variable_list,1)
                     forcing.DATA.(variable_list{i,1}) = forcing.DATA.(variable_list{i,1})(range,1);

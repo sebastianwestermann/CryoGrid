@@ -1,5 +1,5 @@
 %========================================================================
-% CryoGrid COORDINATE_SYSTEM class ENSEMBLE_OF_POINTS
+% CryoGrid COORDINATE_SYSTEM class ENSEMBLE_OF_POINTS which 
 % R. B. Zweigel, Oct 2025
 %========================================================================
 
@@ -55,61 +55,56 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
         end
         
         function proj = finalize_init(proj)
-            
-        % 1: build a list of simulation points
-
-        % Case 1: Only parameter_list provided - read parameter_list as in LIST_OF_POINTS
-            if ~isempty(proj.PARA.parameter_list.depth) && isempty(proj.PARA.parameter_class) % varible 'depth' is automatically included when using STRAT_MATRIX
-                vars = fieldnames(proj.PARA.parameter_list);
-                proj.STATVAR.variables = [];
-                for i=1:size(vars,1)
-                    if ~strcmp(vars{i,1}, 'depth')
-                        proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
-                        proj.STATVAR.variables = [proj.STATVAR.variables; vars(i,1)];
-                    end
-                end
-                proj.STATVAR.key = 1:size(proj.STATVAR.(vars{i,1}),1);
-
-        % Case 2: Only parameter_class provided - gerenate an ensemble
-        % based on combinations of variable sets in parameter_class
-            elseif isempty(proj.PARA.parameter_list.depth) && ~isempty(proj.PARA.parameter_class)
-                ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
-                ensemble_class.PARENT = proj;
-                finalize_init(ensemble_class);
-                ensemble_class = generate_ensemble(ensemble_class);
-
-        % Case 3: Both parameter_list and parameter_class is provided -
-        % make and ensamble of the variable set in parameter_list incl.
-        % all combanitaions with variable sets in parameter_class
-            elseif ~isempty(proj.PARA.parameter_list.depth) && ~isempty(proj.PARA.parameter_class)
-                % read parameter_list as in Case 1
-                vars = fieldnames(proj.PARA.parameter_list);
-                proj.STATVAR.variables = [];
-                for i=1:size(vars,1)
-                    if ~strcmp(vars{i,1}, 'depth')
-                        proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
-                        proj.STATVAR.variables = [proj.STATVAR.variables; vars(i,1)];
-                    end
-                end
-                proj.STATVAR.key = 1:size(proj.STATVAR.(vars{i,1}),1);
-                
-                % expand points with all combinations in parameter_class
-                ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
-                ensemble_class.PARENT = proj;
-                finalize_init(ensemble_class);
-                ensemble_class = expand_ensemble(ensemble_class);
-
-            else % 
-                 error('Need to provide parameter_list or parameter_class in ENSEMBLE_OF_POINTS')
+            if ~isstruct(proj.PARA.parameter_list) && ~isempty(proj.PARA.parameter_list) && isnan(proj.PARA.parameter_list)
+                proj.PARA.parameter_list = [];
             end
-    
+            proj.TEMP.variables = {'key'};
+            proj.TEMP.ensemble_number = [];
+            proj.STATVAR.key = [];
+            % 1: build a list of simulation points
+
+            % Case 1: Only parameter_list provided - read parameter_list as in LIST_OF_POINTS
+            if ~isempty(proj.PARA.parameter_list) && isstruct(proj.PARA.parameter_list) % varible 'depth' is automatically included when using STRAT_MATRIX
+                vars = fieldnames(proj.PARA.parameter_list);
+                for i=1:size(vars,1)
+                    if ~strcmp(vars{i,1}, 'depth')
+                        proj.STATVAR.(vars{i,1}) = proj.PARA.parameter_list.(vars{i,1});
+                        proj.TEMP.variables = [proj.TEMP.variables; vars(i,1)];
+                    end
+                end
+                proj.STATVAR.key = [1:size(proj.STATVAR.(vars{i,1}),1)]';
+                proj.TEMP.ensemble_number = proj.STATVAR.key .*0+1;
+            end
+            % Case 2:  parameter_class provided - gerenate an ensemble
+            % based on combinations of variable sets in parameter_class
+            if ~isempty(proj.PARA.parameter_class)
+                % ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
+                % ensemble_class.PARENT = proj;
+                % finalize_init(ensemble_class);
+                % ensemble_class = generate_ensemble(ensemble_class);
+                if isempty(proj.TEMP.ensemble_number)
+                    offset = 0;
+                else
+                    offset = 1;
+                end
+
+                for i=1:size(proj.PARA.parameter_class,1)
+                    ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class{i,1}){proj.PARA.parameter_class_index(i,1),1});
+                    ensemble_class.PARENT = proj;
+                    finalize_init(ensemble_class);
+                    ensemble_class = generate_ensemble(ensemble_class);
+                    proj.TEMP.ensemble_number = [proj.TEMP.ensemble_number; ensemble_class.STATVAR.key.*0 + i+offset];
+                    proj = expand_STATVAR(proj, ensemble_class);
+                end
+            end
+
             vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
             for i=1:size(vars,1)
                 if ~any(strcmp(vars{i,1}, fieldnames(proj.STATVAR)))
                     proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), size(proj.STATVAR.key,1), 1);
                 end
             end
-                       
+            proj.STATVAR.key = proj.STATVAR.key .* 10 + proj.TEMP.ensemble_number; %append the ensemble number 
             %apply masks before data sets
             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);
             for i=1:size(proj.PARA.mask_class_index,1)
@@ -156,6 +151,27 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
 
         end
         
+
+        function proj = expand_STATVAR(proj, ensemble_class)
+            size_of_existing = size(proj.STATVAR.key,1);
+            size_of_new = size(ensemble_class.STATVAR.key,1);
+            
+            %go through existing variables
+            for i=1:size(proj.TEMP.variables,1)
+                if any(strcmp(proj.TEMP.variables{i,1}, ensemble_class.TEMP.variables)) %both variables exist
+                    proj.STATVAR.(proj.TEMP.variables{i,1}) = [proj.STATVAR.(proj.TEMP.variables{i,1}); ensemble_class.STATVAR.(proj.TEMP.variables{i,1})];
+                else %variable does not exist in new ensemble
+                     proj.STATVAR.(proj.TEMP.variables{i,1}) = [proj.STATVAR.(proj.TEMP.variables{i,1}); repmat(NaN, size_of_new,1)];
+                end
+            end
+            %go through new variables and add non-existing ones
+            for i=1:size(ensemble_class.TEMP.variables,1)
+                if ~any(strcmp(ensemble_class.TEMP.variables{i,1}, proj.TEMP.variables)) %variables does not exists in existing ensemble
+                     proj.STATVAR.(ensemble_class.TEMP.variables{i,1}) = [repmat(NaN, size_of_existing,1); ensemble_class.STATVAR.(ensemble_class.TEMP.variables{i,1})];
+                     proj.TEMP.variables = [proj.TEMP.variables; ensemble_class.TEMP.variables{i,1}];
+                end
+            end
+        end
  
 %         %-------------param file generation-----
 %         function proj = param_file_info(proj)

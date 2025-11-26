@@ -47,7 +47,7 @@ classdef compute_time_average_ensemble < FORCING_base
         
         
         function proc = finalize_init(proc, tile)
-            
+            proc.PARA.ensemble_size = tile.PARA.tile_size;
             if size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1)==1
                 proc.PARA.absolute_change_Tair = repmat(proc.PARA.absolute_change_Tair,1, proc.PARA.ensemble_size);
             elseif size(proc.PARA.absolute_change_Tair,2)==1 && size(proc.PARA.absolute_change_Tair,1) > 1

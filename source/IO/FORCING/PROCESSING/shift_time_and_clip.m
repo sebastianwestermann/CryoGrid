@@ -37,7 +37,7 @@ classdef shift_time_and_clip < process_BASE
                 proc.PARA.start_time_slice = [];
             end
             if ~isempty(proc.PARA.end_time_slice) && sum(isnan(proc.PARA.end_time_slice)) == 0
-                proc.PARA.end_time = datenum(proc.PARA.end_time_slice(1), proc.PARA.end_time_slice(2), proc.PARA.end_time_slice(3));
+                proc.PARA.end_time_slice = datenum(proc.PARA.end_time_slice(1), proc.PARA.end_time_slice(2), proc.PARA.end_time_slice(3));
             else
                 proc.PARA.end_time_slice = [];
             end
