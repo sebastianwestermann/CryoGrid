@@ -7,7 +7,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
         TEMP
         TIMESTAMP
         OUTPUT_TIME
-
+        SAVE_TIME
     end
 
     methods
@@ -55,7 +55,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 obs.SAVE_TIME = min(forcing.PARA.end_time,  datenum([obs.PARA.save_date num2str(str2num(datestr(forcing.PARA.start_time,'yyyy')) + obs.PARA.save_interval)], 'dd.mm.yyyy'));
             end
             obs.TEMP.potentials = [];
-
+            obs.TEMP.resistances = [];
         end
 
 
@@ -125,12 +125,15 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 end
 
                 dz = layerThick; %take grid from model, does not seem
+                obs.TEMP.resistances = [obs.TEMP.resistances; resistances'];
                 resistances = repmat(resistances, 1, size(dx,1));
                 resistances = resistances';
 
                 %current electrodes
                 tic;
-                [fwd_model_para] = get_2_5Dpara(obs, electrode_positions_shifted(:,1:4),dx,dz,1./resistances,4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+                [fwd_model_para] = get_2_5Dpara(obs, electrode_positions_shifted(:,1:4),dx,dz,[],4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+%                [fwd_model_para] = get_2_5Dpara(obs, electrode_positions_shifted(:,1:4),dx,dz,1./resistances,4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+
                 toc;
                 %Run the forward model
                 [result, potential_field] = dcfw2_5D(obs, 1./resistances, fwd_model_para);
@@ -143,7 +146,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 if t>=obs.SAVE_TIME
                     % It is time to save all the collected model output to disk
                      
-                    CG_out = obs.TEMP.potentials;
+                    CG_out = obs.TEMP;
 
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
@@ -157,6 +160,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                     % Clear the out structure
                     obs.TIMESTAMP=[];
                     obs.TEMP.potentials = [];
+                    obs.TEMP.resistances = [];
                     if ~isnan(obs.PARA.save_interval)
                         % If save_interval is defined, uptate SAVE_TIME for next save opertion 
                         obs.SAVE_TIME = min(forcing.PARA.end_time,  datenum([obs.PARA.save_date num2str(str2num(datestr(obs.SAVE_TIME,'yyyy')) + obs.PARA.save_interval)], 'dd.mm.yyyy'));
