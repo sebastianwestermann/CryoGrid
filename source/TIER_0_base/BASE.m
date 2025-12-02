@@ -164,6 +164,14 @@ classdef BASE < matlab.mixin.Copyable
         function ground = lateral3D_push_heat(ground, lateral)
             
         end
+
+        function ground = lateral3D_pull_salt(ground, lateral)
+            
+        end
+        
+        function ground = lateral3D_push_salt(ground, lateral)
+
+        end
         
         %---LAT3D_MASS_GLACIER------------------------------------------
         function ground = lateral3D_pull_mass_GLACIER(ground, lateral)

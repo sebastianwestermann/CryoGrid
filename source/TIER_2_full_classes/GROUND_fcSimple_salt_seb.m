@@ -5,7 +5,7 @@
 %========================================================================
 
 
-classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_LATERAL 
+classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_LATERAL & SALT_FLUXES_LATERAL
     
     
     methods
