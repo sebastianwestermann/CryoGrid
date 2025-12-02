@@ -202,6 +202,16 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
             ground = lateral3D_push_heat_simple(ground, lateral);
         end
         %------------------------------
+
+        %-------LAT3D_SALT-------------
+        function ground = lateral3D_pull_salt(ground, lateral)
+            ground = lateral3D_pull_salt_simple(ground, lateral);
+        end
+        
+        function ground = lateral3D_push_salt(ground, lateral)
+            ground = lateral3D_push_salt_simple(ground, lateral);
+        end
+        %------------------------------
         
         %----inherited Tier 1 functions ------------
         

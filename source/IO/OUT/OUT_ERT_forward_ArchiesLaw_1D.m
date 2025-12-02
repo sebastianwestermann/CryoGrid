@@ -1,3 +1,6 @@
+%cite https://www.sciencedirect.com/science/article/pii/S0098300408001519
+%when using this class
+
 classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
     properties
