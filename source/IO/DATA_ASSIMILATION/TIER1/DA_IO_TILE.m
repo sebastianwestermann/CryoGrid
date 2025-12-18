@@ -167,7 +167,7 @@ classdef DA_IO_TILE < matlab.mixin.Copyable
          end
 
          function da = save_da_results_all(da_IO, da, tile)
-             if da.TILE.PARA.worker_number==3 && strcmp(da.PARA.store_format, 'all')
+             if da.TILE.PARA.worker_number==1 && strcmp(da.PARA.store_format, 'all')
                  da_store = copy(da);
                  da_store.TILE = [];
                  if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)

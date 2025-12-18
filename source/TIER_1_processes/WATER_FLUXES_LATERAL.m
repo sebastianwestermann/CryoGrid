@@ -854,6 +854,9 @@ classdef WATER_FLUXES_LATERAL < BASE
         end
         
         function ground = lateral_push_water_reservoir_snow(ground, lateral)
+
+
+
             water_volumetric = ground.STATVAR.water ./ ground.STATVAR.layerThick ./ ground.STATVAR.area;
             porosity = 1 - (ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.ice)./ (ground.STATVAR.layerThick .* ground.STATVAR.area);
             mobile = water_volumetric  > ground.PARA.field_capacity .* porosity;

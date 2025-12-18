@@ -1,6 +1,6 @@
 
 %========================================================================
-% CryoGrid STRATIGRAPHY STATVAR class STRAT_layers 
+% CryoGrid STRATIGRAPHYSTATVAR class STRAT_layers 
 % STRAT_layers defines the initial stratigraphy of model state variables 
 % as seperate layers with constant values. The depth below the surface 
 % for the top position of each layer must be provided, and the last 
@@ -8,7 +8,7 @@
 % S. Westermann, T. Ingeman-Nielsen, J. Scheer, October 2020
 %========================================================================
 
-classdef STRAT_layers_variable_upper_layer < matlab.mixin.Copyable
+classdef STRAT_layers_3layers < matlab.mixin.Copyable
     
     properties
 		strat_layers_index
@@ -25,8 +25,16 @@ classdef STRAT_layers_variable_upper_layer < matlab.mixin.Copyable
 
 		function stratigraphy = provide_PARA(stratigraphy)  %this is problematic, these fields must be completely arbitray, it changes accoriding to the requirements of the classes
 			
-            stratigraphy.PARA.thickness_upper_layer = [];			
-            stratigraphy.PARA.layers = [];
+			stratigraphy.PARA.layers = [];
+            stratigraphy.PARA.layer1_thickness = [];
+            stratigraphy.PARA.layer2_thickness = [];
+            stratigraphy.PARA.excess_ice_startdepth = [];
+            stratigraphy.PARA.excess_ice_enddepth = [];
+            stratigraphy.PARA.excess_ice_content = [];
+            stratigraphy.PARA.layer1 = [];
+            stratigraphy.PARA.layer2 = [];
+            stratigraphy.PARA.layer3 = [];
+
         end
         
         function stratigraphy = provide_CONST(stratigraphy)
@@ -39,27 +47,118 @@ classdef STRAT_layers_variable_upper_layer < matlab.mixin.Copyable
         
         
         function stratigraphy = finalize_init(stratigraphy, tile)
-			
-            variables = fieldnames(stratigraphy.PARA.layers);
+		    
+            variables = fieldnames(stratigraphy.PARA.layer1);
+            for i=1:size(variables,1)
+                stratigraphy.PARA.layers.(variables{i,1}) = [];
+            end
+
+            for j= 1:size(stratigraphy.PARA.layer1.depth,1)
+                if stratigraphy.PARA.layer1_thickness > stratigraphy.PARA.layer1.depth(j,1)
+                    for i=1:size(variables,1)
+                        stratigraphy.PARA.layers.(variables{i,1}) = [stratigraphy.PARA.layers.(variables{i,1}) ; stratigraphy.PARA.layer1.(variables{i,1})(j,1)];
+                    end
+                end
+            end
+
+            for j= 1:size(stratigraphy.PARA.layer2.depth,1)
+                if stratigraphy.PARA.layer2_thickness > stratigraphy.PARA.layer2.depth(j,1)
+                    for i=1:size(variables,1)
+                        if strcmp(variables{i,1},'depth')
+                            stratigraphy.PARA.layers.(variables{i,1}) = [stratigraphy.PARA.layers.(variables{i,1}) ; stratigraphy.PARA.layer2.(variables{i,1})(j,1) + stratigraphy.PARA.layer1_thickness];
+                        else
+                            stratigraphy.PARA.layers.(variables{i,1}) = [stratigraphy.PARA.layers.(variables{i,1}) ; stratigraphy.PARA.layer2.(variables{i,1})(j,1)];
+                        end
+                    end
+                end
+            end
+
+            for j= 1:size(stratigraphy.PARA.layer3.depth,1)
+                    for i=1:size(variables,1)
+                        if strcmp(variables{i,1},'depth')
+                            stratigraphy.PARA.layers.(variables{i,1}) = [stratigraphy.PARA.layers.(variables{i,1}) ; stratigraphy.PARA.layer3.(variables{i,1})(j,1) + stratigraphy.PARA.layer1_thickness + stratigraphy.PARA.layer2_thickness];
+                        else
+                            stratigraphy.PARA.layers.(variables{i,1}) = [stratigraphy.PARA.layers.(variables{i,1}) ; stratigraphy.PARA.layer3.(variables{i,1})(j,1)];
+                        end
+                    end
+            end
+
+            deck = 0;
+            for j= 1:size(stratigraphy.PARA.layers.depth,1) 
+                if deck == 0 && stratigraphy.PARA.excess_ice_startdepth == stratigraphy.PARA.layers.depth(j,1)
+                    deck = 1;
+                end
+                if deck == 0 && stratigraphy.PARA.excess_ice_startdepth < stratigraphy.PARA.layers.depth(j,1)
+                    deck = 1;
+                    for i=1:size(variables,1)
+                        if strcmp(variables{i,1},'depth')
+                            stratigraphy.PARA.layers.(variables{i,1}) = [ stratigraphy.PARA.layers.(variables{i,1})(1:j-1,1); stratigraphy.PARA.excess_ice_startdepth; stratigraphy.PARA.layers.(variables{i,1})(j:end,1)];
+                        else
+                            
+                            stratigraphy.PARA.layers.(variables{i,1}) = [ stratigraphy.PARA.layers.(variables{i,1})(1:j-1,1); stratigraphy.PARA.layers.(variables{i,1})(j-1,1); stratigraphy.PARA.layers.(variables{i,1})(j:end,1)];
+                        end
+                    end
+                end
+            end
+
+            deck = 0;
+            for j= 1:size(stratigraphy.PARA.layers.depth,1) 
+                if deck == 0 && stratigraphy.PARA.excess_ice_enddepth == stratigraphy.PARA.layers.depth(j,1)
+                    deck = 1;
+                end
+                if deck == 0 && stratigraphy.PARA.excess_ice_enddepth < stratigraphy.PARA.layers.depth(j,1)
+                    deck = 1;
+                    for i=1:size(variables,1)
+                        if strcmp(variables{i,1},'depth')
+                            stratigraphy.PARA.layers.(variables{i,1}) = [ stratigraphy.PARA.layers.(variables{i,1})(1:j-1,1); stratigraphy.PARA.excess_ice_enddepth; stratigraphy.PARA.layers.(variables{i,1})(j:end,1)];
+                        else
+                            stratigraphy.PARA.layers.(variables{i,1}) = [ stratigraphy.PARA.layers.(variables{i,1})(1:j-1,1); stratigraphy.PARA.layers.(variables{i,1})(j-1,1); stratigraphy.PARA.layers.(variables{i,1})(j:end,1)];
+                        end
+                    end
+                end
+           end
+            
+           stratigraphy.PARA.layers.Xice = stratigraphy.PARA.layers.depth*0;
+           for j= 1:size(stratigraphy.PARA.layers.depth,1)
+               if stratigraphy.PARA.excess_ice_startdepth <= stratigraphy.PARA.layers.depth(j,1)
+                   jj = j;
+                   while stratigraphy.PARA.excess_ice_enddepth > stratigraphy.PARA.layers.depth(jj,1) && jj <= size(stratigraphy.PARA.layers.depth,1) 
+                       stratigraphy.PARA.layers.Xice(jj,1) = stratigraphy.PARA.excess_ice_content;
+                       jj = jj+1;
+                   end
+                   break
+               end                        
+           end
+           
+
+            
             depth = stratigraphy.PARA.layers.depth;
-            depth(2,1) = stratigraphy.PARA.thickness_upper_layer;
             depth = [depth; Inf];
+            
+            
+
+
+            
             for i=1:size(variables,1)
                 if ~strcmp(variables{i,1}, 'depth')
                     tile.GRID.STATVAR.(variables{i,1}) = tile.GRID.STATVAR.MIDPOINTS .* 0;
                     for j=1:size(depth,1)-1
                         range = tile.GRID.STATVAR.MIDPOINTS > depth(j,1) & tile.GRID.STATVAR.MIDPOINTS <= depth(j+1,1);
                         tile.GRID.STATVAR.(variables{i,1})(range) = stratigraphy.PARA.layers.(variables{i,1})(j,1);
+
                     end
                 end
             end
         end
         
+
+
+
+
          function stratigraphy = finalize_init_GROUND_multi_tile(stratigraphy, GRID)
 			
             variables = fieldnames(stratigraphy.PARA.layers);
             depth = stratigraphy.PARA.layers.depth;
-            depth(2,1) = stratigraphy.PARA.thickness_upper_layer;
             depth = [depth; Inf];
             for i=1:size(variables,1)
                 if ~strcmp(variables{i,1}, 'depth')

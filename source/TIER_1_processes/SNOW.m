@@ -345,6 +345,50 @@ classdef SNOW < BASE
             snow.TEMP.metam_d_s = (double(W_liq>0).*d_s_wet + double(W_liq==0).*d_s_dry)./daysec;
             snow.TEMP.metam_d_gs = d_gs_wet + d_gs_dry; % No need to divide by daysec!
         end
+
+        function snow = prog_metamorphism2(snow) %uses vapour transport for grain size growth
+            T = snow.STATVAR.T;
+            D = snow.STATVAR.layerThick;
+            D_water = snow.STATVAR.water ./ snow.STATVAR.area;
+            dT = snow.TEMP.dT;
+            d = snow.STATVAR.d;
+            s = snow.STATVAR.s;
+            gs = snow.STATVAR.gs;
+
+            number_of_grains = snow.STATVAR.ice ./ now.STATVAR.layerThick./ snow.STATVAR.area ./ pi().*6 ./ gs.^3;
+            
+            daysec = 60*60*24;
+            rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*920);
+            %rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*1000);
+            W_liq=D_water.*920; %W_liq is mass density, and the densities cancel out in theta_cubed if ice density is assumed here
+            %W_liq=D_water.*1000;
+            
+            small_gradient=(dT<=5);
+            gradient_term=double(small_gradient)+double(~small_gradient).*dT.^0.4;
+            a=2e8.*exp(-6000./(T+273.15)).*gradient_term;
+            
+            %new Sebastian
+            %D=max(D, D.*0+5e-3);
+            theta_cubed=(min(10, 100.*W_liq./rho./D)).^3; %limit to 10%, Brun 1989, Annals Glac. Fig. 6;
+            
+            % Wet snow metamporphism
+            d_d_wet = -1/16.*theta_cubed;
+            d_s_wet = +1/16.*theta_cubed;
+            d_gs_wet= double(s>=1 & d<=0) .*  2./3.14./gs.^2 .* (1.28e-17 + 4.22e-19.*theta_cubed);
+            
+            % Dry snow metamporhism
+            d_d_dry = -a;
+            d_s_dry = 5.*a.*double(small_gradient)- a.*double(~small_gradient);
+            
+            f=double(T<-40) + double(T>=-40 & T<-22).*0.011.*(T+40) +  double(T>=-22 & T<-6).*(0.2+0.05.*(T+22)) + double(T>=-6).*(1-0.05.*T);
+            h=max(rho.*0, min(rho.*0+1, 1-0.004.*(rho-150)));
+            g=min(dT.*0+1, double(dT>=15 & dT<25).*0.01.*(dT-15) + double(dT>=25 & dT<40).*(0.1+0.037.*(dT-25)) + double(dT>=40 & dT<50).*(0.65+0.02.*(dT-40)) + double(dT>=50).*(0.85+0.0075.*(dT-50)));
+            d_gs_dry = double(s<=0 & d<=0) .* 1.0417e-9.*f.*h.*g;
+            
+            snow.TEMP.metam_d_d = (double(W_liq>0).*d_d_wet + double(W_liq==0).*d_d_dry)./daysec;
+            snow.TEMP.metam_d_s = (double(W_liq>0).*d_s_wet + double(W_liq==0).*d_s_dry)./daysec;
+            snow.TEMP.metam_d_gs = d_gs_wet + d_gs_dry; % No need to divide by daysec!
+        end
         
         %compaction due to wind drift
         function snow = prog_wind_drift(snow)
@@ -387,6 +431,29 @@ classdef SNOW < BASE
             D = snow.STATVAR.layerThick;
             W_liq = snow.STATVAR.water ./ snow.STATVAR.area .*1000; 
             T = snow.STATVAR.T;
+            
+            %sigma=9.81.*cosd(snow.PARA.slope).*rho.*D;
+            sigma=9.81.*cosd(snow.PARA.slope).*snow.STATVAR.waterIce ./ snow.STATVAR.area .*1000;
+            sigma(end)=sum(sigma(1:end-1));
+            for i=size(sigma,1)-1:-1:2
+                sigma(i)=sigma(i+1)-sigma(i);
+            end
+            sigma(1)=0.5.*sigma(1);
+            
+            f1=(1+60.*W_liq./1000./D).^(-1);
+            f2= min(4, exp(min(0.4, gs.*1000-0.2)/0.1));
+            eta=f1.*f2.*7.62237e6./250.*rho.*exp(-T.*0.1+ 0.023.*rho);
+            
+            snow.TEMP.compact_d_D = - sigma./eta.*D;
+        end
+
+        function snow = compaction2(snow)
+            rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*1000);
+            gs = snow.STATVAR.gs;
+            D = snow.STATVAR.layerThick;
+            W_liq = snow.STATVAR.water ./ snow.STATVAR.area .*1000; 
+            %Change SW Dec 2025 
+            T = max(-10, snow.STATVAR.T); %limit influence of compaction reduction due to temeprature, as suggested in Domine et al, 2013 - they suggest max 2, we do exp(1)=2.7 here
             
             %sigma=9.81.*cosd(snow.PARA.slope).*rho.*D;
             sigma=9.81.*cosd(snow.PARA.slope).*snow.STATVAR.waterIce ./ snow.STATVAR.area .*1000;

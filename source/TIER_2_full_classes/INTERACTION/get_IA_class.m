@@ -436,7 +436,7 @@ elseif strcmp(above_class, 'SNOW_crocus_bucketW_seb_vegetation')
         ia_class = IA_SEB_vegetation_CLM5_SNOW();
     end
     
-elseif strcmp(above_class, 'SNOW_crocus2_bucketW_seb')
+elseif strcmp(above_class, 'SNOW_crocus2_bucketW_seb') || strcmp(above_class, 'SNOW_crocus2_bucketW_convection_seb')  
     if strcmp(below_class, 'GROUND_freeW_seb_snow') || strcmp(below_class, 'GROUND_freezeC_seb_snow') || strcmp(below_class, 'GROUND_fcSimple_salt_seb_snow') || strcmp(below_class, 'GROUND_fcSimple_salt_buoyancy_seb_snow') || strcmp(below_class, 'LAKE_simple_seb_snow') || strcmp(below_class, 'GLACIER_freeW_seb_snow')
         ia_class = IA_HEAT11_WATER10();
         
