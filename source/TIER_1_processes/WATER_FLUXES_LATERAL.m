@@ -613,8 +613,8 @@ classdef WATER_FLUXES_LATERAL < BASE
             index1 = double([0; saturated & ~hardBottom; 0]);
             index2 = index1(1:end-1,1) + index1(2:end,1);
             index3 = index1(1:end-1,1) - index1(2:end,1);
-            start_index_saturated = find(index2==1 & index3==-1);
-            end_index_saturated = find(index2==1 & index3==1);
+            start_index_saturated = find(index2==1 & index3==-1, 1, 'last');
+            end_index_saturated = find(index2==1 & index3==1, 1, 'last');
             end_index_saturated = end_index_saturated - 1;
             hydrostatic_head = saturation .* 0;
             for i=1:size(start_index_saturated,1)
