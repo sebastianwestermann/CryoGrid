@@ -139,9 +139,13 @@ classdef terrain_correct_radiation < process_BASE
             %     h = forcing.SPATIAL.STATVAR.horizon_angles;
             % end
             
-            I = knnsearch(hbins,az); % hbin containing current solar azimuth -> INTERPOLATE INSTEAD??? in the DEM analysis, this is points along lines, not bins!!
-            forcing.DATA.Sin_dir(h(I)>el) = 0; % remove direct Sin if sun is below horizon
-
+          %  I = knnsearch(hbins,az); % hbin containing current solar azimuth -> INTERPOLATE INSTEAD??? in the DEM analysis, this is points along lines, not bins!!
+          %  forcing.DATA.Sin_dir(h(I)>el) = 0; % remove direct Sin if sun is below horizon
+            
+            %replaced SW Dec 2025 due to problem in Matlab2025b with
+            %knnsearch
+            h_angle = interp1(hbins, h, az, 'nearest');
+            forcing.DATA.Sin_dir(h_angle>el) = 0;
         end
         
           function forcing = SolarAzEl(proc, forcing, tile)

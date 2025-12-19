@@ -1237,7 +1237,7 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
                 
                 timestep_surface(timestep_surface<=0) = ground.PARA.dt_max;
                 timestep_surface=nanmin(timestep_surface);
-                timestep = nanmin(timestep,timestep_surface);
+                timestep = nanmin([timestep; timestep_surface]);
             end
         end
     
