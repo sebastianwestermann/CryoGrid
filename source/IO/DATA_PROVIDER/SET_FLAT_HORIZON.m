@@ -36,6 +36,12 @@ classdef SET_FLAT_HORIZON < matlab.mixin.Copyable
             dem.PARENT.STATVAR.horizon_bins = repmat([0 360], size(dem.PARENT.STATVAR.key,1),1);
 
         end
+
+
+        function parameter_class = generate_ensemble_from_existing(parameter_class, proj)
+            parameter_class = load_data(parameter_class); 
+            parameter_class.STATVAR = parameter_class.PARENT.STATVAR;
+        end
         
 
         

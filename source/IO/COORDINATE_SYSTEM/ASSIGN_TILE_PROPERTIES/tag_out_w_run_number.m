@@ -34,7 +34,12 @@ classdef tag_out_w_run_number < matlab.mixin.Copyable
         
         function update = assign_tile_properties(update, run_number)
             for i=1:size(update.PARA.target_class_name,1)
-                update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag = num2str(run_number);
+                str = update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag;
+                if ~isempty(str) && sum(isnan(str))>0
+                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag = num2str(run_number);
+                else
+                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag = [str '_' num2str(run_number)];
+                end
             end
        
         end

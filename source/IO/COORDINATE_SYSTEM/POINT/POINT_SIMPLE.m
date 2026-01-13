@@ -15,6 +15,7 @@ classdef POINT_SIMPLE < matlab.mixin.Copyable
         CONST
         STATVAR
         TEMP
+        PARENT
         ACTION
     end
     
@@ -47,6 +48,10 @@ classdef POINT_SIMPLE < matlab.mixin.Copyable
             point.STATVAR.horizon_bins = 0;
         end
         
+        function  point = generate_ensemble_from_existing(point, proj)
+            point.STATVAR.key = 1;
+        end
+
 
         %-------------param file generation-----
         function point = param_file_info(point)

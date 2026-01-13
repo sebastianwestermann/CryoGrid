@@ -205,7 +205,7 @@ classdef AIR_CONVECTION < BASE
 
             %vapour diffusion
             diffusivity_vapour_in_air = 1.7e-5 .* (tile.FORCING.TEMP.p ./ 1e5) .* ((ground.STATVAR.T+273.15)./293).^2.072 .* ground.STATVAR.porosity; %based on https://www.sciencedirect.com/science/article/pii/S1352231097003919
-            
+            ground.STATVAR.diffusivity_vapour_in_air = diffusivity_vapour_in_air;
             diffusivity_vapour_in_air_eff = diffusivity_vapour_in_air(1:end-1,1) .* diffusivity_vapour_in_air(2:end,1) ./ ...
                 (diffusivity_vapour_in_air(1:end-1,1) .* ground.STATVAR.layerThick(2:end,1) ./ 2 + diffusivity_vapour_in_air(2:end,1) .* ground.STATVAR.layerThick(1:end-1,1) ./ 2);
             diffusivity_vapour_in_air_eff(isnan(diffusivity_vapour_in_air_eff)) = 0;

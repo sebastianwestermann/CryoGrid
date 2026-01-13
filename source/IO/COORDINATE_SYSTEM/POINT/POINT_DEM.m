@@ -75,10 +75,14 @@ classdef POINT_DEM < DEM_BASE
                 a = str2func(['get_' point.PARA.variables{i,1}]);
                 point = a(point);
             end
-            
-            
+
         end
-        
+
+        function  point = generate_ensemble_from_existing(point, proj)
+            point.STATVAR.key = 1;
+        end
+
+
         function point = get_altitude(point)
             point = get_altitude_base(point);
             %point.STATVAR.altitude = interp2(point.TEMP.X, point.TEMP.Y, point.TEMP.Z, point.TEMP.X_target, point.TEMP.Y_target);

@@ -63,6 +63,10 @@ classdef CALCULATE_SKYVIEW_FACTOR < matlab.mixin.Copyable
             end
         end
 
+        function parameter_class = generate_ensemble_from_existing(parameter_class, proj)
+            parameter_class = load_data(parameter_class); 
+            parameter_class.STATVAR = parameter_class.PARENT.STATVAR;
+        end
 
         
 

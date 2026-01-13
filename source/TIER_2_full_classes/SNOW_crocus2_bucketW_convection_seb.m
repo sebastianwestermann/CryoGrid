@@ -111,6 +111,9 @@ classdef SNOW_crocus2_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
             
             snow.CONST.rho_w = []; % water density
             snow.CONST.rho_i = []; % ice density
+
+            snow.CONST.R = [];
+            snow.CONST.molar_mass_w = [];
         end
         
         function snow = finalize_init(snow, tile)
@@ -279,7 +282,7 @@ classdef SNOW_crocus2_bucketW_convection_seb < SEB & HEAT_CONDUCTION & WATER_FLU
             snow.STATVAR.layerThick(1) =  snow.STATVAR.layerThickSnowFirstCell;
             snow.STATVAR.waterIce(1) = snow.STATVAR.waterIce(1) - difference .* snow.STATVAR.area(1,1);
             
-            snow = prog_metamorphism(snow);
+            snow = prog_metamorphism2(snow);
             snow = prog_wind_drift(snow); % Add blowing snow sublimation according to Gordon etAl 2006
             snow = compaction2(snow);
             

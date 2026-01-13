@@ -30,6 +30,7 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
             proj.PARA.parameter_list = []; %first row contains variable names
             proj.PARA.parameter_class = [];
             proj.PARA.parameter_class_index = [];
+            proj.PARA.parameter_class_additive = [];
 
             proj.PARA.mask_class = []; %acts on the entire 2d matirx
             proj.PARA.mask_class_index = [];
@@ -91,10 +92,15 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                 for i=1:size(proj.PARA.parameter_class,1)
                     ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class{i,1}){proj.PARA.parameter_class_index(i,1),1});
                     ensemble_class.PARENT = proj;
-                    finalize_init(ensemble_class);
-                    ensemble_class = generate_ensemble(ensemble_class);
-                    proj.TEMP.ensemble_number = [proj.TEMP.ensemble_number; ensemble_class.STATVAR.key.*0 + i+offset];
-                    proj = expand_STATVAR(proj, ensemble_class);
+                    ensemble_class = finalize_init(ensemble_class);
+                    if proj.PARA.parameter_class_additive(i,1)
+                        ensemble_class = generate_ensemble(ensemble_class); %independent ensemble generated, ready to be added to the existing
+                        proj = expand_STATVAR(proj, ensemble_class);
+                    else
+                        ensemble_class = generate_ensemble_from_existing(ensemble_class, proj); %combined ensemble generated
+                        proj.STATVAR = ensemble_class.STATVAR;
+                    end
+                    % proj.TEMP.ensemble_number = [proj.TEMP.ensemble_number; ensemble_class.STATVAR.key.*0 + i+offset]; %needed?
                 end
             end
 
@@ -104,7 +110,7 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                     proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), size(proj.STATVAR.key,1), 1);
                 end
             end
-            proj.STATVAR.key = proj.STATVAR.key .* 10 + proj.TEMP.ensemble_number; %append the ensemble number 
+            %proj.STATVAR.key = proj.STATVAR.key .* 10 + proj.TEMP.ensemble_number; %append the ensemble number 
             %apply masks before data sets
             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);
             for i=1:size(proj.PARA.mask_class_index,1)
@@ -153,25 +159,31 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
         
 
         function proj = expand_STATVAR(proj, ensemble_class)
-            size_of_existing = size(proj.STATVAR.key,1);
-            size_of_new = size(ensemble_class.STATVAR.key,1);
+            proj_variables = fieldnames(proj.STATVAR);
+            ensemble_variables = fieldnames(ensemble_class.STATVAR);
+            size_of_existing = size(proj.STATVAR.(proj_variables{1,1}), 1);
+            size_of_new = size(ensemble_class.STATVAR.(ensemble_variables{1,1}), 1);
             
             %go through existing variables
-            for i=1:size(proj.TEMP.variables,1)
-                if any(strcmp(proj.TEMP.variables{i,1}, ensemble_class.TEMP.variables)) %both variables exist
-                    proj.STATVAR.(proj.TEMP.variables{i,1}) = [proj.STATVAR.(proj.TEMP.variables{i,1}); ensemble_class.STATVAR.(proj.TEMP.variables{i,1})];
+            for i=1:size(proj_variables,1)
+                if any(strcmp(proj_variables{i,1}, ensemble_variables)) %both variables exist
+                    if strcmp(proj_variables{i,1}, 'key') &&  ~isempty(proj.STATVAR.key)
+                        proj.STATVAR.key = [proj.STATVAR.key; proj.STATVAR.key(end,1) + ensemble_class.STATVAR.key];
+                    else
+                        proj.STATVAR.(proj_variables{i,1}) = [proj.STATVAR.(proj_variables{i,1}); ensemble_class.STATVAR.(proj_variables{i,1})];
+                    end
                 else %variable does not exist in new ensemble
-                     proj.STATVAR.(proj.TEMP.variables{i,1}) = [proj.STATVAR.(proj.TEMP.variables{i,1}); repmat(NaN, size_of_new,1)];
+                     proj.STATVAR.(proj_variables{i,1}) = [proj.STATVAR.(proj_variables{i,1}); repmat(NaN, size_of_new,1)];
                 end
             end
             %go through new variables and add non-existing ones
-            for i=1:size(ensemble_class.TEMP.variables,1)
-                if ~any(strcmp(ensemble_class.TEMP.variables{i,1}, proj.TEMP.variables)) %variables does not exists in existing ensemble
-                     proj.STATVAR.(ensemble_class.TEMP.variables{i,1}) = [repmat(NaN, size_of_existing,1); ensemble_class.STATVAR.(ensemble_class.TEMP.variables{i,1})];
-                     proj.TEMP.variables = [proj.TEMP.variables; ensemble_class.TEMP.variables{i,1}];
+            for i=1:size(ensemble_variables,1)
+                if ~any(strcmp(ensemble_variables{i,1}, proj_variables)) %variables does not exists in existing ensemble
+                     proj.STATVAR.(ensemble_variables{i,1}) = [repmat(NaN, size_of_existing,1); ensemble_class.STATVAR.(ensemble_variables{i,1})];
                 end
             end
         end
+
  
 %         %-------------param file generation-----
 %         function proj = param_file_info(proj)

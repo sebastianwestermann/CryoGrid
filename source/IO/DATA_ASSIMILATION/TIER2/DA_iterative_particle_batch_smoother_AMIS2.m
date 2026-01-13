@@ -1,4 +1,4 @@
-classdef DA_iterative_particle_batch_smoother_AMIS2 < DA_FUNCTIONS
+classdef DA_iterative_particle_batch_smoother_AMIS2 < OPT_DA_FUNCTIONS
     
     properties
 
@@ -24,7 +24,6 @@ classdef DA_iterative_particle_batch_smoother_AMIS2 < DA_FUNCTIONS
             da.PARA.store_format = [];
             da.PARA.store_file_tag = [];
             da.PARA.recalculate_stratigraphy = 0;
-
         end
         
         function da = provide_CONST(da)

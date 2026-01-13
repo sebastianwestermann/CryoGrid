@@ -93,6 +93,10 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
             
             
         end
+
+        function  point = generate_ensemble_from_existing(point, proj)
+            point.STATVAR.key = 1;
+        end
         
  
         %-------------param file generation-----

@@ -355,20 +355,17 @@ classdef SNOW < BASE
             s = snow.STATVAR.s;
             gs = snow.STATVAR.gs;
 
-            number_of_grains = snow.STATVAR.ice ./ now.STATVAR.layerThick./ snow.STATVAR.area ./ pi().*6 ./ gs.^3;
             
             daysec = 60*60*24;
             rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*920);
-            %rho = max(50, snow.STATVAR.waterIce ./ (snow.STATVAR.layerThick .* snow.STATVAR.area) .*1000);
+
             W_liq=D_water.*920; %W_liq is mass density, and the densities cancel out in theta_cubed if ice density is assumed here
-            %W_liq=D_water.*1000;
             
             small_gradient=(dT<=5);
             gradient_term=double(small_gradient)+double(~small_gradient).*dT.^0.4;
             a=2e8.*exp(-6000./(T+273.15)).*gradient_term;
             
             %new Sebastian
-            %D=max(D, D.*0+5e-3);
             theta_cubed=(min(10, 100.*W_liq./rho./D)).^3; %limit to 10%, Brun 1989, Annals Glac. Fig. 6;
             
             % Wet snow metamporphism
@@ -380,11 +377,29 @@ classdef SNOW < BASE
             d_d_dry = -a;
             d_s_dry = 5.*a.*double(small_gradient)- a.*double(~small_gradient);
             
-            f=double(T<-40) + double(T>=-40 & T<-22).*0.011.*(T+40) +  double(T>=-22 & T<-6).*(0.2+0.05.*(T+22)) + double(T>=-6).*(1-0.05.*T);
-            h=max(rho.*0, min(rho.*0+1, 1-0.004.*(rho-150)));
-            g=min(dT.*0+1, double(dT>=15 & dT<25).*0.01.*(dT-15) + double(dT>=25 & dT<40).*(0.1+0.037.*(dT-25)) + double(dT>=40 & dT<50).*(0.65+0.02.*(dT-40)) + double(dT>=50).*(0.85+0.0075.*(dT-50)));
-            d_gs_dry = double(s<=0 & d<=0) .* 1.0417e-9.*f.*h.*g;
-            
+            % f=double(T<-40) + double(T>=-40 & T<-22).*0.011.*(T+40) +  double(T>=-22 & T<-6).*(0.2+0.05.*(T+22)) + double(T>=-6).*(1-0.05.*T);
+            % h=max(rho.*0, min(rho.*0+1, 1-0.004.*(rho-150)));
+            % g=min(dT.*0+1, double(dT>=15 & dT<25).*0.01.*(dT-15) + double(dT>=25 & dT<40).*(0.1+0.037.*(dT-25)) + double(dT>=40 & dT<50).*(0.65+0.02.*(dT-40)) + double(dT>=50).*(0.85+0.0075.*(dT-50)));
+            % d_gs_dry = double(s<=0 & d<=0) .* 1.0417e-9.*f.*h.*g;
+
+            %kinetic growth with vapour fluxes, no internal redistribution
+            d_gs_dry = 0.5 .* (0.78./0.4).^-1 .* gs ./ (snow.STATVAR.ice ./ (snow.STATVAR.layerThick .* snow.STATVAR.area)) .*  abs(snow.TEMP.d_water_vapour) ./ snow.STATVAR.layerThick ./ snow.STATVAR.area;
+            %internal moisture redistribution
+            ps_water = 6.112.* 100.* exp(22.46 .* T./ (272.61+T));
+            T_K = T+273.15;
+            at=(2.*gs.^3./(snow.STATVAR.ice ./ (snow.STATVAR.layerThick .* snow.STATVAR.area))).^(1/3);
+            delta_V = 1.7e-5 .* (1-(snow.STATVAR.ice ./ (snow.STATVAR.layerThick .* snow.STATVAR.area))) .* ps_water ./ (snow.CONST.R ./ snow.CONST.molar_mass_w) ./ T_K.^2 .* (snow.CONST.L_s./(snow.CONST.R ./ snow.CONST.molar_mass_w) ./T_K - 1) .* dT ./ snow.CONST.rho_i ./ at; %(4.* gs);
+            % 0.33 .* (0.38./0.4).^-1
+            d_gs_dry = d_gs_dry + 0.5 .* (0.78./0.4).^-1 .* 2 .* gs ./ (snow.STATVAR.ice ./ (snow.STATVAR.layerThick .* snow.STATVAR.area)) .* delta_V;
+%snow.STATVAR.diffusivity_vapour_in_air
+            A1 = 5.9e-12; %m/sec
+            A2 = 9.4e-17; %m2/sec
+            A3 = 2.9e3; %K
+            %equilibrium growth for sphericity = 1, generally exclsuive
+            %with kinetic growth, and so low, that it almost does not
+            %matter
+            d_gs_dry = d_gs_dry + s .* 2.* (A1  + 2 .* A2 ./ gs) .* exp(A3.*(1./273.15-1./(T+273.15)));
+
             snow.TEMP.metam_d_d = (double(W_liq>0).*d_d_wet + double(W_liq==0).*d_d_dry)./daysec;
             snow.TEMP.metam_d_s = (double(W_liq>0).*d_s_wet + double(W_liq==0).*d_s_dry)./daysec;
             snow.TEMP.metam_d_gs = d_gs_wet + d_gs_dry; % No need to divide by daysec!

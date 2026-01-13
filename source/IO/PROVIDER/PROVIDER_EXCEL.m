@@ -157,7 +157,20 @@ classdef PROVIDER_EXCEL < BASE_PROVIDER
                     %but makes it possible to search for the class in TILE when doing Ensemble runs and DA 
                     new_class.PARA.class_index = class_index; 
                     
-                    provider.CLASSES.(class_name){class_index,1} = new_class;
+                    %ADDED SW Dec 2025: provide a  
+                    if strcmp(class(new_class), 'add_parameter_file')
+                        for ii=1:size(new_class.PARA.parameter_file_name,1)
+                            if isempty(new_class.PARA.parameter_file_folder) || sum(isnan(new_class.PARA.parameter_file_folder))>0
+                                provider.PARA.parameter_file = [provider.PARA.result_path provider.PARA.run_name '/' new_class.PARA.parameter_file_name{ii,1} '.xlsx'];
+                            else
+                                provider.PARA.parameter_file = [new_class.PARA.parameter_file_folder{ii,1} new_class.PARA.parameter_file_name{ii,1} '.xlsx'];
+                            end
+                            provider = read_parameters_excel(provider);
+                        end
+                    else
+                        provider.CLASSES.(class_name){class_index,1} = new_class;
+                    end
+
                     if strcmp(functional_group, 'RUN_INFO') && class_index == 1
                         provider.RUN_INFO_CLASS = new_class;
                     end
