@@ -11,13 +11,13 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
     
     methods
 
-        function da = collect_modeled_observations(da_IO, da, tile)
-            
+        function da = obs2opt(da_IO, da, tile)
+
             modeled_obs = [];%gather modeled observations in one vector
-            for i=1:size(da.PARA.observable_class,1)
+            for i=1:size(da.PARA.observable_classes,1)
                 if iscell(tile.OUT)
                     for j=1:size(tile.OUT,1)
-                        if strcmp(da.PARA.observable_class{i,1}, class(tile.OUT{j,1})) && da.PARA.observable_class_index(i,1) == tile.OUT{j,1}.PARA:class_index
+                        if strcmp(da.PARA.observable_classes{i,1}, class(tile.OUT{j,1})) && da.PARA.observable_classes_index(i,1) == tile.OUT{j,1}.PARA.class_index
                             modeled_obs = [modeled_obs; move_out2obs(tile.OUT{j,1})];
                         end
                     end
@@ -25,17 +25,22 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
                     modeled_obs = [modeled_obs; move_out2obs(tile.OUT)];
                 end
             end
-                
+            % save(['test_before_send' num2str(da.RUN_INFO.TEMP.worker_number) '_' num2str(da.TEMP.num_iterations) '.mat'])
+            if isempty(da.ENSEMBLE.modeled_obs) || size(da.ENSEMBLE.modeled_obs,3) <= da.TEMP.num_iterations 
+                da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.RUN_INFO.ENSEMBLE.TEMP.ensemble_size) .* NaN);
+            end
+            da.ENSEMBLE.modeled_obs(:, tile.PARA.range, end) = modeled_obs;
+        end
 
 
-            spmdBarrier;
-            %synchronize
-
+        function da = collect_modeled_observations(da_IO, da, run_info)
+     
+            modeled_obs = da.ENSEMBLE.modeled_obs(:, :, end);
             data_package = [];
+            data_package = pack(da_IO, data_package, 'modeled_obs', [size(modeled_obs,1); size(modeled_obs,2); size(modeled_obs,3); modeled_obs(:)]);
 
-            data_package = pack(da_IO, data_package, 'modeled_obs', modeled_obs);
-            da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.TILE.PARA.ensemble_size) .* NaN);
-            da.ENSEMBLE.modeled_obs(:, da.TILE.PARA.worker_number, end) = modeled_obs;
+            % da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.TILE.PARA.ensemble_size) .* NaN);
+            % da.ENSEMBLE.modeled_obs(:, da.TILE.PARA.worker_number, end) = modeled_obs;
 
             % value_gaussian = tile.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1);
             % data_package = pack(da_IO, data_package, 'value_gaussian', value_gaussian);
@@ -44,25 +49,23 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
             % da.ENSEMBLE.value_gaussian(:, da.TILE.PARA.worker_number, end) = value_gaussian;
 
             %send
-            for i = 1:da.TILE.PARA.ensemble_size
-                if i~=da.TILE.PARA.worker_number
-                    spmdSend(data_package, i, 1);
+            other_cores_in_OPT = find(run_info.TEMP.OPT_thread_number(:,1) == run_info.TEMP.OPT_thread_number(run_info.TEMP.worker_number,1));
+
+            for i = 1:size(other_cores_in_OPT,1)
+                if other_cores_in_OPT(i,1) ~= run_info.TEMP.worker_number
+                    spmdSend(data_package, other_cores_in_OPT(i,1), 1);
                 end
             end
 
-            for i = 1:da.TILE.PARA.ensemble_size
-                if i~=da.TILE.PARA.worker_number
-                    data_package_in = spmdReceive(i, 1);
-                    % if tile.PARA.worker_number == 3 && i==5
-                    %     save('test.mat', 'data_package')
-                    % end
+            for i = 1:size(other_cores_in_OPT,1)
+                if other_cores_in_OPT(i,1) ~= run_info.TEMP.worker_number
+                    data_package_in = spmdReceive(other_cores_in_OPT(i,1), 1);
                     if ~isempty(data_package_in)
                         da = unpack(da_IO, da, data_package_in, i); %read received column vector and transform into ENSEMBLE
                     end
                 end
             end
 
-            spmdBarrier;
         end
 
 
@@ -133,7 +136,11 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
             while i<=size(data_package,1)
                variable_name = char(data_package(i+1:i+data_package(i,1),1)');
                i = i + data_package(i,1) + 1;
-               da.ENSEMBLE.(variable_name)(:,received_from_worker, da.TEMP.num_iterations) = data_package(i+1:i+data_package(i,1),1);
+               data_package_out = data_package(i+1:i+data_package(i,1),1);
+               data_package_out = reshape(data_package_out(4:end,1), data_package_out(1,1), data_package_out(2,1), data_package_out(3,1));
+               data_package_in = da.ENSEMBLE.(variable_name)(:,:, da.TEMP.num_iterations);
+               data_package_in(~isnan(data_package_out)) = data_package_out(~isnan(data_package_out));
+               da.ENSEMBLE.(variable_name)(:,:, da.TEMP.num_iterations) = data_package_in;
                i = i + data_package(i,1) + 1;
             end
         end

@@ -118,10 +118,14 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             save_state_class.PARA.tag = [num2str(realization_number) '_prior'];
         end
 
-        function tile = change_output_time_prior(da, tile) 
+        function tile = change_output_time_prior(da, tile, realization_number) 
             for i=1:size(tile.OUT,1)
-                if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_prior'])
-                    tile.OUT{i,1}.PARA.save_timestamp = tile.PARA.start_time;
+                if isfield(tile.OUT{i,1}.PARA, 'identifier')
+                    if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_prior'])
+                        tile.OUT{i,1}.PARA.save_timestamp = tile.PARA.start_time;
+                        tile.OUT{i,1}.PARA.tag = [num2str(realization_number) '_prior'];
+                        tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
+                    end
                 end
             end
         end
@@ -134,11 +138,15 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             save_state_class.PARA.tag = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
         end
 
-        function tile = change_output_time_final(da, tile)
+        function tile = change_output_time_final(da, tile, realization_number)
 
             for i=1:size(tile.OUT,1)
-                if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_final'])
-                    tile.OUT{i,1}.PARA.save_timestamp = da.DA_STEP_TIME;
+                if isfield(tile.OUT{i,1}.PARA, 'identifier')
+                    if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_final'])
+                        tile.OUT{i,1}.PARA.save_timestamp = da.DA_STEP_TIME;
+                        tile.OUT{i,1}.PARA.tag = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
+                        tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
+                    end
                 end
             end
         end
@@ -150,38 +158,30 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
 
             for i=1:size(realization_number,1)
                 tile_class = a();
+                tile_class = provide_PARA(tile_class);
+                tile_class = provide_CONST(tile_class);
+                tile_class = provide_STATVAR(tile_class);
                 tile_class.PARA.builder = 'restart_OUT_last_timestep';
                 tile_class.PARA.restart_file_path = [da.PARA.scratchfolder da.RUN_INFO.PPROVIDER.PARA.run_name '/'];
                 tile_class.PARA.restart_file_name = [da.RUN_INFO.PPROVIDER.PARA.run_name '_state_' num2str(realization_number(i,1)) '_prior.mat'];
-                run_info.PPROVIDER.STORAGE.saved_tile{realization_number(i,1),1} = tile_class;
+                da.RUN_INFO.PPROVIDER.STORAGE.saved_tile{i,1} = tile_class;
             end
         end
 
         function da = assign_final_state(da, run_info, realization_number, iteration_number) %realization_number and iteration_number must be vectors
             tile_class = class(run_info.TILE);
             a = str2func(tile_class);
-            tile_class = a();
-            tile_class.builder = 'restart_OUT_last_timestep';
-            tile_class.PARA.restart_file_path = [da.PARA.scratchfolder da.RUN_INFO.PARA.run_name '/'];
-            tile_class.PARA.restart_file_name = [da.RUN_INFO.PARA.run_name '_state_' num2str(realization_number) '_' num2str(da.TEMP.num_iterations) '.mat'];
             for i=1:size(realization_number,1)
-                run_info.PPROVIDER.STORAGE.saved_tile{realization_number(i,1),1} = tile_class;
+                tile_class = a();
+                tile_class = provide_PARA(tile_class);
+                tile_class = provide_CONST(tile_class);
+                tile_class = provide_STATVAR(tile_class);
+                tile_class.PARA.builder = 'restart_OUT_last_timestep';
+                tile_class.PARA.restart_file_path = [da.PARA.scratchfolder da.RUN_INFO.PPROVIDER.PARA.run_name '/'];
+                tile_class.PARA.restart_file_name = [da.RUN_INFO.PPROVIDER.PARA.run_name '_state_' num2str(realization_number(i,1)) '_' num2str(iteration_number(i,1)) '.mat'];
+                da.RUN_INFO.PPROVIDER.STORAGE.saved_tile{i,1} = tile_class;
             end
         end
-
-
-        % function da = init_DA(da,tile, dec)
-        %     if dec || isempty(da.PARA.start_assimilation_period) || sum(isnan(da.PARA.start_assimilation_period))>0
-        %         da.TEMP.last_assimilation_date = tile.t; %start with initial state
-        %         da.TEMP.assimilation_started = 1;
-        %         da = load_observations(da, tile);
-        %         da = get_DA_step_time(da, tile);
-        %         da = save_state(da.IO,da,tile);
-        %     else
-        %         da.TEMP.assimilation_started = 0;
-        %         da.TEMP.last_assimilation_date = datenum(da.PARA.start_assimilation_period(1,1), da.PARA.start_assimilation_period(2,1), da.PARA.start_assimilation_period(3,1));
-        %     end
-        % end
 
         function da = get_ensemble_info(da, run_info)
             %vector of positions to convert between the list of variables
@@ -246,17 +246,53 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             da.ENSEMBLE.obs_variance = obs_variance;
         end
 
-        function da = resample_state_and_parameters(da, tile)
+        function da = resample_state_and_parameters(da, run_info)
             rng(da.DA_STEP_TIME.*da.TEMP.num_iterations+1);
             % randsample N_ensemblesize values from all members (of
             % all iterations) weighted by their weight
-            resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:));
-           
-            da = resample_state(da.IO, da, tile, resample_ID);
+            resample_ID = randsample(da.TEMP.ensemble_size_DA.*da.TEMP.num_iterations, da.TEMP.ensemble_size_DA, true, da.ENSEMBLE.weights(:));
+
+            %establish variable for all other ensemble members
+            iteration_number = da.RUN_INFO.ENSEMBLE.STATVAR.iteration;
+            ensemble_number = da.RUN_INFO.ENSEMBLE.STATVAR.(da.PARA.ensemble_variable_id);
+            ensemble2_number = ensemble_number.*NaN;
+            realization_number = ensemble_number.*NaN;
+            for i=1:max(iteration_number)
+                ind = find(iteration_number == i);
+                realization_number(ind,1) = [1:size(ind,1)]';
+                for j=1:max(ensemble_number)
+                    ind = find(iteration_number == i & ensemble_number == j);
+                    ensemble2_number(ind,1) = [1:size(ind,1)]';
+                end
+            end
+
+            [ensemble_number_new, iteration_number_new] = meshgrid([1:da.TEMP.ensemble_size_DA], [1:da.TEMP.num_iterations]);
+            ensemble_number_new = ensemble_number_new';
+            iteration_number_new = iteration_number_new';
+            ensemble_number_new = ensemble_number_new(resample_ID);
+            iteration_number_new = iteration_number_new(resample_ID);
+
+            ensemble_number_new2 = ensemble_number(iteration_number == 1,1);
+            ensemble2_number_new = ensemble2_number(iteration_number == 1,1);
+            ensemble_number_new3 = ensemble_number_new2;
+            iteration_number_new3 = ensemble_number_new2;
+            for i=1:da.TEMP.ensemble_size_DA
+                ensemble_number_new3(ensemble_number_new2==i,1) = ensemble_number_new(i,1);
+                iteration_number_new3(ensemble_number_new2==i,1) = iteration_number_new(i,1);
+            end
+            realization_number_new = ensemble_number_new2.*NaN;
+            for i=1:da.RUN_INFO.ENSEMBLE.TEMP.ensemble_size
+                realization_number_new(i,1) = realization_number(find(iteration_number == iteration_number_new3(i,1) & ensemble_number == ensemble_number_new3(i,1) & ...
+                    ensemble2_number == ensemble2_number_new(i,1)),1);
+            end
+
+            da = assign_final_state(da, run_info, realization_number_new, iteration_number_new3);
+
+            da.RUN_INFO.ENSEMBLE = update_ensemble_after_optimization_new_timeSlice(da.RUN_INFO.ENSEMBLE, da);
+
+
             %find the correct ID of the suviving ensemble member
-            % [ensemble_number, iteration_number] = meshgrid([1:da.TILE.PARA.ensemble_size], [1:da.TEMP.num_iterations]);
-            % ensemble_number = ensemble_number';
-            % iteration_number = iteration_number';
+
             % 
             % %read the new stratigraphy and info from file
             % %IMPORTANT: this must now load from all iterations!!!
@@ -275,76 +311,28 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             % uniform distribution on the open interval (0,1), i.e.
             % with learning_coefficient = 0 it never fulfills the
             % if-criterion to learn
-            rand_sequence = rand(1,tile.PARA.ensemble_size);
-            if da.PARA.learning_coefficient >= rand_sequence(1, tile.PARA.worker_number)
-                %learning
-                value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
-                value_gaussian_resampled=reshape(value_gaussian_resampled,[size(value_gaussian_resampled,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); % Concatenate across all weights (past proposals)
-                value_gaussian_resampled = value_gaussian_resampled(:,resample_ID);
-                %only resampling is done as the ensemble is assumed to not be degenerate
-                da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = value_gaussian_resampled(:, tile.PARA.worker_number);
-            else
-                da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = da.TEMP.old_value_gaussian;
-            end
+            % rand_sequence = rand(1,da.TEMP.ensemble_size_DA);
+            %must do new run_info.ENSEMBLE with ALL values
+            %first sample a completely new round and then replace some with
+            %old values, depending on learning coefficient - or better leave
+            %learning coefficient out for now and rather have a
+            %statistics-bases apprach, that recalculates mean and width
+            %based on historic values
+            %make function that first sets ensemble to [] and then calls
+            %the equivalent of finalize_init, but only for the variables in
+            %the DA!
+            % if da.PARA.learning_coefficient >= rand_sequence(1, tile.PARA.worker_number)
+            %     %learning
+            %     value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
+            %     value_gaussian_resampled=reshape(value_gaussian_resampled,[size(value_gaussian_resampled,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); % Concatenate across all weights (past proposals)
+            %     value_gaussian_resampled = value_gaussian_resampled(:,resample_ID);
+            %     %only resampling is done as the ensemble is assumed to not be degenerate
+            %     da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = value_gaussian_resampled(:, tile.PARA.worker_number);
+            % else
+            %     da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = da.TEMP.old_value_gaussian;
+            % end
         end
 
-        function da = resample_AMIS_old(da, tile)
-            rng(da.DA_STEP_TIME.*da.TEMP.num_iterations+2); % seeds the random number generator new for each iteration
-            resample_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, da.ENSEMBLE.weights(:));
-            value_gaussian_resampled = da.ENSEMBLE.value_gaussian; %Xp(:,:,sell);
-            thetapc=value_gaussian_resampled; % For clipping potentially
-            value_gaussian_resampled=reshape(value_gaussian_resampled,[size(value_gaussian_resampled,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); % Concatenate across all weights (past proposals)
-            value_gaussian_resampled = value_gaussian_resampled(:,resample_ID);
-            mean_gaussian_resampled = mean(value_gaussian_resampled,2); % proposal mean for next iteration
-            A=value_gaussian_resampled-mean_gaussian_resampled;
-            cov_gaussian_resampled=(1./da.TILE.PARA.ensemble_size).*(A*A'); % proposal covariance for next iteration
-            d = min(da.ENSEMBLE.effective_ensemble_size./da.TILE.PARA.ensemble_size./da.PARA.min_ensemble_diversity,1); %d=min(diversity/adapt_thresh,1);
-
-            a = rand(1);
-            clip = round(da.PARA.min_ensemble_diversity.*da.TILE.PARA.ensemble_size); %clip=round(adapt_thresh*Ne);
-            if sum(da.ENSEMBLE.weights(:) > 1/(10*da.TILE.PARA.ensemble_size))>clip  %should have a threshold, is 0 in Kris original code
-                disp('clipping')
-                w = da.ENSEMBLE.weights(:);
-                ws=sort(w,'descend');
-                wc=ws(clip);
-                w(w>wc)=wc; % > truncated ("clipped") < anti-truncated
-                w=w./sum(w); %renomralize
-                resamplec_ID = randsample(da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations, da.TILE.PARA.ensemble_size, true, w);
-                thetapc=reshape(thetapc,[size(thetapc,1), da.TILE.PARA.ensemble_size.*da.TEMP.num_iterations]); %reshape(thetapc,[Np,Nw]);
-                thetapc=thetapc(:,resamplec_ID);
-                pmc=mean(value_gaussian_resampled,2); % proposal mean for next iteration
-                Ac=thetapc-pmc;
-                pcc=(1./da.TILE.PARA.ensemble_size).*(Ac*Ac');
-                mean_gaussian_resampled = pmc;
-                if all(eig(pcc)>0) %%sum(pcc(:))>0
-                    cov_gaussian_resampled=pcc;
-                else
-                    disp('clipping unsuccessful')
-                    pric = diag(da.TEMP.old_std_gaussian.^2);
-                    % % 07.11.
-                    % cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
-                    % % 07.11.
-                    cov_gaussian_resampled = d.*cov_gaussian_resampled + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
-                end
-            else
-                disp('no clipping')
-                pric = diag(da.TEMP.old_std_gaussian.^2);
-                % % 07.11.
-                % cov_gaussian_resampled = d.*cov_gaussian_resampled+(1-d).*((a.*pric)+(1-a).*(d)^(1/2*(da.TEMP.num_iterations-1)).*pric);
-                % % 07.11.
-                cov_gaussian_resampled = d.*cov_gaussian_resampled + (1-d).*(a + (1-a)./da.TEMP.num_iterations) .*pric;
-            end
-
-            da.TEMP.cov_gaussian_resampled = cat(3, da.TEMP.cov_gaussian_resampled, cov_gaussian_resampled); %propc(:,:,ell)=pc;
-            da.TEMP.mean_gaussian_resampled = cat(3, da.TEMP.mean_gaussian_resampled, mean_gaussian_resampled); %propm(:,ell)=pm; %SEB: here, propm and the others are expaned by one
-
-            rng(da.DA_STEP_TIME.*da.TEMP.num_iterations+3);
-            Z = randn(size(mean_gaussian_resampled,1), tile.PARA.ensemble_size); %Z=randn(Np,Ne);
-            L=chol(cov_gaussian_resampled,'lower');
-            value_gaussian_resampled= mean_gaussian_resampled+L*Z;
-            da.TEMP.value_gaussian_resampled = value_gaussian_resampled; %this needs to be the same as da.ENSEMBLE.value_gaussian
-            da.TILE.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1) = value_gaussian_resampled(:, tile.PARA.worker_number);
-        end
             
 
         function da = resample_AMIS(da, run_info)
@@ -400,14 +388,34 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             da.ENSEMBLE.value_gaussian = cat(3, da.ENSEMBLE.value_gaussian, value_gaussian_resampled);
             da.RUN_INFO.ENSEMBLE = update_ensemble_after_optimization(da.RUN_INFO.ENSEMBLE, da);
             
-            % for i=1:size(da.PARA.ensemble_variables,1)
-            %     da.RUN_INFO.ENSEMBLE.STATVAR.([da.PARA.ensemble_variables{i,1} '_gaussian']) = ...
-            %         [da.RUN_INFO.ENSEMBLE.STATVAR.([da.PARA.ensemble_variables{i,1} '_gaussian']) ; value_gaussian_resampled(i, :)'];
-            % end
-            % da.RUN_INFO.ENSEMBLE.STATVAR.iteration = [da.RUN_INFO.ENSEMBLE.STATVAR.iteration; value_gaussian_resampled(1, :)'.*0+da.TEMP.num_iterations+1];
-
-            %and then call an ENSMEBLE class function to fill in the other variables 
         end
+
+        %make this specific to DA class with identifier
+        function da = save_da_results_all(da, run_info)
+             if run_info.TEMP.OPT_worker_number(run_info.TEMP.worker_number) == 1 && strcmp(da.PARA.store_format, 'all')
+                 da_store = copy(da);
+                 da_store.RUN_INFO = [];
+                 if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store')
+                 else
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                 end
+             end
+         end
+
+         function da = save_da_results_final(da, run_info)
+             if run_info.TEMP.OPT_worker_number(run_info.TEMP.worker_number) == 1 && strcmp(da.PARA.store_format, 'final')
+                 da_store = copy(da);
+                 da_store.RUN_INFO = [];
+                 if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '.mat'], 'da_store')
+                 else
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_' datestr(run_info.TILE.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                 end
+             end
+         end
+
+
 
 %-------------------------------------------------------------------------
 % actual DA functions
@@ -736,7 +744,7 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             phi=zeros(size(da.ENSEMBLE.modeled_obs,2), size(da.ENSEMBLE.modeled_obs,3)); %Ne,Nl); % Group by iterations
             % Log-sum-exp of the "DM" of proposals including normalizing constants
             lsepsi=zeros(size(da.ENSEMBLE.modeled_obs,2), size(da.ENSEMBLE.modeled_obs,3)); %Ne,Nl);
-            
+             
             for ell=1:size(da.ENSEMBLE.modeled_obs,3)
                 sampell=props(:,:,ell); % Samples from proposal ell "sampell" (not a typo)
                 A0ell=sampell-prim;

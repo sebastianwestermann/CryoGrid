@@ -31,6 +31,10 @@ classdef OPT_DA_IO_TILE_sequential < matlab.mixin.Copyable
             da.ENSEMBLE.modeled_obs(:, tile.PARA.range, end) = modeled_obs;
         end
 
+         function da = collect_modeled_observations(da_IO, da, run_info)
+
+         end
+
 
         function da = resample_state(da_IO, da, tile, resample_ID)
 

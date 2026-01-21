@@ -70,7 +70,8 @@ classdef OUT_save_state < matlab.mixin.Copyable
                     result_path = out.PARA.out_folder;
                 end
                 out.STRATIGRAPHY = copy(tile);
-
+                out.STRATIGRAPHY.RUN_INFO = [];
+                out.STRATIGRAPHY.BUILDER = [];
 
                 if ~(exist([result_path run_name])==7)
                     mkdir([result_path run_name])
@@ -88,7 +89,7 @@ classdef OUT_save_state < matlab.mixin.Copyable
                 out.OUTPUT_TIME = out.SAVE_TIME;
                 % out.TEMP.save_index = out.TEMP.save_index + 1;
             end
-            
+            out.STRATIGRAPHY = [];
         end
         
                 %-------------param file generation-----

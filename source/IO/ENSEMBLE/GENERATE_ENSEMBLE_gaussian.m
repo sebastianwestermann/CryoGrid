@@ -19,6 +19,7 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             ensemble.PARA.width = [];
             ensemble.PARA.lower_bound = [];
             ensemble.PARA.upper_bound = [];
+            ensemble.PARA.sample_std_range = [];
 
             ensemble.PARA.id_variable = [];
             ensemble.PARA.tag_variable= [];
@@ -40,16 +41,28 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
         
         
         function ensemble = finalize_init(ensemble, tile)
-            ensemble.PARENT.TEMP.ensemble_size = ensemble.PARA.ensemble_size;
+            ensemble.PARENT.TEMP.ensemble_size = ensemble.PARENT.TEMP.ensemble_size .* ensemble.PARA.ensemble_size;
+            rng(sum(ensemble.PARA.center) + sum(ensemble.PARA.width) + ensemble.PARA.ensemble_size);
         end
 
         function ensemble = generate_ensemble(ensemble)
            
-            %variables in Gaussian space, use this for resampling
-
-            
+            %makes initial ensemble          
             for i=1:size(ensemble.PARA.variables,1)
                 ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian']) = ensemble.PARA.center(i,1) + randn(ensemble.PARA.ensemble_size,1) .* ensemble.PARA.width(i,1);
+                if ensemble.PARA.sample_std_range(i,1) >= 1  && ensemble.PARA.ensemble_size >=3
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(1,1) = ensemble.PARA.center(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(2,1) = ensemble.PARA.center(i,1) - ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(3,1) = ensemble.PARA.center(i,1) + ensemble.PARA.width(i,1);
+                end
+                if ensemble.PARA.sample_std_range(i,1) >=2  && ensemble.PARA.ensemble_size >=5
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(4,1) = ensemble.PARA.center(i,1) - 2.* ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(5,1) = ensemble.PARA.center(i,1) + 2.* ensemble.PARA.width(i,1);
+                end
+                if ensemble.PARA.sample_std_range(i,1) >=3  && ensemble.PARA.ensemble_size >=7
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(6,1) = ensemble.PARA.center(i,1) - 3.* ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(7,1) = ensemble.PARA.center(i,1) + 3.* ensemble.PARA.width(i,1);
+                end
                 ensemble.STATVAR.(ensemble.PARA.variables{i,1}) = max(ensemble.PARA.lower_bound(i,1), min(ensemble.PARA.upper_bound(i,1), ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian']) ));
                 ensemble.PARENT.TEMP.mean_gaussian = [ensemble.PARENT.TEMP.mean_gaussian; ensemble.PARA.center(i,1)];
                 ensemble.PARENT.TEMP.std_gaussian = [ensemble.PARENT.TEMP.std_gaussian; ensemble.PARA.width(i,1)];
@@ -63,7 +76,38 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             if ~isempty(ensemble.PARA.tag_variable)
                 ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
             end
+        end
 
+        %is called to make a new ensemble after DA is successful, this
+        %could be used to implement learning based on the history, i.e. the mean and covariances of previous DA steps could be used  
+        function ensemble = generate_ensemble2(ensemble)
+            for i=1:size(ensemble.PARA.variables,1)
+                ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian']) = ensemble.PARA.center(i,1) + randn(ensemble.PARA.ensemble_size,1) .* ensemble.PARA.width(i,1);
+                if ensemble.PARA.sample_std_range(i,1) >= 1  && ensemble.PARA.ensemble_size >=3
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(1,1) = ensemble.PARA.center(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(2,1) = ensemble.PARA.center(i,1) - ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(3,1) = ensemble.PARA.center(i,1) + ensemble.PARA.width(i,1);
+                end
+                if ensemble.PARA.sample_std_range(i,1) >=2  && ensemble.PARA.ensemble_size >=5
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(4,1) = ensemble.PARA.center(i,1) - 2.* ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(5,1) = ensemble.PARA.center(i,1) + 2.* ensemble.PARA.width(i,1);
+                end
+                if ensemble.PARA.sample_std_range(i,1) >=3  && ensemble.PARA.ensemble_size >=7
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(6,1) = ensemble.PARA.center(i,1) - 3.* ensemble.PARA.width(i,1);
+                    ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(7,1) = ensemble.PARA.center(i,1) + 3.* ensemble.PARA.width(i,1);
+                end
+                ensemble.STATVAR.(ensemble.PARA.variables{i,1}) = max(ensemble.PARA.lower_bound(i,1), min(ensemble.PARA.upper_bound(i,1), ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian']) ));
+                pos = find(strcmp(ensemble.PARENT.TEMP.variable_name, ensemble.PARA.variables{i,1}) & strcmp(ensemble.PARENT.TEMP.ensemble_class,  class(ensemble)) & ensemble.PARENT.TEMP.ensemble_class_index==ensemble.PARA.class_index)
+                ensemble.PARENT.TEMP.mean_gaussian(pos,1) = ensemble.PARA.center(i,1);
+                ensemble.PARENT.TEMP.std_gaussian(pos,1) = ensemble.PARA.width(i,1);
+            end
+
+            if ~isempty(ensemble.PARA.id_variable)
+                ensemble.STATVAR.(ensemble.PARA.id_variable) = [1:ensemble.PARA.ensemble_size]';
+            end
+            if ~isempty(ensemble.PARA.tag_variable)
+                ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
+            end
         end
 
         function ensemble_class = generate_ensemble_from_existing(ensemble_class, proj)

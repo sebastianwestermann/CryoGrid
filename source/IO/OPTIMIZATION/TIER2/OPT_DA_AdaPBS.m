@@ -77,8 +77,13 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                     run_info.PPROVIDER.CLASSES.(obs_class){obs_class_index,1}.PARA.timestamps = da.STATVAR.obs_time{jj,1};
                     new_tile = add_OUT_class(new_tile, obs_class, obs_class_index);
                 end
+                new_tile.RUN_INFO = run_info;
+                new_tile = finalize_init(new_tile);
             else
                 new_tile = copy(run_info.PPROVIDER.STORAGE.saved_tile{da.TEMP.realization_number,1});
+                new_tile.RUN_INFO = run_info; %2x needed!
+                new_tile = finalize_init(new_tile);
+                new_tile.RUN_INFO = run_info;
             end
         end
 
@@ -92,9 +97,17 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                 save_state_class = finalize_init(save_state_class, tile);
                 tile = add_OUT_class2(tile, save_state_class);
             else
-                if da.TEMP.new_iteration == 0
-                    tile = change_output_time_prior(da, tile); %go through existing OUT classes and look for identifier classes
-                    tile = change_output_time_final(da, tile);
+                tile = change_output_time_prior(da, tile, da.TEMP.realization_number); %go through existing OUT classes and look for identifier classes
+                tile = change_output_time_final(da, tile, da.TEMP.realization_number);
+            end
+        end
+
+        function [da, tile] = reset_observable_classes(da, tile)
+            for jj=1:size(da.PARA.observable_classes,1) %reset modeled observations
+                for i=1:size(tile.OUT,1)
+                    if strcmp(class(tile.OUT{i,1}), da.PARA.observable_classes{jj,1}) && tile.OUT{i,1}.PARA.class_index == da.PARA.observable_classes_index(jj,1)
+                        tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
+                    end
                 end
             end
         end
@@ -130,12 +143,13 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                 % %necessary when parallel
 
                 da = collect_observations(da, run_info.TILE);
+                da = collect_modeled_observations(da.IO, da, run_info);
 
                 %---------------
                 da = AMIS(da);
 
                 %store DA results, in case user wishes
-                %     da = save_da_results_all(da.IO, da, run_info);
+                da = save_da_results_all(da, run_info);
 
                 %start the iterative loop which either terminates or starts a new iteration, dependent on diversity of ensemmble
                 if da.ENSEMBLE.effective_ensemble_size./da.TEMP.ensemble_size_DA >= da.PARA.min_ensemble_diversity || da.TEMP.num_iterations>=da.PARA.max_iterations
@@ -147,34 +161,26 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                         disp('maximum number of iterations reached')
                     end
 
+                    da = save_da_results_final(da, run_info);
+
                     da.TEMP.new_iteration = 0;
+                    da.TEMP.new_init_tile = 0;
+                    da.PARA.new_init_tile = 0;
 
                     da = resample_state_and_parameters(da, run_info);
 
-                    %call the transform function of ensemble
-                    da.TILE.ENSEMBLE = recalculate_ensemble_parameters_after_DA(da.TILE.ENSEMBLE, run_info, da.PARA.ensemble_variables);
-
-                    %assign next DA_STEP_TIME
-                    da = get_DA_step_time(da, run_info);
-
-                    da.TEMP.last_assimilation_date = run_info.TILE.t;
                     da.TEMP.num_iterations = 0; %reset number of iterations for the next DA period
-
-                    da = reset_observation_time_indeces(da, run_info);
 
                     %reset modelled observations and vectors conatining parameters
                     da.ENSEMBLE.modeled_obs = []; %Yp in Kris code, size N_obs x N_ens x N_iterations
                     da.ENSEMBLE.value_gaussian = [];  %Xp in Kris code, size N_param x N_ens x N_iterations
+                    da = get_ensemble_info(da, run_info);
 
-                    %this is only valid for learning coefficient 0!
-                    % CHECK THIS! tile.EMSEMBLE is changed depending on
-                    % learning coefficient?
-                    %da.TEMP.old_value_gaussian = tile.ENSEMBLE.TEMP.value_gaussian(da.TEMP.pos_in_ensemble,1);
-                    da.TEMP.cov_gaussian_resampled = diag(tile.ENSEMBLE.TEMP.std_gaussian(da.TEMP.pos_in_ensemble,1).^2);
-                    da.TEMP.mean_gaussian_resampled = tile.ENSEMBLE.TEMP.mean_gaussian(da.TEMP.pos_in_ensemble,1);
-
-                    da = save_state(da.IO, da, run_info); %saves state 0 for next asssimilation period
-
+                    da.TEMP.old_mean_gaussian = run_info.ENSEMBLE.TEMP.mean_gaussian(da.TEMP.pos_in_ensemble,1);
+                    da.TEMP.old_std_gaussian = run_info.ENSEMBLE.TEMP.std_gaussian(da.TEMP.pos_in_ensemble,1);
+                    % %fill the necessary inforation for first AMIS
+                    da.TEMP.cov_gaussian_resampled = diag(run_info.ENSEMBLE.TEMP.std_gaussian(da.TEMP.pos_in_ensemble,1).^2);
+                    da.TEMP.mean_gaussian_resampled = run_info.ENSEMBLE.TEMP.mean_gaussian(da.TEMP.pos_in_ensemble,1);
                 else
                     %iterate and go back to start of DA period, resample and inflate again, start over with "old" model states at the beginning of the DA period
                     disp('ensemble degenerate, one more time')
@@ -185,15 +191,6 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                     da = assign_prior_state(da, run_info);
 
                     da = resample_AMIS(da, run_info);
-
-                    %   da.TILE.ENSEMBLE = recalculate_ensemble_parameters_after_DA(da.TILE.ENSEMBLE, run_info, da.PARA.ensemble_variables);
-                    % move to run_info class needs to feed into the generate_ensemble funtion
-
-                    %reset timestamps, no need to reset timestamps in the CG stratigraphy since the old states are read in
-                    % tile.t = da.TEMP.last_assimilation_date; %no need for
-                    % this, part of last state
-
-%                    da = reset_observation_time_indeces(da, run_info);
 
                 end
                 % if da.PARA.recalculate_stratigraphy == 1

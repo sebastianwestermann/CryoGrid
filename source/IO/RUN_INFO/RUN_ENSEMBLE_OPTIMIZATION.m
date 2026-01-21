@@ -15,6 +15,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
         CONST
         STATVAR
         TILE
+        TEMP
         SPATIAL
         ENSEMBLE
         OPT
@@ -31,6 +32,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
             run_info.PARA.parallel_pool_open = 0;
 
             run_info.PARA.number_of_cores = [];
+            run_info.PARA.number_of_OPT_threads = [];
             
             run_info.PARA.tile_class = [];
             run_info.PARA.tile_class_index = [];
@@ -117,36 +119,196 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
 
         function [run_info, tile] = run_model_TILE_parallel(run_info)
             tile = 0;
-            worker_number = spmdIndex();
-            max_number_of_gridcells = min(run_info.PARA.number_of_cores, size(run_info.SPATIAL.STATVAR.key,1));
-            number_of_runs = size(run_info.SPATIAL.STATVAR.key,1) ./ max_number_of_gridcells;
-            run_raster =  [0; round([number_of_runs:number_of_runs:size(run_info.SPATIAL.STATVAR.key,1)]')];
-            run_raster = [run_raster(1:end-1,1)+1 run_raster(2:end,1)];
-            if worker_number <= size(run_raster,1)
-                for run_number = run_raster(worker_number,1):run_raster(worker_number,2)
 
+            % number of cores: run_info.PARA.number_of_cores
+            %number of realizations: run_info.ENSEMBLE.TEMP.ensemble_size
+            % if run_info.ENSEMBLE.TEMP.ensemble_size>=run_info.PARA.number_of_cores
+            % -> run the DA on all cores and have sequential runs for the
+            % non-da run in space
+            %else ->split up the DA runs on several spmds
+
+            worker_number = spmdIndex();
+            number_of_cores_per_OPT_thread = []; 
+            remaining_cores = run_info.PARA.number_of_cores;
+            for i=1:run_info.PARA.number_of_OPT_threads
+                number_of_cores_per_OPT_thread = [number_of_cores_per_OPT_thread; round(remaining_cores ./ (run_info.PARA.number_of_OPT_threads-i+1))];
+                remaining_cores = remaining_cores - number_of_cores_per_OPT_thread(end,1);
+            end
+
+            OPT_thread_number=[]; %for each core gives the number of the OPT thread
+            OPT_worker_number = [];
+            for i=1:run_info.PARA.number_of_OPT_threads
+                OPT_thread_number = [OPT_thread_number; repmat(i,number_of_cores_per_OPT_thread(i,1),1)];
+                OPT_worker_number = [OPT_worker_number; [1:number_of_cores_per_OPT_thread(i,1)]'];
+            end
+            max_number_of_gridcells = min(size(number_of_cores_per_OPT_thread,1), size(run_info.SPATIAL.STATVAR.key,1));
+            number_of_runs = size(run_info.SPATIAL.STATVAR.key,1) ./ max_number_of_gridcells;
+            run_raster2 = [0; round([number_of_runs:number_of_runs:size(run_info.SPATIAL.STATVAR.key,1)]')];
+            run_raster2 = [run_raster2(1:end-1,1)+1 run_raster2(2:end,1)];
+            run_raster=[];
+            for i=1:size(OPT_thread_number,1)
+                run_raster = [run_raster; run_raster2(OPT_thread_number(i,1),:)];
+            end
+            run_info.TEMP.OPT_thread_number = OPT_thread_number;
+            run_info.TEMP.OPT_worker_number = OPT_worker_number;
+            run_info.TEMP.run_raster = run_raster;            
+            run_info.TEMP.worker_number = worker_number;
+
+            if OPT_worker_number(worker_number) <= size(run_raster,1)./run_info.PARA.number_of_OPT_threads
+                for run_number = run_raster(worker_number,1):run_raster(worker_number,2)
                     disp(['running grid cell ' num2str(run_number)])
                     %as normal 1D run
-                    for i=1:size(run_info.PARA.tile_class,1)
-                        disp(['running tile number ' num2str(i)])
-                        for j=1:run_info.PARA.number_of_runs_per_tile(i,1)
-                            disp(['running round ' num2str(j)])
 
-                            for ai=1:size(run_info.SPATIAL.ACTION,1)
-                                run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class
+                    %1. run the spatial ACTIONS, this can change the tile->
+                    %ensemble paramters
+                    for ai=1:size(run_info.SPATIAL.ACTION,1)
+                        run_info.SPATIAL.ACTION{ai,1} = assign_tile_properties(run_info.SPATIAL.ACTION{ai,1}, run_number); %writes the provider class, including ENSEMBLE classes
+                    end
+
+                    %start the loop
+                    % 2. do the ensemble, followed by ACTION
+                    if ~isempty(run_info.PARA.ensemble_class) && ~(sum(isnan(run_info.PARA.ensemble_class))>0)
+                        disp('get ensemble data')
+                        ensemble_class = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.ensemble_class){run_info.PARA.ensemble_class_index,1});
+                        run_info.ENSEMBLE = ensemble_class;
+                        run_info.ENSEMBLE.RUN_INFO = run_info;
+                        run_info.ENSEMBLE = finalize_init(run_info.ENSEMBLE);
+                    end
+                    %initialization of run_info.OPT needs to go here, with all
+                    %fields stored initialized as empty (i.e. the actual values
+                    %of the iteration must be assigned later in the loop over
+                    %the realizations)
+                    number_of_cores_per_DA = size(find(OPT_thread_number == OPT_thread_number(worker_number)),1); %number of cores in this DA (can be different if several threads are in parallel)
+
+                    run_info.OPT = {};
+                    for i=1:size(run_info.PARA.optimization_class,1)
+                        optimization_class = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.optimization_class{i,1}){run_info.PARA.optimization_class_index(i,1),1});
+                        if number_of_cores_per_DA == 1
+                            optimization_class.PARA.run_mode = 'OPT_DA_IO_TILE_sequential';
+                        else
+                            optimization_class.PARA.run_mode = 'OPT_DA_IO_TILE';
+                        end
+                        optimization_class = finalize_init(optimization_class, run_info); %-> needs to go before realization, so that it can store
+                        run_info.OPT = [run_info.OPT; {optimization_class}];
+                    end
+                    %here the while-loop over time needs to go, ensemble either uses "old
+                    %values" when learning coefficient is 0, otherwise taking
+                    %values from last round into account
+                    %assigns values to ENSEMBLE and sets all stored values to
+                    %empty
+
+
+                    number_of_sequential_DA_runs = run_info.ENSEMBLE.TEMP.ensemble_size ./ number_of_cores_per_DA;
+                    run_raster_DA = [0; round([number_of_sequential_DA_runs:number_of_sequential_DA_runs:run_info.ENSEMBLE.TEMP.ensemble_size]')];
+                    run_raster_DA = [run_raster_DA(1:end-1,1)+1 run_raster_DA(2:end,1)];
+
+                    ACTIVE = 1;
+                    first_init = 1;
+                    while ACTIVE == 1
+                        for realization_number = run_raster_DA(OPT_worker_number(worker_number),1):run_raster_DA(OPT_worker_number(worker_number),2) %1:run_info.ENSEMBLE.TEMP.ensemble_size %this is parallelized in the real run, no loop (but good to allow for a loop, in case of fewer cores)
+                                                        
+                            for ai = 1:size(run_info.ENSEMBLE.ACTION,1)
+                                run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); %writes the provider class
+                                %needs to also assign parameters everywhere in
+                                %the tree of classes for iteration 2 or
+                                %continuation REVISE!!
+                            end
+                            for ii=1:size(run_info.PARA.optimization_class,1)
+                                run_info.OPT{ii,1}.TEMP.realization_number = realization_number;
                             end
 
-                            new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{i,1}){run_info.PARA.tile_class_index(i,1),1});
-                            new_tile.RUN_INFO = run_info;
-                            new_tile = finalize_init(new_tile);
+                            %3. initialize the DA, especially load the observations ans
+                            % establish time raster, add OUT classes to tile with obs time
+                            % as proper PARA -> add PARA whether it is part of a DA,
+                            % seep point 5
+                            %witch 2 and 3, maybe?
+
+                            %tile builder class and PARA must be changed for
+                            %iteration 2 and continuation in time, must happen
+                            %after DA -> this is were recalcualte_stratigraphy
+                            %comes in, in that case no change is made and only
+                            %PARAs are changed (works only when there is a
+                            %single DA step/optimization for a distinct
+                            %framework
+                            for ii=1:size(run_info.OPT,1)
+                                if first_init == 1 && ii==1
+                                    [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                else
+                                    if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                                        [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                    end
+                                end
+                            end
+                            % new_tile.RUN_INFO = run_info; see seqential
+                            % 
+                            % new_tile = finalize_init(new_tile);
                             tile = new_tile;
                             run_info.TILE = tile;
-
                             tile.PARA.worker_number = worker_number;
-                            tile.PARA.range = run_number;
+                            tile.PARA.range = realization_number;
+
+                            %check if somethig is needed to update obsverations
+                            %and the aso reinitialize the Observable OUT
+                            %classes if new_interation == 0
+
+                            for ai = 1:size(run_info.ENSEMBLE.ACTION,1)
+                                run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); %writes the provider class
+                                %needs to also assign parameters everywhere in
+                                %the tree of classes for iteration 2 or
+                                %continuation REVISE!!
+                            end
+
+                            for ii=1:size(run_info.OPT,1)
+                                if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                                    run_info.OPT{ii,1} = get_DA_step_time(run_info.OPT{ii,1}, tile);
+                                end
+                            end
+                            %set run_info.OPT{i,1}.TEMP.optimization_time to
+                            %get the end-time
+                            run_info.STATVAR.next_optimization_time = Inf;
+                            for i=1:size(run_info.PARA.optimization_class,1)
+                                run_info.STATVAR.next_optimization_time = min(run_info.STATVAR.next_optimization_time, run_info.OPT{i,1}.DA_STEP_TIME);
+                            end
+                            tile.PARA.start_time = tile.t;
+                            tile.PARA.end_time = min(tile.FORCING.PARA.end_time, run_info.STATVAR.next_optimization_time);
+
+                            for ii=1:size(run_info.OPT,1)
+                                if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                                    [run_info.OPT{ii,1}, tile] = add_save_state_classes(run_info.OPT{ii,1}, tile);
+                                    [run_info.OPT{ii,1}, tile] = reset_observable_classes(run_info.OPT{ii,1}, tile);
+                                end
+                            end
 
                             tile = run_model(tile);  %time integration
+
+                            %move info from OBS/OUT classes to DA
+                            for i=1:size(run_info.PARA.optimization_class,1)
+                                run_info.OPT{i,1} = move_obs2opt(run_info.OPT{i,1}, tile);
+                            end
+
                         end
+
+                        for ii=1:size(run_info.OPT,1)
+                            run_info.OPT{ii,1}.TEMP.ACTIVE = 0;
+                        end
+                        first_init = 0;
+
+                        %DA step and resampling
+                        for i=1:size(run_info.PARA.optimization_class,1)
+                            %check which class is triggered through
+                            %tile.PARA.end_time
+                            run_info.OPT{i,1}.TEMP.number_of_sequential_runs = run_raster_DA(OPT_worker_number(worker_number),2) - run_raster_DA(OPT_worker_number(worker_number),1) + 1;
+                            run_info.OPT{i,1} = DA_step(run_info.OPT{i,1}, run_info);
+                        end
+
+                        ACTIVE = 0;
+                        for i=1:size(run_info.PARA.optimization_class,1)
+                            if run_info.OPT{i,1}.TEMP.ACTIVE
+                                ACTIVE = 1;
+                            end
+                        end
+
+
                     end
                 end
             end
@@ -154,7 +316,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
 
         function [run_info, tile] = run_model_TILE_sequential(run_info)
             tile = 0;
-            for run_number = 1:max(run_info.SPATIAL.STATVAR.key) %size(run_info.SPATIAL.STATVAR.key,1) %make dependent on generic variable name so that also DA over multiple grid cells is covered
+            for run_number = 1:max(run_info.SPATIAL.STATVAR.key) %make dependent on generic variable name so that also DA over multiple grid cells is covered
                 %must be loop over all "independent runs", i.e. runs that are ont connected through DA 
                 disp(['running grid cell ' num2str(run_number)])
                 %as normal 1D run
@@ -189,6 +351,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                 %values from last round into account
                 %assigns values to ENSEMBLE and sets all stored values to
                 %empty
+                run_info.TEMP.OPT_worker_number = 1;
                 ACTIVE = 1;
                 first_init = 1;
                 while ACTIVE == 1
@@ -197,9 +360,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                         %this chunk of the spatial problem
                         for ai = 1:size(run_info.ENSEMBLE.ACTION,1)
                             run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); %writes the provider class
-                            %needs to also assign parameters everywhere in
-                            %the tree of classes for iteration 2 or
-                            %continuation REVISE!!
+                            %assign all new PARA's in PROVIDER
                         end
                         for ii=1:size(run_info.PARA.optimization_class,1)
                             run_info.OPT{ii,1}.TEMP.realization_number = realization_number;
@@ -227,16 +388,22 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                                 end
                             end
                         end
-                        new_tile.RUN_INFO = run_info;
 
-                        new_tile = finalize_init(new_tile);
                         tile = new_tile;
                         run_info.TILE = tile;
                         tile.PARA.worker_number = 1;
                         tile.PARA.range = realization_number;
-                        %CHANGE! ONLY happens if it is the very first
-                        %iteration/time interval!!! Otherwise set in
-                        %DA_step
+
+                        %check if somethig is needed to update obsverations
+                        %and the aso reinitialize the Observable OUT
+                        %classes if new_interation == 0
+
+                        for ai = 1:size(run_info.ENSEMBLE.ACTION,1)
+                            run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); %writes the provider class
+                            %assign parameters everywhere in the tree of
+                            %classes for iteration 2 or continuation
+                        end
+
                         for ii=1:size(run_info.OPT,1)
                             if run_info.OPT{ii,1}.TEMP.ACTIVE == 1 
                                 run_info.OPT{ii,1} = get_DA_step_time(run_info.OPT{ii,1}, tile);
@@ -248,11 +415,13 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                         for i=1:size(run_info.PARA.optimization_class,1)
                             run_info.STATVAR.next_optimization_time = min(run_info.STATVAR.next_optimization_time, run_info.OPT{i,1}.DA_STEP_TIME);
                         end
+                        tile.PARA.start_time = tile.t;
                         tile.PARA.end_time = min(tile.FORCING.PARA.end_time, run_info.STATVAR.next_optimization_time);
 
                         for ii=1:size(run_info.OPT,1)
                             if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
                                 [run_info.OPT{ii,1}, tile] = add_save_state_classes(run_info.OPT{ii,1}, tile);
+                                [run_info.OPT{ii,1}, tile] = reset_observable_classes(run_info.OPT{ii,1}, tile);
                             end
                         end
 

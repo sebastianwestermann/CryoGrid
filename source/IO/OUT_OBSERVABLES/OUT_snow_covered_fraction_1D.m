@@ -29,9 +29,12 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
         
         function out = finalize_init(out, tile)
             out.STATVAR.fsca = []; 
+            out.TIMESTAMP = [];
             %out.OUTPUT_TIME = tile.RUN_INFO.OPT.STATVAR.observation_times(find(tile.RUN_INFO.OPT.STATVAR.observation_times(:,1)-tile.PARA.start_time>=0, 1, 'first'), 1);
-            out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.PARA.start_time>=0, 1, 'first'), 1);
-
+            out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.PARA.start_time > 0, 1, 'first'), 1);
+            if isempty(out.OUTPUT_TIME)
+                out.OUTPUT_TIME = Inf;
+            end
             
         end
         
@@ -42,6 +45,9 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
                 out.TIMESTAMP = [out.TIMESTAMP tile.t];
                 % out.OUTPUT_TIME = tile.RUN_INFO.OPT.STATVAR.observation_times(find(tile.RUN_INFO.OPT.STATVAR.observation_times(:,1)-tile.t>0, 1, 'first'), 1);
                 out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.t>0, 1, 'first'), 1);
+                if isempty(out.OUTPUT_TIME)
+                    out.OUTPUT_TIME = Inf;
+                end
 
                 result = 0;
                 CURRENT = tile.TOP.NEXT;

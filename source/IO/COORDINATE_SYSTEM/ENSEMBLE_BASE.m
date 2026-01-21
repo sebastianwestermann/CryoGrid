@@ -44,6 +44,7 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
             proj.TEMP.variable_name = {};
             proj.TEMP.ensemble_class = {};
             proj.TEMP.ensemble_class_index = [];
+            proj.TEMP.ensemble_size = 1;
 
             if ~isempty(proj.PARA.parameter_class)
                 for i=1:size(proj.PARA.parameter_class,1)
@@ -121,14 +122,48 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
             for j=1:max(STATVAR2.(opt_class.PARA.ensemble_variable_id))
                 for i=1:size(opt_class.PARA.ensemble_variables,1)
                     range = find(STATVAR2.(opt_class.PARA.ensemble_variable_id) == j);
-                    ensemble.STATVAR.([opt_class.PARA.ensemble_variables{i,1} '_gaussian'])(range,1) = opt_class.TEMP.value_gaussian_resampled(i, j);
-                    ensemble.STATVAR.(opt_class.PARA.ensemble_variables{i,1})(range,1) = get_value_from_gaussian(ensemble_gen_class, opt_class.PARA.ensemble_variables{i,1}, opt_class.TEMP.value_gaussian_resampled(i, j));
+                    STATVAR2.([opt_class.PARA.ensemble_variables{i,1} '_gaussian'])(range,1) = opt_class.TEMP.value_gaussian_resampled(i, j);
+                    STATVAR2.(opt_class.PARA.ensemble_variables{i,1})(range,1) = get_value_from_gaussian(ensemble_gen_class, opt_class.PARA.ensemble_variables{i,1}, opt_class.TEMP.value_gaussian_resampled(i, j));
                 end
             end
 
             %append (only when continuing with iterations9
             for i=1:size(variables,1)
                  ensemble.STATVAR.(variables{i,1}) =  [ensemble.STATVAR.(variables{i,1}); STATVAR2.(variables{i,1})];
+            end
+        end
+
+        function ensemble = update_ensemble_after_optimization_new_timeSlice(ensemble, opt_class)
+            STATVAR2 = ensemble.STATVAR;
+
+            valid = find(STATVAR2.iteration == 1);
+            variables = fieldnames(STATVAR2);
+            for i=1:size(variables,1)
+                STATVAR2.(variables{i,1}) = STATVAR2.(variables{i,1})(valid,:);
+            end
+
+            for i=1:size(ensemble.PARA.parameter_class,1)
+                if isfield(ensemble.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.parameter_class{i,1}){ensemble.PARA.parameter_class_index(i,1),1}.PARA, 'id_variable') && ...
+                        strcmp(ensemble.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.parameter_class{i,1}){ensemble.PARA.parameter_class_index(i,1),1}.PARA.id_variable, opt_class.PARA.ensemble_variable_id)
+                    ensemble_gen_class = copy(ensemble.RUN_INFO.PPROVIDER.CLASSES.(ensemble.PARA.parameter_class{i,1}){ensemble.PARA.parameter_class_index(i,1),1});
+                end
+            end
+
+            ensemble_gen_class.PARENT = ensemble;
+            ensemble_gen_class = generate_ensemble2(ensemble_gen_class);
+
+            for j=1:max(STATVAR2.(opt_class.PARA.ensemble_variable_id))
+                for i=1:size(opt_class.PARA.ensemble_variables,1)
+                    range = find(STATVAR2.(opt_class.PARA.ensemble_variable_id) == j);
+                    STATVAR2.([opt_class.PARA.ensemble_variables{i,1} '_gaussian'])(range,1) = ensemble.STATVAR.([opt_class.PARA.ensemble_variables{i,1} '_gaussian'])(j,:);
+                    STATVAR2.(opt_class.PARA.ensemble_variables{i,1})(range,1) = ensemble.STATVAR.(opt_class.PARA.ensemble_variables{i,1})(j,:);
+                end
+            end
+            
+            %could also append here
+            for i=1:size(variables,1)
+                ensemble.STATVAR.(variables{i,1}) = STATVAR2.(variables{i,1});
+                % ensemble.STATVAR.(variables{i,1}) =  [ensemble.STATVAR.(variables{i,1}); STATVAR2.(variables{i,1})];
             end
         end
 
