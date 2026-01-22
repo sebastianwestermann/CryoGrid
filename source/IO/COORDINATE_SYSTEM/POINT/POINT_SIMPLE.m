@@ -46,6 +46,7 @@ classdef POINT_SIMPLE < matlab.mixin.Copyable
             point.STATVAR.skyview_factor = 1;     %
             point.STATVAR.horizon_angles = 0;   
             point.STATVAR.horizon_bins = 0;
+            point.STATVAR.key = 1;
         end
         
         function  point = generate_ensemble_from_existing(point, proj)

@@ -31,9 +31,9 @@ classdef OPT_DA_IO_TILE_sequential < matlab.mixin.Copyable
             da.ENSEMBLE.modeled_obs(:, tile.PARA.range, end) = modeled_obs;
         end
 
-         function da = collect_modeled_observations(da_IO, da, run_info)
+        function da = collect_modeled_observations(da_IO, da, run_info)
 
-         end
+        end
 
 
         function da = resample_state(da_IO, da, tile, resample_ID)
@@ -141,31 +141,33 @@ classdef OPT_DA_IO_TILE_sequential < matlab.mixin.Copyable
 
          end
 
-         function da = save_da_results_all(da_IO, da, tile)
-             if da.TILE.PARA.worker_number==1 && strcmp(da.PARA.store_format, 'all')
-                 da_store = copy(da);
-                 da_store.TILE = [];
-                 if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                     %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '.mat'], 'da_store')
-                     save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store')
-                 else
-                     %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '_' da.PARA.store_file_tag '.mat'], 'da_store')
-                     save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store')
-                 end
-             end
-         end
-
-         function da = save_da_results_final(da_IO, da, tile)
-             if da.TILE.PARA.worker_number==1 && strcmp(da.PARA.store_format, 'final')
-                 da_store = copy(da);
-                 da_store.TILE = [];
-                 if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                     save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '.mat'], 'da_store')
-                 else
-                     save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_' datestr(tile.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store')
-                 end
-             end
-         end
+         % function da = save_da_results_all(da_IO, da, tile)
+         %     if da.TILE.PARA.worker_number==1 && strcmp(da.PARA.store_format, 'all')
+         %         da_store = copy(da);
+         %         ensemble = da.RUN_INFO.ENSEMBLE.STATVAR;
+         %         da_store.TILE = [];
+         %         if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
+         %             %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '.mat'], 'da_store')
+         %             save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store')
+         %         else
+         %             %  save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' num2str(da.TILE.PARA.worker_number) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+         %             save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+         %         end
+         %     end
+         % end
+         % 
+         % function da = save_da_results_final(da_IO, da, tile)
+         %     if da.TILE.PARA.worker_number==1 && strcmp(da.PARA.store_format, 'final')
+         %         da_store = copy(da);
+         %         ensemble = da.RUN_INFO.ENSEMBLE.STATVAR;
+         %         da_store.TILE = [];
+         %         if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
+         %             save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(tile.t, 'yyyymmdd') '.mat'], 'da_store')
+         %         else
+         %             save([tile.PARA.result_path tile.PARA.run_name(1:end-2) '/' 'da_store_' datestr(tile.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store')
+         %         end
+         %     end
+         % end
 
 
     end

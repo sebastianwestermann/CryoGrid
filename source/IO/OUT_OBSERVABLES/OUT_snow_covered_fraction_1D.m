@@ -7,16 +7,21 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
         STATVAR
         TIMESTAMP
         OUTPUT_TIME
+        SAVE_TIME
     end
     
     methods
 
         function out = provide_PARA(out)
+            out.PARA.output_timestep = [];
+            out.PARA.save_date = [];
+            out.PARA.save_interval = [];
             out.PARA.timestamps = [];
             out.PARA.reference_SWE = []; 
             out.PARA.add_Xice = [];
             out.PARA.tag = [];
 
+            out.PARA.timestamps = [];
         end
         
         function out = provide_CONST(out)
@@ -30,8 +35,18 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
         function out = finalize_init(out, tile)
             out.STATVAR.fsca = []; 
             out.TIMESTAMP = [];
-            %out.OUTPUT_TIME = tile.RUN_INFO.OPT.STATVAR.observation_times(find(tile.RUN_INFO.OPT.STATVAR.observation_times(:,1)-tile.PARA.start_time>=0, 1, 'first'), 1);
-            out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.PARA.start_time > 0, 1, 'first'), 1);
+
+            if ~isempty(out.PARA.timestamps) %DA mode, defined timestamps written by DA
+                out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.PARA.start_time > 0, 1, 'first'), 1);
+                out.SAVE_TIME = Inf;
+            else
+                out.OUTPUT_TIME = tile.PARA.start_time + out.PARA.output_timestep;
+                if isempty(out.PARA.save_interval) || isnan(out.PARA.save_interval)
+                    out.SAVE_TIME = tile.FORCING.PARA.end_time;
+                else
+                    out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(tile.PARA.start_time,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+                end
+            end
             if isempty(out.OUTPUT_TIME)
                 out.OUTPUT_TIME = Inf;
             end
@@ -43,8 +58,12 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
             if tile.t >= out.OUTPUT_TIME
 
                 out.TIMESTAMP = [out.TIMESTAMP tile.t];
-                % out.OUTPUT_TIME = tile.RUN_INFO.OPT.STATVAR.observation_times(find(tile.RUN_INFO.OPT.STATVAR.observation_times(:,1)-tile.t>0, 1, 'first'), 1);
-                out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.t>0, 1, 'first'), 1);
+
+                if ~isempty(out.PARA.timestamps)
+                    out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.t>0, 1, 'first'), 1);
+                else
+                    out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
+                end
                 if isempty(out.OUTPUT_TIME)
                     out.OUTPUT_TIME = Inf;
                 end
@@ -81,8 +100,25 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
                 out.STATVAR.fsca = [out.STATVAR.fsca; result];
             end
             
+            if tile.t>=out.SAVE_TIME
 
-            %add possibility to save output 
+                if ~(exist([tile.PARA.result_path tile.PARA.run_name])==7)
+                    mkdir([tile.PARA.result_path tile.PARA.run_name])
+                end
+                CG_out.fsca = out.STATVAR.fsca;
+                if isempty(out.PARA.tag) || all(isnan(out.PARA.tag))
+                    save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA_' datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
+                else
+                    save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA_' out.PARA.tag '_' datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
+                end
+
+                % Clear the out structure
+                out.STATVAR.fsca = [];
+                out.TIMESTAMP=[];
+                if ~isnan(out.PARA.save_interval)
+                    out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+                end
+            end
 
         end
 

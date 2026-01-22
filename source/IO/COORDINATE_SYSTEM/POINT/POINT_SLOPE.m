@@ -46,6 +46,8 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
             point.STATVAR.slope_angle = point.PARA.slope_angle;     
             point.STATVAR.aspect = point.PARA.aspect;     
             point.STATVAR.skyview_factor = point.PARA.skyview_factor;
+            point.STATVAR.key = 1;
+
             
             if isempty(point.PARA.horizon_angles) || sum(isnan(point.PARA.horizon_angles(:)))>0
                 point.STATVAR.horizon_bins = [0; 360]';

@@ -22,8 +22,8 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             ensemble.PARA.sample_std_range = [];
 
             ensemble.PARA.id_variable = [];
-            ensemble.PARA.tag_variable= [];
-            ensemble.PARA.tag_value = [];
+            % ensemble.PARA.tag_variable= [];
+            % ensemble.PARA.tag_value = [];
 
             ensemble.PARA.add_existing = [];
             ensemble.PARA.mask_class = [];
@@ -73,9 +73,9 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             if ~isempty(ensemble.PARA.id_variable)
                 ensemble.STATVAR.(ensemble.PARA.id_variable) = [1:ensemble.PARA.ensemble_size]';
             end
-            if ~isempty(ensemble.PARA.tag_variable)
-                ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
-            end
+            % if ~isempty(ensemble.PARA.tag_variable)
+            %     ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
+            % end
         end
 
         %is called to make a new ensemble after DA is successful, this
@@ -105,9 +105,9 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             if ~isempty(ensemble.PARA.id_variable)
                 ensemble.STATVAR.(ensemble.PARA.id_variable) = [1:ensemble.PARA.ensemble_size]';
             end
-            if ~isempty(ensemble.PARA.tag_variable)
-                ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
-            end
+            % if ~isempty(ensemble.PARA.tag_variable)
+            %     ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
+            % end
         end
 
         function ensemble_class = generate_ensemble_from_existing(ensemble_class, proj)

@@ -78,6 +78,7 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                     new_tile = add_OUT_class(new_tile, obs_class, obs_class_index);
                 end
                 new_tile.RUN_INFO = run_info;
+                new_tile = SPATIAL2TILE_pointRun(run_info, new_tile);
                 new_tile = finalize_init(new_tile);
             else
                 new_tile = copy(run_info.PPROVIDER.STORAGE.saved_tile{da.TEMP.realization_number,1});

@@ -46,7 +46,9 @@ classdef POINT_DEM < DEM_BASE
             point.STATVAR.aspect = 0;
             point.STATVAR.skyview_factor = 1;
             point.STATVAR.horizon_bins = 0;
-            point.STATVAR.horizon_angles = 0;
+            point.STATVAR.horizon_angles = 0;            
+            point.STATVAR.key = 1;
+
             
             point = read_DEM_raster(point);
             point = project_target_coordinates(point);

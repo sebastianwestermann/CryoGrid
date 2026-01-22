@@ -40,23 +40,41 @@ classdef update_general_last_iteration < matlab.mixin.Copyable
             
             update = set_pointers2classes(update, update.PROJ.RUN_INFO);
 
-            id = max(update.PROJ.STATVAR.iteration);
-            
-            valid = find(update.PROJ.STATVAR.iteration == id);
-            for i=1:size(update.PARA.target_class_name,1)
-                if ~iscell(update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:))
-                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
-                        update.PROJ.STATVAR.(update.PARA.variable{i,1})(valid(run_number,1),:);
-                    for j=1:size(update.PARA.modify_class_pointer{i,1},1)
-                        update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1})(valid(run_number,1),:);
-                    end
-                else
-                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
-                        update.PROJ.STATVAR.(update.PARA.variable{i,1}){valid(run_number,1),1};
-                    for j=1:size(update.PARA.modify_class_pointer{i,1},1)
-                        update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1}){valid(run_number,1),1};
+            if isfield(update.PROJ.STATVAR, 'iteration')
+                id = max(update.PROJ.STATVAR.iteration);
+                valid = find(update.PROJ.STATVAR.iteration == id);
+                for i=1:size(update.PARA.target_class_name,1)
+                    if ~iscell(update.PROJ.STATVAR.(update.PARA.variable{i,1})(valid(run_number,1),:))
+                        update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
+                            update.PROJ.STATVAR.(update.PARA.variable{i,1})(valid(run_number,1),:);
+                        for j=1:size(update.PARA.modify_class_pointer{i,1},1)
+                            update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1})(valid(run_number,1),:);
+                        end
+                    else
+                        update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
+                            update.PROJ.STATVAR.(update.PARA.variable{i,1}){valid(run_number,1),1};
+                        for j=1:size(update.PARA.modify_class_pointer{i,1},1)
+                            update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1}){valid(run_number,1),1};
+                        end
                     end
                 end
+            else %make compatible for runs without iterations
+                for i=1:size(update.PARA.target_class_name,1)
+                    if ~iscell(update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:))
+                        update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
+                            update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:);
+                        for j=1:size(update.PARA.modify_class_pointer{i,1},1)
+                            update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1})(run_number,:);
+                        end
+                    else
+                        update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.(update.PARA.variable_in_class{i,1}) = ...
+                            update.PROJ.STATVAR.(update.PARA.variable{i,1}){run_number,1};
+                        for j=1:size(update.PARA.modify_class_pointer{i,1},1)
+                            update.PARA.modify_class_pointer{i,1}(j,1).PARA.(update.PARA.variable_in_class{i,1}) = update.PROJ.STATVAR.(update.PARA.variable{i,1}){run_number,1,1};
+                        end
+                    end
+                end
+
             end
             update.PARA.modify_class_pointer = [];
         end

@@ -62,7 +62,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
             if ~isempty(run_info.PARA.projection_class) && ~(sum(isnan(run_info.PARA.projection_class))>0)
                 disp('get spatial data')
                 spatial_class = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.projection_class){run_info.PARA.projection_class_index,1});
-                if ~spatial_class.PARA.new_reference
+                if isfield(spatial_class.PARA, 'new_reference') && ~spatial_class.PARA.new_reference
                     spatial_class.STATVAR = run_info.SPATIAL.STATVAR;
                 end
                 run_info.SPATIAL = spatial_class;
@@ -230,18 +230,22 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                             %PARAs are changed (works only when there is a
                             %single DA step/optimization for a distinct
                             %framework
-                            for ii=1:size(run_info.OPT,1)
-                                if first_init == 1 && ii==1
-                                    [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
-                                else
-                                    if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                            if isempty(run_info.OPT)
+                                new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{1,1}){run_info.PARA.tile_class_index(1,1),1}); %so far works only for one tile class!
+                                new_tile.RUN_INFO = run_info;
+                                new_tile = SPATIAL2TILE_pointRun(run_info, new_tile); %assigns PARA's if it's a POINT run
+                                new_tile = finalize_init(new_tile);
+                            else
+                                for ii=1:size(run_info.OPT,1)
+                                    if first_init == 1 && ii==1
                                         [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                    else
+                                        if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                                            [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                        end
                                     end
                                 end
                             end
-                            % new_tile.RUN_INFO = run_info; see seqential
-                            % 
-                            % new_tile = finalize_init(new_tile);
                             tile = new_tile;
                             run_info.TILE = tile;
                             tile.PARA.worker_number = worker_number;
@@ -307,8 +311,6 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                                 ACTIVE = 1;
                             end
                         end
-
-
                     end
                 end
             end
@@ -379,12 +381,19 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                         %PARAs are changed (works only when there is a
                         %single DA step/optimization for a distinct
                         %framework
-                        for ii=1:size(run_info.OPT,1)
-                            if first_init == 1 && ii==1
-                                [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
-                            else
-                                if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                        if isempty(run_info.OPT)
+                            new_tile = copy(run_info.PPROVIDER.CLASSES.(run_info.PARA.tile_class{1,1}){run_info.PARA.tile_class_index(1,1),1}); %so far works only for one tile class!
+                            new_tile.RUN_INFO = run_info;
+                            new_tile = SPATIAL2TILE_pointRun(run_info, new_tile);
+                            new_tile = finalize_init(new_tile);
+                        else
+                            for ii=1:size(run_info.OPT,1)
+                                if first_init == 1 && ii==1
                                     [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                else
+                                    if run_info.OPT{ii,1}.TEMP.ACTIVE == 1
+                                        [run_info.OPT{ii,1}, new_tile] = get_tile_class(run_info.OPT{ii,1}, run_info);
+                                    end
                                 end
                             end
                         end
@@ -399,7 +408,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                         %classes if new_interation == 0
 
                         for ai = 1:size(run_info.ENSEMBLE.ACTION,1)
-                            run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); %writes the provider class
+                            run_info.ENSEMBLE.ACTION{ai,1} = assign_tile_properties(run_info.ENSEMBLE.ACTION{ai,1}, realization_number); 
                             %assign parameters everywhere in the tree of
                             %classes for iteration 2 or continuation
                         end
@@ -582,6 +591,19 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                         tile.PARA.range = range;
 
                         tile = run_model(tile);  %time integration
+                    end
+                end
+            end
+        end
+
+        %adds spatial variables to tile, in case only a point class is
+        %present
+        function tile = SPATIAL2TILE_pointRun(run_info, tile)
+            if ~isfield(run_info.SPATIAL, 'ACTION') || isempty(run_info.SPATIAL.ACTION)
+                fn = fieldnames(run_info.SPATIAL.STATVAR);
+                for i=1:size(fn,1)  %be careful, does not work if empty array (and not NaN) is willingly assigned to a parameter
+                    if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
+                        tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1});
                     end
                 end
             end

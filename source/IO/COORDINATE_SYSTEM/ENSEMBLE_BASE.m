@@ -103,6 +103,12 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
         end
 
         function ensemble = update_ensemble_after_optimization(ensemble, opt_class)
+            %make new field iteration if not yet present 
+            if ~isfield(ensemble.STATVAR, 'iteration')
+                var=fieldnames(ensemble.STATVAR);
+                ensemble.STATVAR.iteration = repmat(opt_class.TEMP.num_iterations, size(ensemble.STATVAR.(var{1,1}),1), 1);
+            end
+
             STATVAR2 = ensemble.STATVAR;
 
             valid = find(STATVAR2.iteration == opt_class.TEMP.num_iterations);
@@ -160,7 +166,7 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
                 end
             end
             
-            %could also append here
+            %could also append here and not overwrite
             for i=1:size(variables,1)
                 ensemble.STATVAR.(variables{i,1}) = STATVAR2.(variables{i,1});
                 % ensemble.STATVAR.(variables{i,1}) =  [ensemble.STATVAR.(variables{i,1}); STATVAR2.(variables{i,1})];

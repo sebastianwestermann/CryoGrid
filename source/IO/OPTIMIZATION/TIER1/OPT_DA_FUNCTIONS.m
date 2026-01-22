@@ -93,7 +93,7 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
         
 
 
-        function da = get_DA_step_time(da, tile)
+        function da = get_DA_step_time_old(da, tile)
             if da.TEMP.new_iteration == 0
                 if strcmp(da.PARA.assimilation_frequency, 'year')
                     current_year = str2num(datestr(tile.t, 'yyyy'));
@@ -105,7 +105,41 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                 elseif strcmp(da.PARA.assimilation_frequency, 'day')
                     da.DA_STEP_TIME = tile.t + da.PARA.assimilation_interval;
                 elseif strcmp(da.PARA.assimilation_frequency, 'next_obs')
-                    da.DA_STEP_TIME = da.DA_TIME;
+                    da.DA_STEP_TIME = da.DA_TIME; %does not work
+                end
+            end
+        end
+
+        function da = get_DA_step_time(da, tile)
+            if da.TEMP.new_iteration == 0
+                current_time = tile.t;
+                next_obs_time = Inf;
+                for i=1:size(da.PARA.observation_classes,1) %find first observation
+                    if ~isempty(da.STATVAR.obs_time{i,1}(find(da.STATVAR.obs_time{i,1}(:,1)-current_time > 0, 1, 'first'), 1))
+                        next_obs_time = min(next_obs_time, da.STATVAR.obs_time{i,1}(find(da.STATVAR.obs_time{i,1}(:,1)-current_time > 0, 1, 'first'), 1));
+                    end
+                end
+
+                if isinf(next_obs_time) %no more observations 
+                    da.DA_STEP_TIME = Inf;
+                else
+                    if strcmp(da.PARA.assimilation_frequency, 'next_obs')
+                        da.DA_STEP_TIME = next_obs_time;
+                    else
+                        while current_time <= next_obs_time
+                            if strcmp(da.PARA.assimilation_frequency, 'year')
+                                current_year = str2num(datestr(current_time, 'yyyy'));
+                                current_time = datenum([da.PARA.assimilation_date num2str(current_year + da.PARA.assimilation_interval)], 'dd.mm.yyyy');
+                            elseif strcmp(da.PARA.assimilation_frequency, 'month')
+                                current_year = str2num(datestr(current_time, 'yyyy'));
+                                current_month = str2num(datestr(current_time, 'mm'));
+                                current_time = datenum(current_year, current_month + da.PARA.assimilation_interval, da.PARA.assimilation_date);
+                            elseif strcmp(da.PARA.assimilation_frequency, 'day')
+                                current_time = current_time + da.PARA.assimilation_interval;
+                            end
+                        end
+                        da.DA_STEP_TIME = current_time;
+                    end
                 end
             end
         end
@@ -395,10 +429,11 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
              if run_info.TEMP.OPT_worker_number(run_info.TEMP.worker_number) == 1 && strcmp(da.PARA.store_format, 'all')
                  da_store = copy(da);
                  da_store.RUN_INFO = [];
+                 ensemble = run_info.ENSEMBLE.STATVAR;
                  if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '.mat'], 'da_store', 'ensemble')
                  else
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '_' num2str(da.TEMP.num_iterations) '_' da.PARA.store_file_tag '.mat'], 'da_store', 'ensemble')
                  end
              end
          end
@@ -407,10 +442,11 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
              if run_info.TEMP.OPT_worker_number(run_info.TEMP.worker_number) == 1 && strcmp(da.PARA.store_format, 'final')
                  da_store = copy(da);
                  da_store.RUN_INFO = [];
+                 ensemble = run_info.ENSEMBLE.STATVAR;
                  if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '.mat'], 'da_store')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '.mat'], 'da_store', 'ensemble')
                  else
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_' datestr(run_info.TILE.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_' datestr(run_info.TILE.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store', 'ensemble')
                  end
              end
          end
