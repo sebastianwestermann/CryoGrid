@@ -213,6 +213,11 @@ classdef LAKE_saline_mixed_layer_bucketW_seb < SEB & HEAT_CONDUCTION & LAKE & SA
         %-----LATERAL-------------------
         %add classes for water!
         
+        %----LAT_HEAT------
+        function ground = lateral_push_heat(ground, lateral)
+            ground = lateral_push_heat_simple(ground, lateral);
+        end
+        
         %-------LAT3D_HEAT-------------        
         function ground = lateral3D_pull_heat(ground, lateral)
             ground = lateral3D_pull_heat_simple(ground, lateral);

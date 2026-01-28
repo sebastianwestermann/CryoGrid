@@ -193,6 +193,11 @@ classdef GROUND_fcSimple_salt_seb < SEB & HEAT_CONDUCTION & SALT & HEAT_FLUXES_L
         
         %-----LATERAL-------------------
         
+        %----LAT_HEAT------
+        function ground = lateral_push_heat(ground, lateral)
+            ground = lateral_push_heat_simple(ground, lateral);
+        end
+        
         %-------LAT3D_HEAT-------------
         function ground = lateral3D_pull_heat(ground, lateral)
             ground = lateral3D_pull_heat_simple(ground, lateral);

@@ -218,6 +218,11 @@ classdef GROUND_freeW_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         
         %-----LATERAL-------------------
         
+        %----LAT_HEAT------
+        function ground = lateral_push_heat(ground, lateral)
+            ground = lateral_push_heat_simple(ground, lateral);
+        end
+        
         %-----LAT_REMOVE_SURFACE_WATER-----
         function ground = lateral_push_remove_surfaceWater(ground, lateral)
             ground = lateral_push_remove_surfaceWater_simple(ground, lateral);

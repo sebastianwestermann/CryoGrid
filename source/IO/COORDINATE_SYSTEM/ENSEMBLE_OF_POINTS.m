@@ -76,7 +76,20 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                 proj.STATVAR.key = [1:size(proj.STATVAR.(vars{i,1}),1)]';
                 proj.TEMP.ensemble_number = proj.STATVAR.key .*0+1;
             end
-            % Case 2:  parameter_class provided - gerenate an ensemble
+
+            existing_variables = fieldnames(proj.STATVAR);
+            size_of_existing = size(proj.STATVAR.(existing_variables{1,1}),1);
+            vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
+            for i=1:size(vars,1)
+                if ~any(strcmp(vars{i,1}, existing_variables)) && ~isempty(proj.PARA.(vars{i,1})) && sum(isnan(proj.PARA.(vars{i,1})))==0
+                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), max(size_of_existing,1), 1);
+                end
+            end
+            if isempty(proj.STATVAR.key)
+                proj.STATVAR.key = 1;
+            end
+
+            % Case 2:  parameter_class provided - generate an ensemble
             % based on combinations of variable sets in parameter_class
             if ~isempty(proj.PARA.parameter_class)
                 % ensemble_class = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.parameter_class){proj.PARA.parameter_class_index,1});
@@ -94,22 +107,21 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                     ensemble_class.PARENT = proj;
                     ensemble_class = finalize_init(ensemble_class);
                     if proj.PARA.parameter_class_additive(i,1)
-                        ensemble_class = generate_ensemble(ensemble_class); %independent ensemble generated, ready to be added to the existing
+                        % ensemble_class = generate_ensemble(ensemble_class); %independent ensemble generated, ready to be added to the existing
+                        ensemble_class = generate_ensemble_from_existing(ensemble_class, proj); %combined ensemble generated
                         proj = expand_STATVAR(proj, ensemble_class);
                     else
                         ensemble_class = generate_ensemble_from_existing(ensemble_class, proj); %combined ensemble generated
                         proj.STATVAR = ensemble_class.STATVAR;
                     end
-                    % proj.TEMP.ensemble_number = [proj.TEMP.ensemble_number; ensemble_class.STATVAR.key.*0 + i+offset]; %needed?
+                    if i==1 && ~isfield(proj.STATVAR, 'key') %add field key in case it does not exist
+                        fn = fieldnames(proj.STATVAR);
+                        proj.STATVAR.key = [1:size(proj.STATVAR.(fn{1,1}),1)]';
+                    end
                 end
             end
 
-            vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
-            for i=1:size(vars,1)
-                if ~any(strcmp(vars{i,1}, fieldnames(proj.STATVAR)))
-                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), size(proj.STATVAR.key,1), 1);
-                end
-            end
+
             %proj.STATVAR.key = proj.STATVAR.key .* 10 + proj.TEMP.ensemble_number; %append the ensemble number 
             %apply masks before data sets
             proj.STATVAR.mask = logical(proj.STATVAR.longitude.*1);

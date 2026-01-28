@@ -321,6 +321,11 @@ classdef GROUND_freezeC_RichardsEqW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_K
         
         %-----LATERAL-------------------
         
+        %----LAT_HEAT------
+        function ground = lateral_push_heat(ground, lateral)
+            ground = lateral_push_heat_simple(ground, lateral);
+        end
+        
         %-----LAT_REMOVE_SURFACE_WATER-----
         function ground = lateral_push_remove_surfaceWater(ground, lateral)
             ground = lateral_push_remove_surfaceWater_simple(ground, lateral);
@@ -342,11 +347,6 @@ classdef GROUND_freezeC_RichardsEqW_seb < SEB & HEAT_CONDUCTION & FREEZE_CURVE_K
             ground = lateral_push_water_reservoir_RichardsEq_simple(ground, lateral);
         end
         
-        %----LAT_HEAT------------
-        function ground = lateral_push_heat(ground, lateral)
-            ground = lateral_push_heat_simple(ground, lateral);
-        end
-
         %----LAT3D_WATER_UNCONFINED_AQUIFER------------         
         function ground = lateral3D_pull_water_unconfined_aquifer(ground, lateral)
             ground = lateral3D_pull_water_unconfined_aquifer_simple(ground, lateral);

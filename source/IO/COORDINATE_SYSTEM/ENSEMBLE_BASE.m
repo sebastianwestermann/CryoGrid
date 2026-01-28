@@ -59,9 +59,14 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
                         parameter_class = generate_ensemble_from_existing(parameter_class, proj); %combined ensemble generated
                         proj.STATVAR = parameter_class.STATVAR;
                     end
+                    %add key in case it does not existr
+                    if i==1 && ~isfield(proj.STATVAR, 'key')
+                        fn = fieldnames(proj.STATVAR);
+                        proj.STATVAR.key = [1:size(proj.STATVAR.(fn{1,1}),1)]';
+                    end
                 end
             end
-            
+
             for i=1:size(proj.PARA.assign_tile_properties_class,1)
                 proj.ACTION{i,1} = copy(proj.RUN_INFO.PPROVIDER.CLASSES.(proj.PARA.assign_tile_properties_class{i,1}){proj.PARA.assign_tile_properties_class_index(i,1),1});
                 proj.ACTION{i,1} = finalize_init(proj.ACTION{i,1});
@@ -86,12 +91,16 @@ classdef ENSEMBLE_BASE < matlab.mixin.Copyable
             for i=1:size(proj_variables,1)
                 if any(strcmp(proj_variables{i,1}, ensemble_variables)) %both variables exist
                     if strcmp(proj_variables{i,1}, 'key') &&  ~isempty(proj.STATVAR.key) && proj.TEMP.update_key == 2
-                        proj.STATVAR.key = [proj.STATVAR.key; proj.STATVAR.key(end,1) + parameter_class.STATVAR.key];
+                        proj.STATVAR.key = [proj.STATVAR.key; max(proj.STATVAR.key) + parameter_class.STATVAR.key];
                     else
                         proj.STATVAR.(proj_variables{i,1}) = [proj.STATVAR.(proj_variables{i,1}); parameter_class.STATVAR.(proj_variables{i,1})];
                     end
                 else %variable does not exist in new ensemble
-                     proj.STATVAR.(proj_variables{i,1}) = [proj.STATVAR.(proj_variables{i,1}); repmat(NaN, size_of_new,size(proj.STATVAR.(proj_variables{i,1}), 2))];
+                    if strcmp(proj_variables{i,1}, 'key') &&  ~isempty(proj.STATVAR.key) && proj.TEMP.update_key == 2
+                        proj.STATVAR.key = [proj.STATVAR.key; max(proj.STATVAR.key) + [1:size_of_new]'];
+                    else
+                        proj.STATVAR.(proj_variables{i,1}) = [proj.STATVAR.(proj_variables{i,1}); repmat(NaN, size_of_new,size(proj.STATVAR.(proj_variables{i,1}), 2))];
+                    end
                 end
             end
             %go through new variables and add non-existing ones
