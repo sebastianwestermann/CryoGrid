@@ -7,7 +7,7 @@
 %
 %========================================================================
 
-classdef interpolate_sl_ERA2 < process_BASE
+classdef interpolate_sl_ERA3 < process_BASE
     
 
     methods
@@ -160,7 +160,7 @@ classdef interpolate_sl_ERA2 < process_BASE
                 era_p_sl = squeeze(era_p_sl);
             end
             
-            [~, sunElevation] = solargeom(proc, era.t, forcing.SPATIAL.STATVAR.latitude, forcing.SPATIAL.STATVAR.longitude);
+            [~, sunElevation, solar_zenith_offset_from_GMT] = solargeom2(proc, era.t, forcing.SPATIAL.STATVAR.latitude, forcing.SPATIAL.STATVAR.longitude);
             sunElevation = 90-rad2deg(sunElevation);
             mu0=max(sind(sunElevation),0); % Trunacte negative values.
             S_TOA = 1370.*mu0';
@@ -172,9 +172,13 @@ classdef interpolate_sl_ERA2 < process_BASE
             forcing.DATA.Lin = double(era_Lin_sl);
            % forcing.DATA.S_TOA = double(era_S_TOA_sl);    
             forcing.DATA.S_TOA = double(S_TOA); 
+            forcing.DATA.sunElevation = sunElevation;
             forcing.DATA.p = double(era_p_sl);
             forcing.DATA.precip = double(era_precip_sl) .*24;  %mm/hour to mm/day
             forcing.DATA.timeForcing = era.t';
+
+            forcing.DATA.sunElevation = sunElevation;
+            forcing.DATA.solar_zenith_offset_from_GMT = solar_zenith_offset_from_GMT';
             
             forcing.TEMP.era = [];
             

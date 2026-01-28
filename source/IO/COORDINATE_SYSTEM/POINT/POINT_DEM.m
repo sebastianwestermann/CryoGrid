@@ -11,6 +11,7 @@
 
 classdef POINT_DEM < DEM_BASE
     properties
+        PARENT
         RUN_INFO
     end
     

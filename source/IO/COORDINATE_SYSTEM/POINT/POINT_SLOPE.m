@@ -14,6 +14,7 @@ classdef POINT_SLOPE < matlab.mixin.Copyable
         CONST
         STATVAR
         TEMP
+        PARENT
         ACTION
     end
     

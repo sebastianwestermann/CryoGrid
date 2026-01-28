@@ -69,6 +69,7 @@ classdef FORCING_base <  matlab.mixin.Copyable
         function forcing = finalize_init(forcing, tile)
             if ~isempty(forcing.PARA.spatial_class) && sum(isnan(forcing.PARA.spatial_class)) == 0
                 forcing.SPATIAL = copy(tile.RUN_INFO.PPROVIDER.CLASSES.(forcing.PARA.spatial_class){forcing.PARA.spatial_class_index,1});
+                forcing.SPATIAL.RUN_INFO = tile.RUN_INFO;
                 forcing.SPATIAL = finalize_init(forcing.SPATIAL);
             else
                 forcing.SPATIAL.STATVAR.altitude = tile.PARA.altitude;
@@ -108,6 +109,38 @@ classdef FORCING_base <  matlab.mixin.Copyable
                     forcing.TEMP.(variables{i}) = forcing.DATA.(variables{i})(posit,:)+(forcing.DATA.(variables{i})(posit+1,:)-forcing.DATA.(variables{i})(posit,:)).*t_weight;
                 end
             end
+            forcing.TEMP.t = t;
+        end
+
+        %takes into account the sin-shape of incoming short-wave, not found
+        %to make a big difference - requires interpolate_ERA_sl3 to compute
+        %teh correct inputs!
+        function forcing = interpolate_forcing2(forcing, tile)
+            t = tile.t;
+            
+            posit = floor((t-forcing.DATA.timeForcing(1,1))./ forcing.STATVAR.timestep)+1;
+                       
+            variables = fieldnames(forcing.TEMP);
+            t_weight = (t-forcing.DATA.timeForcing(posit,1))./forcing.STATVAR.timestep; % current distance from last timestep (0,1)
+            
+            for i = 1:length(variables)
+                if ~strcmp(variables{i},'t') && ~strcmp(variables{i},'Sin') && isfield(forcing.DATA, variables{i})
+                    forcing.TEMP.(variables{i}) = forcing.DATA.(variables{i})(posit,:)+(forcing.DATA.(variables{i})(posit+1,:)-forcing.DATA.(variables{i})(posit,:)).*t_weight;
+                end
+            end
+
+            kd1 = forcing.DATA.Sin(posit,1) ./ max(1e-100, forcing.DATA.S_TOA(posit,1));
+            kd2 = forcing.DATA.Sin(posit+1,1) ./ max(1e-100, forcing.DATA.S_TOA(posit+1,1));
+            kd2(kd2==0) = kd1;
+            kd1(kd1==0) = kd2;
+            kd = kd1 + (kd2-kd1).*t_weight;
+
+            %compute sunElevaton for exact timestep
+            A = (sind(forcing.DATA.sunElevation(posit+1,:)) - sind(forcing.DATA.sunElevation(posit,:))) ./ ...
+                (sin((forcing.DATA.timeForcing(posit+1,:)+0.25-forcing.DATA.solar_zenith_offset_from_GMT(posit,1)).*2.*pi) - sin((forcing.DATA.timeForcing(posit,:)+0.25-forcing.DATA.solar_zenith_offset_from_GMT(posit,1)).*2.*pi));
+            C = sind(forcing.DATA.sunElevation(posit+1,:)) - A .* sin((forcing.DATA.timeForcing(posit+1,:)+0.25-forcing.DATA.solar_zenith_offset_from_GMT(posit,1)).*2.*pi);
+            forcing.TEMP.Sin = max(0, kd .*(A .* sin((t + 0.25 - forcing.DATA.solar_zenith_offset_from_GMT(posit,1)).*2.*pi) + C).*1370);
+
             forcing.TEMP.t = t;
         end
 

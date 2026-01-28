@@ -106,6 +106,7 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
                     mkdir([tile.PARA.result_path tile.PARA.run_name])
                 end
                 CG_out.fsca = out.STATVAR.fsca;
+                CG_out.timestamp = out.TIMESTAMP';
                 if isempty(out.PARA.tag) || all(isnan(out.PARA.tag))
                     save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA_' datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
                 else

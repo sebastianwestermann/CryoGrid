@@ -314,6 +314,16 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                     end
                 end
             end
+            %write output file 
+            worker_number = run_info.TEMP.OPT_worker_number(run_info.TEMP.worker_number);
+            OPT_thread_number = run_info.TEMP.OPT_thread_number(run_info.TEMP.worker_number);
+            if worker_number==1
+                info = copy(run_info);
+                info.TILE = [];
+                info.OPT=[];
+                info.PPROVIDER = [];
+                save([run_info.PPROVIDER.PARA.result_path run_info.PPROVIDER.PARA.run_name '/run_parameters_' num2str(OPT_thread_number) '.mat'], 'info', '-v7.3')
+            end
         end
 
         function [run_info, tile] = run_model_TILE_sequential(run_info)
@@ -514,6 +524,12 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                 %     tile = run_model(tile);  %time integration
                 % end
             end
+            %write output file
+            info = copy(run_info);
+            info.TILE = [];
+            info.OPT=[];
+            info.PPROVIDER = [];
+            save([run_info.PPROVIDER.PARA.result_path run_info.PPROVIDER.PARA.run_name '/run_parameters_.mat'], 'info', '-v7.3')
         end
 
         function [run_info, tile] = run_model_MULTITILE_parallel(run_info)

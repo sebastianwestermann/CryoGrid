@@ -175,7 +175,7 @@ classdef DEM_BASE < matlab.mixin.Copyable
                 
                 
                 distance2target = (X - dem.TEMP.X_target).^2 + (Y - dem.TEMP.Y_target).^2;
-                [ii,jj]=find(distance2target==min(distance2target(:)));
+                [ii,jj]=find(distance2target==min(distance2target(:)), 1, 'first');
                 hor_angles=[];
                 for i=1:size(ii,1)
                     grad_X =  (Z(ii(i,1),:) - Z(ii(i,1),jj(i,1))) ./ sqrt((X(ii(i,1),:) - X(ii(i,1),jj(i,1))).^2 + (Y(ii(i,1),:) - Y(ii(i,1),jj(i,1))).^2);
