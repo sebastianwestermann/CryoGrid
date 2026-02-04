@@ -146,6 +146,12 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                 da = collect_observations(da, run_info.TILE);
                 da = collect_modeled_observations(da.IO, da, run_info);
 
+                % remove nan observations 
+                nan_obs = find(isnan(da.ENSEMBLE.observations));
+                da.ENSEMBLE.observations(nan_obs,:) = [];
+                da.ENSEMBLE.obs_variance(nan_obs,:) = [];
+                da.ENSEMBLE.modeled_obs(nan_obs,:,:) = [];
+                 
                 %---------------
                 da = AMIS(da);
 

@@ -38,6 +38,8 @@ classdef OUT_all < matlab.mixin.Copyable
             out.PARA.save_date = [];
             out.PARA.save_interval = [];
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
+
         end
 
         
@@ -52,12 +54,11 @@ classdef OUT_all < matlab.mixin.Copyable
 
         
         function out = finalize_init(out, tile)
-            % FINALIZE_SETUP  Performs all additional property
-            %   initializations and modifications. Checks for some (but not
-            %   all) data validity.
-            
-            %    ARGUMENTS:
-            %    forcing:    instance of FORCING class
+
+            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+                out.PARA.tag = [];
+            end
+
             forcing = tile.FORCING;
             
             % Set the next (first) output time. This is the next (first) time output
@@ -133,15 +134,15 @@ classdef OUT_all < matlab.mixin.Copyable
                 
                 if t>=out.SAVE_TIME
                     % It is time to save all the collected model output to disk
-                     
+                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    end
+
+                    save([result_path run_name '/' run_name  out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'out')
                     
                     % Clear the out structure
                     out.STRATIGRAPHY=[];

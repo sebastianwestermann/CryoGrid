@@ -38,6 +38,12 @@ classdef GENERATE_ENSEMBLE < matlab.mixin.Copyable
         end
 
         function ensemble = finalize_init(ensemble)
+            for i = 1:ensemble.PARA.no_variable_sets
+                variable_set = eval(['ensemble.PARA.variable_set' num2str(i)]);
+                variable_set = rmfield(variable_set,'depth');
+                variable_names = fieldnames(variable_set);
+                ensemble.PARENT.TEMP.ensemble_size = ensemble.PARENT.TEMP.ensemble_size .* size(variable_set.(variable_names{1}),1);
+            end
         end
 
         function ensemble = generate_ensemble(ensemble)
@@ -77,7 +83,8 @@ classdef GENERATE_ENSEMBLE < matlab.mixin.Copyable
                 for j = 1:numel(variable_names)
                     ensemble.STATVAR.(variable_names{j,1}) = variable_set.(variable_names{j,1})(combos{:,2});
                 end
-                key = str2num([num2str(combos{:,1}) num2str(combos{:,2})]);
+                %key = str2num([num2str(combos{:,1}) num2str(combos{:,2})]);
+                key=[1:size(combos,1)]';
                 variables = [variables; variable_names(j,1)];
             end
             ensemble.TEMP.variables = variables;

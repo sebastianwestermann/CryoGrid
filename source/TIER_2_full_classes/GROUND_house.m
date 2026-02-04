@@ -150,7 +150,13 @@ classdef GROUND_house < HEAT_CONDUCTION &  UB_TEMPERATURE_FORCING
         
         %-----non-mandatory functions-------
         
-        
+        function yesNo = is_ground_surface(ground)
+            yesNo = 0;
+        end
+            
+        function yesNo = is_surface(ground)
+            yesNo = 0;
+        end
         
         %-----LATERAL-------------------
         

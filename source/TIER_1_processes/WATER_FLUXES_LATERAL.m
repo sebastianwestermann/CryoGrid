@@ -959,7 +959,7 @@ classdef WATER_FLUXES_LATERAL < BASE
             ground.STATVAR.layerThick(1,1) = ground.STATVAR.layerThick(1,1) - delta_layerThick;
             
             % allow for advection of heat
-            if isempty(lateral.PARA.reservoir_temperature) || delta_layerThick>0
+            if isempty(lateral.PARA.reservoir_temperature) || sum(isnan(lateral.PARA.reservoir_temperature))>0 || delta_layerThick>0
                 inflow_temperature = ground.STATVAR.T(1,1);
             else
                 inflow_temperature = lateral.PARA.reservoir_temperature;

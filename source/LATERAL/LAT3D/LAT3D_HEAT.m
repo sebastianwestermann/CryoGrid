@@ -47,7 +47,7 @@ classdef LAT3D_HEAT < BASE_LATERAL
         
         function lateral = get_derivatives(lateral, tile) %no need to loop through stratigraphy, all the information is in lateral.PARENT
 
-            lateral.PARENT = get_overlap_cells(lateral.PARENT, 'depths_heat', 'overlap_heat');
+            lateral.PARENT = get_overlap_cells2(lateral.PARENT, 'depths_heat', 'overlap_heat'); %changed to cells2, JA & SW, jan 2026
             
             %calculate fluxes
             flux_heat = lateral.PARENT.STATVAR.thermCond .* 0;

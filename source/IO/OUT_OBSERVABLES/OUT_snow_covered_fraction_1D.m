@@ -20,7 +20,7 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
             out.PARA.reference_SWE = []; 
             out.PARA.add_Xice = [];
             out.PARA.tag = [];
-
+            out.PARA.tag2 = [];
             out.PARA.timestamps = [];
         end
         
@@ -35,6 +35,10 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
         function out = finalize_init(out, tile)
             out.STATVAR.fsca = []; 
             out.TIMESTAMP = [];
+
+            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+                out.PARA.tag = [];
+            end
 
             if ~isempty(out.PARA.timestamps) %DA mode, defined timestamps written by DA
                 out.OUTPUT_TIME = out.PARA.timestamps(find(out.PARA.timestamps(:,1)-tile.PARA.start_time > 0, 1, 'first'), 1);
@@ -102,16 +106,18 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
             
             if tile.t>=out.SAVE_TIME
 
+                out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+
                 if ~(exist([tile.PARA.result_path tile.PARA.run_name])==7)
                     mkdir([tile.PARA.result_path tile.PARA.run_name])
                 end
                 CG_out.fsca = out.STATVAR.fsca;
                 CG_out.timestamp = out.TIMESTAMP';
-                if isempty(out.PARA.tag) || all(isnan(out.PARA.tag))
-                    save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA_' datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
-                else
-                    save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA_' out.PARA.tag '_' datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
-                end
+                    
+                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA' out.PARA.tag datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
+                
 
                 % Clear the out structure
                 out.STATVAR.fsca = [];

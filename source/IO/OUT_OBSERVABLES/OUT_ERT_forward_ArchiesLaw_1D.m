@@ -29,6 +29,8 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             obs.PARA.save_date = [];
             obs.PARA.save_interval = [];
             obs.PARA.tag = [];
+            out.PARA.tag2 = [];
+
         end
 
         function obs = provide_CONST(obs)
@@ -40,6 +42,11 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
         end
 
         function obs = finalize_init(obs, tile)
+
+            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+                out.PARA.tag = [];
+            end
+
             a = load([obs.PARA.electrode_folder obs.PARA.electrode_filename]);
             obs.STATVAR.electrode_positions = a.electrode_positions;
             %load observations
@@ -148,17 +155,18 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 obs.OUTPUT_TIME = min(obs.SAVE_TIME, obs.OUTPUT_TIME + obs.PARA.output_timestep);
                 if t>=obs.SAVE_TIME
                     % It is time to save all the collected model output to disk
-                     
+                    
+                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+
                     CG_out = obs.TEMP;
 
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    end
+
+                    save([result_path run_name '/' run_name '_ERT' out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
                     
                     % Clear the out structure
                     obs.TIMESTAMP=[];

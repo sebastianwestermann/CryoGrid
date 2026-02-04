@@ -56,12 +56,14 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
         end
         
         function proj = finalize_init(proj)
+            
             if ~isstruct(proj.PARA.parameter_list) && ~isempty(proj.PARA.parameter_list) && isnan(proj.PARA.parameter_list)
                 proj.PARA.parameter_list = [];
             end
             proj.TEMP.variables = {'key'};
             proj.TEMP.ensemble_number = [];
             proj.STATVAR.key = [];
+            proj.TEMP.ensemble_size = 1;
             % 1: build a list of simulation points
 
             % Case 1: Only parameter_list provided - read parameter_list as in LIST_OF_POINTS
@@ -77,17 +79,7 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                 proj.TEMP.ensemble_number = proj.STATVAR.key .*0+1;
             end
 
-            existing_variables = fieldnames(proj.STATVAR);
-            size_of_existing = size(proj.STATVAR.(existing_variables{1,1}),1);
-            vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
-            for i=1:size(vars,1)
-                if ~any(strcmp(vars{i,1}, existing_variables)) && ~isempty(proj.PARA.(vars{i,1})) && sum(isnan(proj.PARA.(vars{i,1})))==0
-                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), max(size_of_existing,1), 1);
-                end
-            end
-            if isempty(proj.STATVAR.key)
-                proj.STATVAR.key = 1;
-            end
+
 
             % Case 2:  parameter_class provided - generate an ensemble
             % based on combinations of variable sets in parameter_class
@@ -119,6 +111,18 @@ classdef ENSEMBLE_OF_POINTS < matlab.mixin.Copyable
                         proj.STATVAR.key = [1:size(proj.STATVAR.(fn{1,1}),1)]';
                     end
                 end
+            end
+
+            existing_variables = fieldnames(proj.STATVAR);
+            size_of_existing = size(proj.STATVAR.(existing_variables{1,1}),1);
+            vars = {'latitude'; 'longitude'; 'altitude'; 'slope_angle'; 'aspect'; 'area'};
+            for i=1:size(vars,1)
+                if ~any(strcmp(vars{i,1}, existing_variables)) && ~isempty(proj.PARA.(vars{i,1})) && sum(isnan(proj.PARA.(vars{i,1})))==0
+                    proj.STATVAR.(vars{i,1}) = repmat(proj.PARA.(vars{i,1}), max(size_of_existing,1), 1);
+                end
+            end
+            if isempty(proj.STATVAR.key)
+                proj.STATVAR.key = 1;
             end
 
 

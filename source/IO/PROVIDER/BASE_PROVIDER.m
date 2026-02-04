@@ -49,6 +49,15 @@ classdef BASE_PROVIDER
             end
         end
 
+        function provider = add_meta_data(provider, source_path)
+            provider.PARA.code_source_path = source_path; 
+            provider.PARA.CG_run_folder = pwd;
+            provider.PARA.simulation_start_time = datestr(now);
+        end
+
+        function provider = save_meta_data(provider)
+
+        end
 
     end
 end

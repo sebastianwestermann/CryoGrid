@@ -21,6 +21,7 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
             out.PARA.regrid_results = [];
             out.PARA.target_grid_size = [];
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
         end
         
         function out = provide_CONST(out)
@@ -32,6 +33,10 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
         end
         
         function out = finalize_init(out, tile)
+
+            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+                out.PARA.tag = [];
+            end
 
             out = reset_STATVAR(out); %initializes STATVAR
             
@@ -86,10 +91,12 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
                 out.TEMP.timestamp = [out.TEMP.timestamp tile.t];
 
                 if tile.t>=out.SAVE_TIME
+                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
 
                     run_name = tile.PARA.run_name;
                     result_path = tile.PARA.result_path;
-                    out_tag = out.PARA.tag;
                     t = tile.t;
 
                     if out.PARA.regrid_results == 1
@@ -101,12 +108,8 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    end
 
+                    save([result_path run_name '/' run_name out.TEMP.tag  datestr(t,'yyyymmdd') '.mat'], 'CG_out')
 
                     out = reset_STATVAR(out);
                     out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
