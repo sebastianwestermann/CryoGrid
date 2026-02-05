@@ -55,7 +55,7 @@ classdef OUT_all < matlab.mixin.Copyable
         
         function out = finalize_init(out, tile)
 
-            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
                 out.PARA.tag = [];
             end
 
@@ -137,6 +137,7 @@ classdef OUT_all < matlab.mixin.Copyable
                     out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
                     out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
                     out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+                    out.TEMP.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
 
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])

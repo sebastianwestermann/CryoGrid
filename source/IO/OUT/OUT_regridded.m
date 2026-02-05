@@ -41,6 +41,7 @@ classdef OUT_regridded < matlab.mixin.Copyable
             out.PARA.save_date = [];
             out.PARA.save_interval = [];
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
         end
 
         
@@ -57,6 +58,10 @@ classdef OUT_regridded < matlab.mixin.Copyable
         function out = finalize_init(out, tile)
 
             forcing = tile.FORCING;
+
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
+                out.PARA.tag = [];
+            end
             
             % Set the next (first) output time. This is the next (first) time output
             % is collected (in memory) for later storage to disk.
@@ -144,17 +149,19 @@ classdef OUT_regridded < matlab.mixin.Copyable
                 
                 if t>=out.SAVE_TIME
                     % It is time to save all the collected model output to disk
-                     
+
+                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
                     CG_out = out.result;
                     CG_out.timestamp = out.timestamp;
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    end
+                    CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
+
+                    save([result_path run_name '/' run_name out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
                     
                     % Clear the out structure
                     out.MISC=[];

@@ -24,12 +24,13 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             obs.PARA.cementation_exponent = []; %m = 1.3 for soils, make dependent
             obs.PARA.tortuosity = []; %a = 0.6-1
             obs.PARA.saturation_exponent = 2; %n
+            obs.PARA.min_saturation = 0.01;
 
             obs.PARA.output_timestep = [];
             obs.PARA.save_date = [];
             obs.PARA.save_interval = [];
             obs.PARA.tag = [];
-            out.PARA.tag2 = [];
+            obs.PARA.tag2 = [];
 
         end
 
@@ -43,8 +44,8 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
         function obs = finalize_init(obs, tile)
 
-            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
-                out.PARA.tag = [];
+            if ~isempty(obs.PARA.tag) && sum(isnan(obs.PARA.tag))>0
+                obs.PARA.tag = [];
             end
 
             a = load([obs.PARA.electrode_folder obs.PARA.electrode_filename]);
@@ -66,6 +67,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             end
             obs.TEMP.potentials = [];
             obs.TEMP.resistances = [];
+            obs.TEMP.depths = [];
         end
 
 
@@ -104,7 +106,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 end
 
                 porosity = 1-ice-mineral-organic;
-                saturation = water ./ porosity;
+                saturation = max(water ./ porosity, obs.PARA.min_saturation);
                 depths = cumsum([0; layerThick]);
                 depths = (depths(1:end-1,1)+depths(2:end,1))./2;
                 resistances =  obs.PARA.tortuosity .* obs.PARA.resistance_water .* porosity.^(-obs.PARA.cementation_exponent) .* saturation.^(-obs.PARA.saturation_exponent);
@@ -151,22 +153,25 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 %current electrodes first, then potential electrodes
                 %potential_field could be saved for diagnosis
                 obs.TEMP.potentials = [obs.TEMP.potentials; result'];
+                obs.TEMP.depths = [obs.TEMP.depths; depths'];
 
                 obs.OUTPUT_TIME = min(obs.SAVE_TIME, obs.OUTPUT_TIME + obs.PARA.output_timestep);
                 if t>=obs.SAVE_TIME
                     % It is time to save all the collected model output to disk
                     
-                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
-                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
-                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+                    obs.TEMP.tag = ['_' obs.PARA.tag '_' obs.PARA.tag2 '_'];
+                    obs.TEMP.tag = strrep(obs.TEMP.tag, '___', '_');
+                    obs.TEMP.tag = strrep(obs.TEMP.tag, '__', '_');
 
                     CG_out = obs.TEMP;
+                    CG_out.timestamp = obs.TIMESTAMP';
+                    CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
 
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])
                     end
 
-                    save([result_path run_name '/' run_name '_ERT' out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
+                    save([result_path run_name '/' run_name '_ERT' obs.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
                     
                     % Clear the out structure
                     obs.TIMESTAMP=[];

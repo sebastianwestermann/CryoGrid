@@ -53,10 +53,15 @@ classdef BASE_PROVIDER
             provider.PARA.code_source_path = source_path; 
             provider.PARA.CG_run_folder = pwd;
             provider.PARA.simulation_start_time = datestr(now);
+            provider.PARA.identifier = [provider.PARA.run_name '_' datestr(provider.PARA.simulation_start_time, 'yyyymmdd_HHMM_SS') '.mat'];
         end
 
         function provider = save_meta_data(provider)
-
+            target_folder = [provider.PARA.result_path provider.PARA.run_name '/meta_data/'];
+            if ~(exist(target_folder)==7)
+                mkdir(target_folder)
+            end
+            save([target_folder provider.PARA.run_name '_' datestr(provider.PARA.simulation_start_time, 'yyyymmdd_HHMM_SS') '.mat'], 'provider');
         end
 
     end

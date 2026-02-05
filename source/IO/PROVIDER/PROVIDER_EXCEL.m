@@ -13,7 +13,7 @@ classdef PROVIDER_EXCEL < BASE_PROVIDER
             provider.PARA.result_path = result_path;
             provider.PARA.parameter_file = parameter_file;
             provider.PARA.constant_file = constant_file;
-            %provider.PARA.forcing_path = forcing_path;
+            provider.PARA.identifier = [];
         end
        
         

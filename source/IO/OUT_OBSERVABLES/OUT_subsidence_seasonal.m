@@ -34,7 +34,7 @@ classdef OUT_subsidence_seasonal < matlab.mixin.Copyable
         
         function out = finalize_init(out, tile)
             
-            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
                 out.PARA.tag = [];
             end
                 
@@ -166,6 +166,7 @@ classdef OUT_subsidence_seasonal < matlab.mixin.Copyable
                 end
                 CG_out.subsidence = out.STATVAR.subsidence;
                 CG_out.timestamp = out.TIMESTAMP';
+                CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
                 
                 save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_seasonalsubsidence' out.TEMP.tag datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
                 

@@ -42,6 +42,7 @@ classdef OUT_all_lateral < matlab.mixin.Copyable
             out.PARA.save_date = [];
             out.PARA.save_interval = [];
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
         end
         
         function out = provide_CONST(out)
@@ -61,6 +62,10 @@ classdef OUT_all_lateral < matlab.mixin.Copyable
 			%	ARGUMENTS:
 			%	forcing:	instance of FORCING class
             forcing = tile.FORCING;
+
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
+                out.PARA.tag = [];
+            end
 			
 			out.OUTPUT_TIME = forcing.PARA.start_time + out.PARA.output_timestep;
             if isempty(out.PARA.save_interval) || isnan(out.PARA.save_interval) 
@@ -150,15 +155,15 @@ classdef OUT_all_lateral < matlab.mixin.Copyable
 				
                 if t>=out.SAVE_TIME
 					% It is time to save all the collected model output to disk
+                    out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+                    out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+                    out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+                    out.TEMP.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
 					
 				    if ~(exist([result_path run_name])==7)
 				    	mkdir([result_path run_name])
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    else
-                        save([result_path run_name '/' run_name '_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'out')
-                    end
+                    save([result_path run_name '/' run_name out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'out')
 				    				    
 					% Clear the out structure
 					out.STRATIGRAPHY=[];

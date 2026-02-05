@@ -36,7 +36,7 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
             out.STATVAR.fsca = []; 
             out.TIMESTAMP = [];
 
-            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
                 out.PARA.tag = [];
             end
 
@@ -115,10 +115,10 @@ classdef OUT_snow_covered_fraction_1D < matlab.mixin.Copyable
                 end
                 CG_out.fsca = out.STATVAR.fsca;
                 CG_out.timestamp = out.TIMESTAMP';
-                    
-                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA' out.PARA.tag datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
+                CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
+  
+                save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name '_FSCA' out.TEMP.tag datestr(tile.t,'yyyymmdd') '.mat'], 'CG_out')
                 
-
                 % Clear the out structure
                 out.STATVAR.fsca = [];
                 out.TIMESTAMP=[];

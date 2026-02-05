@@ -10,6 +10,7 @@ classdef PROVIDER_MAT < BASE_PROVIDER
             provider.PARA.run_name = run_name;
             provider.PARA.result_path = result_path;
             provider.PARA.parameter_file = parameter_file;
+            provider.PARA.identifier = [];
             
             provider_from_file = load(provider.PARA.parameter_file);
 

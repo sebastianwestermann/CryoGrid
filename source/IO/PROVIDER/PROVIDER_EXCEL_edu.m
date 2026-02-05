@@ -14,7 +14,7 @@ classdef PROVIDER_EXCEL_edu < PROVIDER_EXCEL
             provider.PARA.parameter_file = parameter_file;
             provider.PARA.parameter_file_edu = parameter_file_edu;
             provider.PARA.constant_file = constant_file;
-            %provider.PARA.forcing_path = forcing_path;
+            provider.PARA.identifier = [];
         end
 
         
