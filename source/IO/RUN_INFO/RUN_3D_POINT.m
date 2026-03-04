@@ -87,14 +87,13 @@ classdef RUN_3D_POINT < matlab.mixin.Copyable
 %             run_info.PARA.contact_length = run_info.SPATIAL.PARA.contact_length;
 %             run_info.PARA.distance = run_info.SPATIAL.PARA.distance;
 %             %end remove!
-            
+
             fn = fieldnames(run_info.SPATIAL.STATVAR);
             for i=1:size(fn,1) 
                 if ~isempty(run_info.SPATIAL.STATVAR.(fn{i,1}))
                     tile.PARA.(fn{i,1}) = run_info.SPATIAL.STATVAR.(fn{i,1})(:,run_info.PARA.worker_number);
                 end
             end
-            
             tile = finalize_init(tile);
         end
 

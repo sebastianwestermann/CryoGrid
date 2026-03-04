@@ -18,6 +18,7 @@ classdef tag_out_w_run_number < matlab.mixin.Copyable
 
             update.PARA.target_class_name = [];
             update.PARA.target_class_index = [];
+            update.PARA.append = 0;
             update.PARA.overwrite_existing = 0;
         end
         
@@ -35,12 +36,12 @@ classdef tag_out_w_run_number < matlab.mixin.Copyable
         
         function update = assign_tile_properties(update, run_number)
             for i=1:size(update.PARA.target_class_name,1)
-                if size(run_number,1) == 1
+                str = update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag2;
+                if update.PARA.append == 0 || isempty(str) || sum(isnan(str))>0
                     update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag2 = num2str(run_number);
                 else
-                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag2 = [num2str(run_number(1,1)) '_' num2str(run_number(end,1))];
+                    update.PROJ.RUN_INFO.PPROVIDER.CLASSES.(update.PARA.target_class_name{i,1}){update.PARA.target_class_index(i,1),1}.PARA.tag2 = [str '_' num2str(run_number)];
                 end
-
             end
 
             if update.PARA.overwrite_existing == 1 %go through existing classes and fid the oes to change
@@ -49,11 +50,7 @@ classdef tag_out_w_run_number < matlab.mixin.Copyable
                         for i=1:size(update.PARA.target_class_name,1)
                             for j=1:size(update.PROJ.RUN_INFO.TILE.OUT, 1)
                                 if strcmp(class(update.PROJ.RUN_INFO.TILE.OUT{j,1}), update.PARA.target_class_name{i,1}) && update.PROJ.RUN_INFO.TILE.OUT{j,1}.PARA.class_index == update.PARA.target_class_index(i,1)
-                                    if size(run_number,1) == 1
-                                        update.PROJ.RUN_INFO.TILE.OUT{j,1}.PARA.tag2 = num2str(run_number);
-                                    else
-                                        update.PROJ.RUN_INFO.TILE.OUT{j,1}.PARA.tag2 = [num2str(run_number(1,1)) '_' num2str(run_number(end,1))];
-                                    end
+                                    update.PROJ.RUN_INFO.TILE.OUT{j,1}.PARA.tag2 = num2str(run_number);
                                 end
                             end
                         end

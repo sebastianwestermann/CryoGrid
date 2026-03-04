@@ -11,18 +11,13 @@
 %========================================================================
 
 
-classdef OUT_save_state < matlab.mixin.Copyable
+classdef OUT_save_state < OUT_BASE
 
     properties
-		out_index
+
         STRATIGRAPHY
-        TIMESTAMP
-        TEMP
-        PARA
-        SAVE_TIME
-        OUTPUT_TIME
-        CONST
-	end
+    
+    end
     
     
     methods
@@ -34,22 +29,17 @@ classdef OUT_save_state < matlab.mixin.Copyable
             out.PARA.out_folder = [];
             out.PARA.identifier = [];
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
 
         end
-		
-        function out = provide_CONST(out)
-
-        end
-        
-        function out = provide_STATVAR(out)
-
-        end
-		
 
 		
 		function out = finalize_init(out, tile)
 		
-            % out.TEMP.save_index = 0;
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
+                out.PARA.tag = [];
+            end
+
             out.SAVE_TIME = out.PARA.save_timestamp(find(out.PARA.save_timestamp(:,1)-tile.PARA.start_time>=0, 1, 'first'), 1);
             out.OUTPUT_TIME = out.SAVE_TIME;
         end
@@ -58,12 +48,18 @@ classdef OUT_save_state < matlab.mixin.Copyable
         
         function out = store_OUT(out, tile)
 
-            %out_tag = [out.PARA.tag '_' num2str(out.TEMP.save_index)];            
-            out_tag = out.PARA.tag;
-
+            %out_tag = out.PARA.tag;
+            out_tag = [out.PARA.tag '_' out.PARA.tag2];
+            if strcmp(out_tag(end), '_')
+                out_tag = out_tag(1:end-1);
+            end
+            if ~isempty(out_tag) && strcmp(out_tag(1), '_')
+                out_tag = out_tag(2:end);
+            end
+            
             if tile.t>=out.SAVE_TIME 
                                 
-                run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
+                run_name = tile.PARA.run_name; 
                 if isempty(out.PARA.out_folder) || sum(isnan(out.PARA.out_folder))>0
                     result_path = tile.PARA.result_path;
                 else
@@ -87,25 +83,24 @@ classdef OUT_save_state < matlab.mixin.Copyable
                     out.SAVE_TIME = Inf;
                 end
                 out.OUTPUT_TIME = out.SAVE_TIME;
-                % out.TEMP.save_index = out.TEMP.save_index + 1;
             end
             out.STRATIGRAPHY = [];
         end
-        
-                %-------------param file generation-----
-                function out = param_file_info(out)
-                    out = provide_PARA(out);
-
-                    out.PARA.STATVAR = [];
-                    out.PARA.options = [];
-                    out.PARA.class_category = 'OUT';
-
-                    out.PARA.default_value.save_timestep = {''};
-                    out.PARA.comment.save_timestep = {'in days, if empty save final state at the end of the run, so that it can serve as initial condition for new runs'};
-
-                    out.PARA.default_value.tag = {''};
-                    out.PARA.comment.tag = {'additional tag added to file name'};
-                end
+               
+                % %-------------param file generation-----
+                % function out = param_file_info(out)
+                %     out = provide_PARA(out);
+                % 
+                %     out.PARA.STATVAR = [];
+                %     out.PARA.options = [];
+                %     out.PARA.class_category = 'OUT';
+                % 
+                %     out.PARA.default_value.save_timestep = {''};
+                %     out.PARA.comment.save_timestep = {'in days, if empty save final state at the end of the run, so that it can serve as initial condition for new runs'};
+                % 
+                %     out.PARA.default_value.tag = {''};
+                %     out.PARA.comment.tag = {'additional tag added to file name'};
+                % end
 
         
     end

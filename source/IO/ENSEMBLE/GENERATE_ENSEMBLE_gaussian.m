@@ -97,7 +97,7 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
                     ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian'])(7,1) = ensemble.PARA.center(i,1) + 3.* ensemble.PARA.width(i,1);
                 end
                 ensemble.STATVAR.(ensemble.PARA.variables{i,1}) = max(ensemble.PARA.lower_bound(i,1), min(ensemble.PARA.upper_bound(i,1), ensemble.STATVAR.([ensemble.PARA.variables{i,1} '_gaussian']) ));
-                pos = find(strcmp(ensemble.PARENT.TEMP.variable_name, ensemble.PARA.variables{i,1}) & strcmp(ensemble.PARENT.TEMP.ensemble_class,  class(ensemble)) & ensemble.PARENT.TEMP.ensemble_class_index==ensemble.PARA.class_index)
+                pos = find(strcmp(ensemble.PARENT.TEMP.variable_name, ensemble.PARA.variables{i,1}) & strcmp(ensemble.PARENT.TEMP.ensemble_class,  class(ensemble)) & ensemble.PARENT.TEMP.ensemble_class_index==ensemble.PARA.class_index);
                 ensemble.PARENT.TEMP.mean_gaussian(pos,1) = ensemble.PARA.center(i,1);
                 ensemble.PARENT.TEMP.std_gaussian(pos,1) = ensemble.PARA.width(i,1);
             end
@@ -105,9 +105,7 @@ classdef GENERATE_ENSEMBLE_gaussian < matlab.mixin.Copyable
             if ~isempty(ensemble.PARA.id_variable)
                 ensemble.STATVAR.(ensemble.PARA.id_variable) = [1:ensemble.PARA.ensemble_size]';
             end
-            % if ~isempty(ensemble.PARA.tag_variable)
-            %     ensemble.STATVAR.(ensemble.PARA.tag_variable) = [1:ensemble.PARA.ensemble_size]'.*0+ensemble.PARA.tag_value;
-            % end
+
         end
 
         function ensemble_class = generate_ensemble_from_existing(ensemble_class, proj)

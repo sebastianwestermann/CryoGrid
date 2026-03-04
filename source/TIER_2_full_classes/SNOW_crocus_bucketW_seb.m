@@ -583,6 +583,18 @@ classdef SNOW_crocus_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_F
            gse = []; 
         end
         
+        %---LAT_SNOW_CROCUS_wind_drift--------
+        function snow = lateral_pull_snow_wind_drift(snow, lateral)
+            snow = lateral_pull_snow_crocus_wind_drift(snow, lateral);
+        end
+        
+        function snow = lateral_pull_snow_wind_drift_threshold(snow, lateral)
+            lateral.PARA.exposure = max(lateral.PARA.exposure_min_alt, min(lateral.PARA.exposure_max_alt, lateral.PARA.exposure_min_alt  + ...
+                (lateral.PARA.exposure_max_alt - lateral.PARA.exposure_min_alt) ./ (lateral.PARA.max_altitude - lateral.PARA.min_altitude) .* (snow.STATVAR.upperPos - lateral.PARA.min_altitude)));
+            snow = lateral_pull_snow_crocus_wind_drift(snow, lateral);
+        end
+
+
         %-----LAT_REMOVE_SURFACE_WATER-----
         function snow = lateral_push_remove_surfaceWater(snow, lateral)
             snow = lateral_push_remove_surfaceWater_simple(snow, lateral);

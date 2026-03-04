@@ -282,6 +282,8 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                                     [run_info.OPT{ii,1}, tile] = reset_observable_classes(run_info.OPT{ii,1}, tile);
                                 end
                             end
+                            %write out-files for the user-selected OUT-classes, representing the OUT information of the successfule ensemble after the DA
+                            tile = write_out_before_run(tile);
 
                             tile = run_model(tile);  %time integration
 
@@ -328,6 +330,7 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
 
         function [run_info, tile] = run_model_TILE_sequential(run_info)
             tile = 0;
+            run_info.TEMP.worker_number = 1;
             for run_number = 1:max(run_info.SPATIAL.STATVAR.key) %make dependent on generic variable name so that also DA over multiple grid cells is covered
                 %must be loop over all "independent runs", i.e. runs that are ont connected through DA 
                 disp(['running grid cell ' num2str(run_number)])
@@ -443,6 +446,8 @@ classdef RUN_ENSEMBLE_OPTIMIZATION < matlab.mixin.Copyable
                                 [run_info.OPT{ii,1}, tile] = reset_observable_classes(run_info.OPT{ii,1}, tile);
                             end
                         end
+                        %write out-files for the user-selected OUT-classes, representing the OUT information of the successfule ensemble after the DA 
+                        tile = write_out_before_run(tile);
 
                         tile = run_model(tile);  %time integration
 

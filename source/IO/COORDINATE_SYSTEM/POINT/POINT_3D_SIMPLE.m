@@ -55,8 +55,8 @@ classdef POINT_3D_SIMPLE < matlab.mixin.Copyable
             point.PARA.slope_angle = 0;     
             point.PARA.aspect = 0;     
             point.PARA.skyview_factor = 0;     
-            point.PARA.horizon_bins = 0;
-            point.PARA.horizon_angles = 0;
+            point.PARA.horizon_bins = [0];
+            point.PARA.horizon_angles = [0];
             
             if size(point.PARA.latitude,1) == 1
                 point.STATVAR.latitude = repmat(point.PARA.latitude, 1, point.PARA.number_of_tiles);
@@ -103,8 +103,8 @@ classdef POINT_3D_SIMPLE < matlab.mixin.Copyable
             else
                 point.STATVAR.horizon_bins = point.PARA.horizon_bins';
             end
-            point.STATVAR.horizon_bins = point.PARA.horizon_bins';
-            point.STATVAR.horizon_angles = point.PARA.horizon_angles';
+            % point.STATVAR.horizon_bins = point.PARA.horizon_bins';
+            % point.STATVAR.horizon_angles = point.PARA.horizon_angles';
 
         end
         

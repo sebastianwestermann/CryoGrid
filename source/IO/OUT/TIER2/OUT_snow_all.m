@@ -7,26 +7,20 @@
 %========================================================================
 
 
-classdef OUT_snow_all < matlab.mixin.Copyable
+classdef OUT_snow_all < OUT_BASE
  
 
     properties
-        MISC
-        TEMP
-        PARA
-        OUTPUT_TIME
-        SAVE_TIME
-        CONST
-        result
-        timestamp
-        
+
+        STATVAR
+
     end
     
     
     methods
-        
-        %initialization
-        
+    
+%NOT CHECKED AND TESTE YET!
+
         function out = provide_PARA(out)         
 
             out.PARA.variables = []; %depth density, albedo, water, sphericity, grain size, dendricity, conductivity
@@ -37,147 +31,202 @@ classdef OUT_snow_all < matlab.mixin.Copyable
             out.PARA.save_date = [];
             out.PARA.save_interval = [];
             out.PARA.tag = [];
-        end
-
+            out.PARA.tag2 = [];
         
-        function out = provide_CONST(out)
-
-        end
-
-        
-        function out = provide_STATVAR(out)
-
         end
 
         
         function out = finalize_init(out, tile)
 
-            forcing = tile.FORCING;
-            
-            % Set the next (first) output time. This is the next (first) time output
-            % is collected (in memory) for later storage to disk.
-            out.OUTPUT_TIME = forcing.PARA.start_time + out.PARA.output_timestep;
-            out.timestamp = [];
+            out = finalize_init@OUT_BASE(out, tile);
+
+            out.STATVAR.timestamp = [];
             out.PARA.variables = [out.PARA.variables; 'layerThick'];
 
             for i=1:size(out.PARA.variables,1)
-                str2 = ['snow_' out.PARA.variables{i,1}];
-                out.result.(str2) = {};
+                str2 = out.PARA.variables{i,1}; %['snow_' out.PARA.variables{i,1}];
+                out.STATVAR.(str2) = {};
             end
-
-            % Set the next (first) save time. This is the next (first) time all the
-            % collected output is saved to disk.
-            if isempty(out.PARA.save_interval) || isnan(out.PARA.save_interval) 
-                out.SAVE_TIME = forcing.PARA.end_time;
-            else
-                out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(forcing.PARA.start_time,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
-            end
-                        
+            out.TEMP.keyword = 'snow';
+            out.TEMP.output_var = 'CG_snow';
         end
         
-        %---------------time integration-------------
-                    
-        function out = store_OUT(out, tile)           
-            
+        function out = store_OUT(out, tile)
+
             if tile.t >= out.OUTPUT_TIME
-
-                t = tile.t;
-                disp(datestr(t))
-                TOP = tile.TOP;
-                BOTTOM = tile.BOTTOM;
-                forcing = tile.FORCING;
-                run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
-                result_path = tile.PARA.result_path;
-                timestep = tile.timestep;
-                out_tag = out.PARA.tag;
-            
-                % Store the current state of the model in the out structure.
-
-                out.timestamp = [out.timestamp t];
                 
-                snow_depth = 0;
-                CURRENT = TOP.NEXT;
-                if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0 %snow is CHILD
-                    class_name = class(CURRENT.CHILD);
-                    if strcmp(class_name(1:4), 'SNOW')
-                        for i=1:size(out.PARA.variables,1)
-                            str1 = ['get_snow_' out.PARA.variables{i,1} '_CHILD'];
-                            str2 = ['snow_' out.PARA.variables{i,1}];
-                            a = str2func(str1);
-                            out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
-                        end
-                    end
-                else
-                    class_name = class(CURRENT);
-                    if strcmp(class_name(1:4), 'SNOW') %snow is normal class
-                        for i=1:size(out.PARA.variables,1)
-                            str1 = ['get_snow_' out.PARA.variables{i,1}];
-                            str2 = ['snow_' out.PARA.variables{i,1}];
-                            a = str2func(str1);
-                            out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
-                        end
-                    else
-                        if out.PARA.include_Xice == 1
-                            for i=1:size(out.PARA.variables,1)
-                                str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
-                                str2 = ['snow_' out.PARA.variables{i,1}];
-                                a = str2func(str1);
-                                out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
-                            end
-                        else
-                            for i=1:size(out.PARA.variables,1)
-                                str2 = ['snow_' out.PARA.variables{i,1}];
-                                if strcmp(out.PARA.variables{i,1}, 'GST')
-                                    str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
-                                    a = str2func(str1);
-                                    out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
-                                else
-                                    out.result.(str2) = [out.result.(str2); NaN];
-                                end
-                            end
-                        end
-                    end
-                end
+                disp([datestr(tile.t)])
 
-                
-                % Set the next OUTPUT_TIME
-                out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
-                
-                if t>=out.SAVE_TIME
-                    % It is time to save all the collected model output to disk
-                     
-                    if ~(exist([result_path run_name])==7)
-                        mkdir([result_path run_name])
-                    end
+                out = state2out(out, tile);
+                out.OUTPUT_TIME = out.OUTPUT_TIME + out.PARA.output_timestep;
+
+                if tile.t >= out.SAVE_TIME
 
                     if out.PARA.regrid_results == 1
-                        CG_out = regrid_results_snow(out);
-                        CG_out.timestamp = out.timestamp;
-                    else
-                        CG_out = out.result;
-                        CG_out.timestamp = out.timestamp;
+                        out = regrid_results_snow(out);
                     end
-                    if isempty(out_tag) || all(isnan(out_tag))
-                        save([result_path run_name '/' run_name '_snow_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    else
-                        save([result_path run_name '/' run_name '_snow_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    end
-                    
-                    % Clear the out structure
-                    out.timestamp = [];
-                    for i=1:size(out.PARA.variables,1)
-                        str2 = ['snow_' out.PARA.variables{i,1}];
-                        out.result.(str2) = {};
-                    end
+                    out = out2file_CG(out, tile);
 
-                    if ~isnan(out.PARA.save_interval)
-                        % If save_interval is defined, uptate SAVE_TIME for next save opertion 
-                        out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
-                        % If save_interval is not defined, we will save at the very end of the model run
-					end
+                    out.STATVAR.timestamp = [];
+                    for i=1:size(out.PARA.variables,1)
+                        out.STATVAR.(out.PARA.variables{i,1}) = {};
+                    end
                 end
+                
             end
         end
+
+        function out = state2out(out, tile)
+
+            out.STATVAR.timestamp = [out.STATVAR.timestamp; tile.t];
+
+            snow_depth = 0;
+            CURRENT = tile.TOP.NEXT;
+            if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0 %snow is CHILD
+                class_name = class(CURRENT.CHILD);
+                if strcmp(class_name(1:4), 'SNOW')
+                    for i=1:size(out.PARA.variables,1)
+                        str1 = ['get_snow_' out.PARA.variables{i,1} '_CHILD'];
+                        str2 = out.PARA.variables{i,1}; %['snow_' out.PARA.variables{i,1}];
+                        a = str2func(str1);
+                        out.STATVAR.(str2) = [out.STATVAR.(str2); a(out, CURRENT, tile)];
+                    end
+                end
+            else
+                class_name = class(CURRENT);
+                if strcmp(class_name(1:4), 'SNOW') %snow is normal class
+                    for i=1:size(out.PARA.variables,1)
+                        str1 = ['get_snow_' out.PARA.variables{i,1}];
+                        str2 = out.PARA.variables{i,1};%['snow_' out.PARA.variables{i,1}];
+                        a = str2func(str1);
+                        out.STATVAR.(str2) = [out.STATVAR.(str2); a(out, CURRENT, tile)];
+                    end
+                else
+                    if out.PARA.include_Xice == 1
+                        for i=1:size(out.PARA.variables,1)
+                            str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
+                            str2 = out.PARA.variables{i,1}; %['snow_' out.PARA.variables{i,1}];
+                            a = str2func(str1);
+                            out.STATVAR.(str2) = [out.STATVAR.(str2); a(out, CURRENT, tile)];
+                        end
+                    else
+                        for i=1:size(out.PARA.variables,1)
+                            str2 = out.PARA.variables{i,1}; % ['snow_' out.PARA.variables{i,1}];
+                            if strcmp(out.PARA.variables{i,1}, 'GST')
+                                str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
+                                a = str2func(str1);
+                                out.STATVAR.(str2) = [out.STATVAR.(str2); a(out, CURRENT, tile)];
+                            else
+                                out.STATVAR.(str2) = [out.STATVAR.(str2); NaN];
+                            end
+                        end
+                    end
+                end
+            end
+
+        end
+                    
+        % function out = store_OUT(out, tile)           
+        % 
+        %     if tile.t >= out.OUTPUT_TIME
+        % 
+        %         t = tile.t;
+        %         disp(datestr(t))
+        %         TOP = tile.TOP;
+        %         BOTTOM = tile.BOTTOM;
+        %         forcing = tile.FORCING;
+        %         run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
+        %         result_path = tile.PARA.result_path;
+        %         timestep = tile.timestep;
+        %         out_tag = out.PARA.tag;
+        % 
+        %         % Store the current state of the model in the out structure.
+        % 
+        %         out.timestamp = [out.timestamp t];
+        % 
+        %         snow_depth = 0;
+        %         CURRENT = TOP.NEXT;
+        %         if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0 %snow is CHILD
+        %             class_name = class(CURRENT.CHILD);
+        %             if strcmp(class_name(1:4), 'SNOW')
+        %                 for i=1:size(out.PARA.variables,1)
+        %                     str1 = ['get_snow_' out.PARA.variables{i,1} '_CHILD'];
+        %                     str2 = ['snow_' out.PARA.variables{i,1}];
+        %                     a = str2func(str1);
+        %                     out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
+        %                 end
+        %             end
+        %         else
+        %             class_name = class(CURRENT);
+        %             if strcmp(class_name(1:4), 'SNOW') %snow is normal class
+        %                 for i=1:size(out.PARA.variables,1)
+        %                     str1 = ['get_snow_' out.PARA.variables{i,1}];
+        %                     str2 = ['snow_' out.PARA.variables{i,1}];
+        %                     a = str2func(str1);
+        %                     out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
+        %                 end
+        %             else
+        %                 if out.PARA.include_Xice == 1
+        %                     for i=1:size(out.PARA.variables,1)
+        %                         str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
+        %                         str2 = ['snow_' out.PARA.variables{i,1}];
+        %                         a = str2func(str1);
+        %                         out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
+        %                     end
+        %                 else
+        %                     for i=1:size(out.PARA.variables,1)
+        %                         str2 = ['snow_' out.PARA.variables{i,1}];
+        %                         if strcmp(out.PARA.variables{i,1}, 'GST')
+        %                             str1 = ['get_snow_' out.PARA.variables{i,1} '_Xice'];
+        %                             a = str2func(str1);
+        %                             out.result.(str2) = [out.result.(str2); a(out, CURRENT, tile)];
+        %                         else
+        %                             out.result.(str2) = [out.result.(str2); NaN];
+        %                         end
+        %                     end
+        %                 end
+        %             end
+        %         end
+        % 
+        % 
+        %         % Set the next OUTPUT_TIME
+        %         out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
+        % 
+        %         if t>=out.SAVE_TIME
+        %             % It is time to save all the collected model output to disk
+        % 
+        %             if ~(exist([result_path run_name])==7)
+        %                 mkdir([result_path run_name])
+        %             end
+        % 
+        %             if out.PARA.regrid_results == 1
+        %                 CG_out = regrid_results_snow(out);
+        %                 CG_out.timestamp = out.timestamp;
+        %             else
+        %                 CG_out = out.result;
+        %                 CG_out.timestamp = out.timestamp;
+        %             end
+        %             if isempty(out_tag) || all(isnan(out_tag))
+        %                 save([result_path run_name '/' run_name '_snow_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
+        %             else
+        %                 save([result_path run_name '/' run_name '_snow_' out_tag '_' datestr(t,'yyyymmdd') '.mat'], 'CG_out')
+        %             end
+        % 
+        %             % Clear the out structure
+        %             out.timestamp = [];
+        %             for i=1:size(out.PARA.variables,1)
+        %                 str2 = ['snow_' out.PARA.variables{i,1}];
+        %                 out.result.(str2) = {};
+        %             end
+        % 
+        %             if ~isnan(out.PARA.save_interval)
+        %                 % If save_interval is defined, uptate SAVE_TIME for next save opertion 
+        %                 out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+        %                 % If save_interval is not defined, we will save at the very end of the model run
+		% 			end
+        %         end
+        %     end
+        % end
         
         %normal snow
         function res = get_snow_MAAT(out, CURRENT, tile)
@@ -380,30 +429,30 @@ classdef OUT_snow_all < matlab.mixin.Copyable
             res = 2.2;
         end
 
-        function CG_out = regrid_results_snow(out)
-            vars = fieldnames(out.result);
+        function out = regrid_results_snow(out)
+            vars = fieldnames(out.STATVAR);
             first_round = 1;
             for i=1:size(vars,1)
-                if strcmp(vars{i,1}, 'snow_albedo') || strcmp(vars{i,1}, 'snow_depth') || strcmp(vars{i,1}, 'snow_SWE') || strcmp(vars{i,1}, 'snow_GST') || strcmp(vars{i,1}, 'snow_MAAT')
-                    CG_out.(vars{i,1}) = cell2mat(out.result.(vars{i,1}));
-                elseif strcmp(vars{i,1}, 'snow_density') || strcmp(vars{i,1}, 'snow_water') || strcmp(vars{i,1}, 'snow_sphericity') || strcmp(vars{i,1}, 'snow_grainSize') || strcmp(vars{i,1}, 'snow_dendricity') || strcmp(vars{i,1}, 'snow_conductivity')
+                if strcmp(vars{i,1}, 'albedo') || strcmp(vars{i,1}, 'depth') || strcmp(vars{i,1}, 'SWE') || strcmp(vars{i,1}, 'GST') || strcmp(vars{i,1}, 'MAAT')
+                    out.STATVAR.(vars{i,1}) = cell2mat(out.STATVAR.(vars{i,1}));
+                elseif strcmp(vars{i,1}, 'density') || strcmp(vars{i,1}, 'water') || strcmp(vars{i,1}, 'sphericity') || strcmp(vars{i,1}, 'grainSize') || strcmp(vars{i,1}, 'dendricity') || strcmp(vars{i,1}, 'conductivity')
                     if first_round == 1 %establish new grid
                         max_depth = 0;
-                        lt_all = out.result.snow_layerThick;
+                        lt_all = out.STATVAR.layerThick;
                         for j=1:size(lt_all,1)
                             max_depth = max(max_depth, sum(lt_all{j,1}));
                         end
                         new_grid = [0:out.PARA.target_grid_size:out.PARA.target_grid_size+max_depth]';
                         new_grid = (new_grid(1:end-1,1)+new_grid(2:end,1))./2;
-                        CG_out.z = new_grid;
+                        out.STATVAR.z = new_grid;
                         first_round = 0;
                     end
 
                     %regrid
-                    CG_out.(vars{i,1}) = [];
+                    store_int = [];
                     for j=1:size(lt_all,1)
                         lt = lt_all{j,1};
-                        target_var = out.result.(vars{i,1}){j,1};
+                        target_var = out.STATVAR.(vars{i,1}){j,1};
                         delete_cells = find(lt(:,1)<=1e-4);
                         target_var(delete_cells,:) = [];
 
@@ -427,22 +476,17 @@ classdef OUT_snow_all < matlab.mixin.Copyable
                             end
                             lt3 = -(lt3-lt3(end));
 
-                            % lt = [0; lt];
-                            % lt2=cumsum(lt);
-                            % lt2=[lt2(1); (lt2(1:end-1)+lt2(2:end))/2; lt2(end)];
-                            % lt2 = -(lt2-lt2(end));
-                            %target_var = [target_var(1); target_var; target_var(end)];
-
-                            CG_out.(vars{i,1}) = [CG_out.(vars{i,1}) interp1(lt3, target_var2, new_grid, 'nearest')];
+                            store_int = [store_int interp1(lt3, target_var2, new_grid, 'nearest')];
                         else
-                            CG_out.(vars{i,1}) = [CG_out.(vars{i,1}) new_grid.*NaN];
+                            store_int = [store_int new_grid.*NaN];
                         end
                     end
-                    if strcmp(vars{i,1}, 'snow_density')
-                        CG_out.snow_ice =  CG_out.snow_density;
-                        CG_out.snow_density = CG_out.snow_density .* 920;
-                    elseif strcmp(vars{i,1}, 'snow_sphericity') || strcmp(vars{i,1}, 'snow_grainSize') || strcmp(vars{i,1}, 'snow_dendricity')
-                        CG_out.(vars{i,1})(find(CG_out.(vars{i,1})==-1)) = NaN;
+                    out.STATVAR.(vars{i,1}) = store_int;
+                    if strcmp(vars{i,1}, 'density')
+                        out.STATVAR.ice =  out.STATVAR.density;
+                        out.STATVAR.density = out.STATVAR.density .* 920;
+                    elseif strcmp(vars{i,1}, 'sphericity') || strcmp(vars{i,1}, 'grainSize') || strcmp(vars{i,1}, 'dendricity')
+                        out.STATVAR.(vars{i,1})(find(out.STATVAR.(vars{i,1})==-1)) = NaN;
                     end
                 end
             end

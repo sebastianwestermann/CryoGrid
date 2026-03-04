@@ -15,6 +15,17 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
     end
     
     methods
+        % new 11.2.
+        function da = make_scratchfolder(da, run_info)
+            if isempty(da.PARA.scratchfolder) || sum(isnan(da.PARA.scratchfolder))>0
+                da.PARA.scratchfolder = [run_info.PPROVIDER.PARA.result_path];
+            else
+                if ~exist([da.PARA.scratchfolder run_info.PPROVIDER.PARA.run_name], 'dir')
+                    mkdir([da.PARA.scratchfolder run_info.PPROVIDER.PARA.run_name]);
+                end
+            end
+        end
+        %end
 
         function da = load_observable_operators(da, tile)
             % for i=1:size(da.PARA.observable_classes,1)
@@ -146,10 +157,11 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
 
         function save_state_class = generate_prior_save_state_class(da, realization_number, save_time)
             save_state_class = OUT_save_state();
+            save_state_class = provide_PARA(save_state_class); 
             save_state_class.PARA.save_timestamp = save_time;
             save_state_class.PARA.out_folder = da.PARA.scratchfolder;
             save_state_class.PARA.identifier = [class(da) '_' num2str(da.PARA.class_index) '_prior'];
-            save_state_class.PARA.tag = [num2str(realization_number) '_prior'];
+            save_state_class.PARA.tag2 = [num2str(realization_number) '_prior'];
         end
 
         function tile = change_output_time_prior(da, tile, realization_number) 
@@ -157,7 +169,7 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                 if isfield(tile.OUT{i,1}.PARA, 'identifier')
                     if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_prior'])
                         tile.OUT{i,1}.PARA.save_timestamp = tile.PARA.start_time;
-                        tile.OUT{i,1}.PARA.tag = [num2str(realization_number) '_prior'];
+                        tile.OUT{i,1}.PARA.tag2 = [num2str(realization_number) '_prior'];
                         tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
                     end
                 end
@@ -166,10 +178,11 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
 
         function save_state_class = generate_final_save_state_class(da, realization_number)
             save_state_class = OUT_save_state();
+            save_state_class = provide_PARA(save_state_class); 
             save_state_class.PARA.save_timestamp = da.DA_STEP_TIME;
             save_state_class.PARA.out_folder = da.PARA.scratchfolder;
             save_state_class.PARA.identifier = [class(da) '_' num2str(da.PARA.class_index) '_final'];
-            save_state_class.PARA.tag = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
+            save_state_class.PARA.tag2 = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
         end
 
         function tile = change_output_time_final(da, tile, realization_number)
@@ -178,7 +191,7 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                 if isfield(tile.OUT{i,1}.PARA, 'identifier')
                     if strcmp(tile.OUT{i,1}.PARA.identifier, [class(da) '_' num2str(da.PARA.class_index) '_final'])
                         tile.OUT{i,1}.PARA.save_timestamp = da.DA_STEP_TIME;
-                        tile.OUT{i,1}.PARA.tag = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
+                        tile.OUT{i,1}.PARA.tag2 = [num2str(realization_number) '_' num2str(da.TEMP.num_iterations+1)];
                         tile.OUT{i,1} = finalize_init(tile.OUT{i,1}, tile);
                     end
                 end
@@ -278,6 +291,11 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             
             da.ENSEMBLE.observations = observations;
             da.ENSEMBLE.obs_variance = obs_variance;
+
+            %remove nan observations
+            da.TEMP.nan_obs = find(isnan(da.ENSEMBLE.observations));
+            da.ENSEMBLE.observations(da.TEMP.nan_obs,:) = [];
+            da.ENSEMBLE.obs_variance(da.TEMP.nan_obs,:) = [];
         end
 
         function da = resample_state_and_parameters(da, run_info)
@@ -287,7 +305,12 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
             resample_ID = randsample(da.TEMP.ensemble_size_DA.*da.TEMP.num_iterations, da.TEMP.ensemble_size_DA, true, da.ENSEMBLE.weights(:));
 
             %establish variable for all other ensemble members
-            iteration_number = da.RUN_INFO.ENSEMBLE.STATVAR.iteration;
+            if isfield(da.RUN_INFO.ENSEMBLE.STATVAR, 'iteration')
+                iteration_number = da.RUN_INFO.ENSEMBLE.STATVAR.iteration;
+            else
+                iteration_number = da.RUN_INFO.ENSEMBLE.STATVAR.(da.PARA.ensemble_variable_id).*0+1;
+                da.RUN_INFO.ENSEMBLE.STATVAR.iteration = iteration_number;
+            end
             ensemble_number = da.RUN_INFO.ENSEMBLE.STATVAR.(da.PARA.ensemble_variable_id);
             ensemble2_number = ensemble_number.*NaN;
             realization_number = ensemble_number.*NaN;
@@ -399,7 +422,7 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                 Ac=thetapc-pmc;
                 pcc=(1./da.TEMP.ensemble_size_DA).*(Ac*Ac');
                 mean_gaussian_resampled = pmc;
-                if all(eig(pcc)>0) && clip >= da.ENSEMBLE.effective_ensemble_size 
+                if all(eig(pcc)>1e-9) && clip >= da.ENSEMBLE.effective_ensemble_size 
                     cov_gaussian_resampled=pcc;
                 else
                     disp('clipping unsuccessful')

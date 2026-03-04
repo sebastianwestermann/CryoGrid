@@ -1,194 +1,168 @@
 %cite https://www.sciencedirect.com/science/article/pii/S0098300408001519
 %when using this class
 
-classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
+classdef OUT_ERT_forward_ArchiesLaw_1D < OUT_BASE_OBSERVABLES
 
     properties
-        PARA
-        CONST
+
         STATVAR
-        TEMP
-        TIMESTAMP
-        OUTPUT_TIME
-        SAVE_TIME
+
     end
 
     methods
 
-        function obs = provide_PARA(obs)
-            obs.PARA.electrode_folder = [];
-            obs.PARA.electrode_filename = [];
-            obs.PARA.horizontal_grid_spacing = []; %assumed the same in x and z-direction
+        function out = provide_PARA(out)
+            out.PARA.electrode_folder = [];
+            out.PARA.electrode_filename = [];
+            out.PARA.horizontal_grid_spacing = []; %assumed the same in x and z-direction
             %Archies law parameters
-            obs.PARA.resistance_water = [];
-            obs.PARA.cementation_exponent = []; %m = 1.3 for soils, make dependent
-            obs.PARA.tortuosity = []; %a = 0.6-1
-            obs.PARA.saturation_exponent = 2; %n
-            obs.PARA.min_saturation = 0.01;
+            out.PARA.resistance_water = [];
+            out.PARA.cementation_exponent = []; %m = 1.3 for soils, make dependent
+            out.PARA.tortuosity = []; %a = 0.6-1
+            out.PARA.saturation_exponent = 2; %n
+            out.PARA.min_saturation = 0.01;
 
-            obs.PARA.output_timestep = [];
-            obs.PARA.save_date = [];
-            obs.PARA.save_interval = [];
-            obs.PARA.tag = [];
-            obs.PARA.tag2 = [];
+            out.PARA.output_timestep = [];
+            out.PARA.save_date = [];
+            out.PARA.save_interval = [];
+            out.PARA.tag = [];
+            out.PARA.tag2 = [];
 
-        end
-
-        function obs = provide_CONST(obs)
-
-        end
-
-        function obs = provide_STATVAR(obs)
+            out.PARA.timestamps = [];
+            out.PARA.write_file_mode = 0; %empty/default setting: DA mode, do not write any output; % 0: normal behaviour, no DA, get normal output times and run regularly; 1: store after DA; 2: store after each run
 
         end
 
-        function obs = finalize_init(obs, tile)
+        function out = finalize_init(out, tile)
+        
+            out = finalize_init@OUT_BASE_OBSERVABLES(out, tile);
 
-            if ~isempty(obs.PARA.tag) && sum(isnan(obs.PARA.tag))>0
-                obs.PARA.tag = [];
-            end
+            a = load([out.PARA.electrode_folder out.PARA.electrode_filename]);
+            out.TEMP.electrode_positions = a.electrode_positions;
 
-            a = load([obs.PARA.electrode_folder obs.PARA.electrode_filename]);
-            obs.STATVAR.electrode_positions = a.electrode_positions;
-            %load observations
+            out.STATVAR.potentials = [];
+            out.STATVAR.resistances = [];
+            out.STATVAR.depths = [];
+            out.STATVAR.timestamp = [];
 
-            forcing = tile.FORCING;
-
-            % Set the next (first) output time. This is the next (first) time output
-            % is collected (in memory) for later storage to disk.
-            obs.OUTPUT_TIME = forcing.PARA.start_time + obs.PARA.output_timestep;
-
-            % Set the next (first) save time. This is the next (first) time all the
-            % collected output is saved to disk.
-            if isempty(obs.PARA.save_interval) || isnan(obs.PARA.save_interval)
-                obs.SAVE_TIME = forcing.PARA.end_time;
-            else
-                obs.SAVE_TIME = min(forcing.PARA.end_time,  datenum([obs.PARA.save_date num2str(str2num(datestr(forcing.PARA.start_time,'yyyy')) + obs.PARA.save_interval)], 'dd.mm.yyyy'));
-            end
-            obs.TEMP.potentials = [];
-            obs.TEMP.resistances = [];
-            obs.TEMP.depths = [];
+            out.TEMP.keyword = 'ERT';
+            out.TEMP.output_var = 'CG_ERT';
+            
         end
 
+        function out = store_OUT(out, tile)
 
-        function obs = store_OUT(obs, tile)
+            if tile.t >= out.OUTPUT_TIME
 
-            t = tile.t;
-            forcing = tile.FORCING;
-            run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
-            result_path = tile.PARA.result_path;
-            timestep = tile.timestep;
-            out_tag = obs.PARA.tag;
+                disp([datestr(tile.t)])
 
-            if t>=obs.OUTPUT_TIME
+                out = state2out(out, tile);
 
-                disp([datestr(t)])
-                obs.TIMESTAMP=[obs.TIMESTAMP t];
-
-                CURRENT = tile.TOP.NEXT;
-                while ~is_ground_surface(CURRENT) && ~(strcmp(class(CURRENT), 'Bottom'))
-                    CURRENT = CURRENT.NEXT;
-                end
-
-                layerThick = [];
-                water = [];
-                ice = [];
-                mineral = [];
-                organic = [];
-
-                while ~(strcmp(class(CURRENT), 'Bottom'))
-                    layerThick = [layerThick; CURRENT.STATVAR.layerThick];
-                    water = [water; CURRENT.STATVAR.water ./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
-                    ice = [ice; CURRENT.STATVAR.ice./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
-                    mineral = [mineral; CURRENT.STATVAR.mineral./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
-                    organic = [organic; CURRENT.STATVAR.organic./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
-                    CURRENT = CURRENT.NEXT;
-                end
-
-                porosity = 1-ice-mineral-organic;
-                saturation = max(water ./ porosity, obs.PARA.min_saturation);
-                depths = cumsum([0; layerThick]);
-                depths = (depths(1:end-1,1)+depths(2:end,1))./2;
-                resistances =  obs.PARA.tortuosity .* obs.PARA.resistance_water .* porosity.^(-obs.PARA.cementation_exponent) .* saturation.^(-obs.PARA.saturation_exponent);
-
-                %calculation of potentials
-
-                %assign electrode-positions
-                electrode_positions = obs.STATVAR.electrode_positions;
-                el_pos=[];
-                for i=1:4
-                    el_pos=[el_pos electrode_positions(:,i) electrode_positions(:,i).*0];
-                end
-                electrode_positions = el_pos;
-                electrode_positions_x = electrode_positions(:,1:2:7);
-
-                %define grid
-                delta_x = obs.PARA.horizontal_grid_spacing; %in meter
-                length_of_survey = max(electrode_positions_x(:)) - min(electrode_positions_x(:));
-                midpoint_of_survey = (max(electrode_positions_x(:)) - min(electrode_positions_x(:)))./2 + min(electrode_positions_x(:));
-                electrode_positions_shifted = electrode_positions;
-                electrode_positions_shifted(:,1:2:7) = electrode_positions_shifted(:,1:2:7)-midpoint_of_survey;
-
-                dx = repmat(delta_x, round(length_of_survey./delta_x)+2, 1); %append some cells on the side
-                i=1;
-                while 2^i<=64
-                    dx = [delta_x .* 2.^i; dx; delta_x .* 2.^i];
-                    i=i+1;
-                end
-
-                dz = layerThick; %take grid from model, does not seem
-                obs.TEMP.resistances = [obs.TEMP.resistances; resistances'];
-                resistances = repmat(resistances, 1, size(dx,1));
-                resistances = resistances';
-
-                %current electrodes
-                tic;
-                [fwd_model_para] = get_2_5Dpara(obs, electrode_positions_shifted(:,1:4),dx,dz,[],4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
-%                [fwd_model_para] = get_2_5Dpara(obs, electrode_positions_shifted(:,1:4),dx,dz,1./resistances,4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
-
-                toc;
-                %Run the forward model
-                [result, potential_field] = dcfw2_5D(obs, 1./resistances, fwd_model_para);
-
-                %current electrodes first, then potential electrodes
-                %potential_field could be saved for diagnosis
-                obs.TEMP.potentials = [obs.TEMP.potentials; result'];
-                obs.TEMP.depths = [obs.TEMP.depths; depths'];
-
-                obs.OUTPUT_TIME = min(obs.SAVE_TIME, obs.OUTPUT_TIME + obs.PARA.output_timestep);
-                if t>=obs.SAVE_TIME
-                    % It is time to save all the collected model output to disk
-                    
-                    obs.TEMP.tag = ['_' obs.PARA.tag '_' obs.PARA.tag2 '_'];
-                    obs.TEMP.tag = strrep(obs.TEMP.tag, '___', '_');
-                    obs.TEMP.tag = strrep(obs.TEMP.tag, '__', '_');
-
-                    CG_out = obs.TEMP;
-                    CG_out.timestamp = obs.TIMESTAMP';
-                    CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
-
-                    if ~(exist([result_path run_name])==7)
-                        mkdir([result_path run_name])
+                out = set_output_time(out, tile);
+                
+                if tile.t >= out.SAVE_TIME && isempty(out.PARA.timestamps)
+                    if out.PARA.write_file_mode == 0
+                        out = out2file_CG(out, tile);
+                    elseif out.PARA.write_file_mode == 1
+                        out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+                        out.TEMP.write_out_init = 1;
+                    elseif out.PARA.write_file_mode == 2
+                        out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+                        out.TEMP.write_out_final = 1;
                     end
-
-                    save([result_path run_name '/' run_name '_ERT' obs.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
-                    
-                    % Clear the out structure
-                    obs.TIMESTAMP=[];
-                    obs.TEMP.potentials = [];
-                    obs.TEMP.resistances = [];
-                    if ~isnan(obs.PARA.save_interval)
-                        % If save_interval is defined, uptate SAVE_TIME for next save opertion 
-                        obs.SAVE_TIME = min(forcing.PARA.end_time,  datenum([obs.PARA.save_date num2str(str2num(datestr(obs.SAVE_TIME,'yyyy')) + obs.PARA.save_interval)], 'dd.mm.yyyy'));
-                        % If save_interval is not defined, we will save at the very end of the model run
-                        % and thus do not need to update SAVE_TIME (update would fail because save_interval is nan)
-					end
                 end
+                
             end
         end
 
+        function out = out2file_CG(out, tile)
 
-        function [b] = boundary_correction_2_5(obs, dx,dz,s,srcterm,k,g)
+            out = out2file_CG@OUT_BASE_OBSERVABLES(out, tile);
+
+            out.STATVAR.potentials = [];
+            out.STATVAR.resistances = [];
+            out.STATVAR.depths = [];
+            out.STATVAR.timestamp = [];
+
+        end
+
+        function out = state2out(out,tile)
+
+            CURRENT = tile.TOP.NEXT;
+            while ~is_ground_surface(CURRENT) && ~(strcmp(class(CURRENT), 'Bottom'))
+                CURRENT = CURRENT.NEXT;
+            end
+
+            layerThick = [];
+            water = [];
+            ice = [];
+            mineral = [];
+            organic = [];
+
+            while ~(strcmp(class(CURRENT), 'Bottom'))
+                layerThick = [layerThick; CURRENT.STATVAR.layerThick];
+                water = [water; CURRENT.STATVAR.water ./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+                ice = [ice; CURRENT.STATVAR.ice./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+                mineral = [mineral; CURRENT.STATVAR.mineral./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+                organic = [organic; CURRENT.STATVAR.organic./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+                CURRENT = CURRENT.NEXT;
+            end
+
+            %porosity = 1-ice-mineral-organic;
+            porosity = 1-mineral-organic;
+            saturation = max(water ./ porosity, out.PARA.min_saturation);
+            depths = cumsum([0; layerThick]);
+            depths = (depths(1:end-1,1)+depths(2:end,1))./2;
+            resistances =  out.PARA.tortuosity .* out.PARA.resistance_water .* porosity.^(-out.PARA.cementation_exponent) .* saturation.^(-out.PARA.saturation_exponent);
+
+            %calculation of potentials
+
+            %assign electrode-positions
+            electrode_positions = out.TEMP.electrode_positions;
+            el_pos=[];
+            for i=1:4
+                el_pos=[el_pos electrode_positions(:,i) electrode_positions(:,i).*0];
+            end
+            electrode_positions = el_pos;
+            electrode_positions_x = electrode_positions(:,1:2:7);
+
+            %define grid
+            delta_x = out.PARA.horizontal_grid_spacing; %in meter
+            length_of_survey = max(electrode_positions_x(:)) - min(electrode_positions_x(:));
+            midpoint_of_survey = (max(electrode_positions_x(:)) - min(electrode_positions_x(:)))./2 + min(electrode_positions_x(:));
+            electrode_positions_shifted = electrode_positions;
+            electrode_positions_shifted(:,1:2:7) = electrode_positions_shifted(:,1:2:7)-midpoint_of_survey;
+
+            dx = repmat(delta_x, round(length_of_survey./delta_x)+2, 1); %append some cells on the side
+            i=1;
+            while 2^i<=64
+                dx = [delta_x .* 2.^i; dx; delta_x .* 2.^i];
+                i=i+1;
+            end
+
+            dz = layerThick; %take grid from model, does not seem
+            out.STATVAR.resistances = [out.STATVAR.resistances; resistances'];
+            resistances = repmat(resistances, 1, size(dx,1));
+            resistances = resistances';
+
+            %current electrodes
+            tic;
+            [fwd_model_para] = get_2_5Dpara(out, electrode_positions_shifted(:,1:4),dx,dz,[],4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+            %                [fwd_model_para] = get_2_5Dpara(out, electrode_positions_shifted(:,1:4),dx,dz,1./resistances,4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+
+            toc;
+            %Run the forward model
+            [result, potential_field] = dcfw2_5D(out, 1./resistances, fwd_model_para);
+
+            %current electrodes first, then potential electrodes
+            %potential_field could be saved for diagnosis
+            out.STATVAR.potentials = [out.STATVAR.potentials; result'];
+            out.STATVAR.depths = [out.STATVAR.depths; depths'];
+
+        end
+
+
+        function [b] = boundary_correction_2_5(out, dx,dz,s,srcterm,k,g)
             %%function [b] = boundary_correction_2_5(dx,dz,srcterm,k,g);
             %% dx is the x direction cell discretization, a vector length [nx,1];
             %% dz is the z direction cell discretization, a vector length [nz,1];
@@ -281,15 +255,15 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             %now that we have the "true" potentials, we need to crank that through our
             %forward operator so we can create a corrected source term
-            D = div2d(obs, dx,dz);
-            G = grad2d(obs, dx,dz);
+            D = div2d(out, dx,dz);
+            G = grad2d(out, dx,dz);
 
             %% Assemble a homogeneous forward operator
             %put it all together to create operator matrix
 
             savg = savg*ones(size(s));
 
-            R = massf2d(obs, 1./savg,dx,dz);
+            R = massf2d(out, 1./savg,dx,dz);
             S = spdiags(1./diag(R),0,size(R,1),size(R,2));
             %put it all together to create operator matrix
 
@@ -299,7 +273,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             for j = 1:length(k);
                 %
                 %modify the operator based on the fourier transform
-                L = Ahomo +(k(j)^2)*spdiags(mkvc(obs, savg),0,size(Ahomo,1),size(Ahomo,2));
+                L = Ahomo +(k(j)^2)*spdiags(mkvc(out, savg),0,size(Ahomo,1),size(Ahomo,2));
 
                 %Assemble the forwad operator, including the Fourier
                 %integration
@@ -313,7 +287,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             disp('Finished Source correction ');
         end
 
-        function[q] = calcRHS_2_5(obs, dx,dz,src);
+        function[q] = calcRHS_2_5(out, dx,dz,src);
             % [q] = calcRHS(dx,dz,src)
             %% dx is the x direction cell discretization, a vector length [nx,1];
             %% dz is the z direction cell discretization, a vector length [nz,1];
@@ -343,23 +317,23 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             %if there is more than one source
             for k=1:size(src,1);
                 %interpolate the location of the sources to the nearest cell nodes
-                Q= interpmat_N2_5(obs, dx,dz,src(k,1),src(k,2)); %%%%%
-                Q = Q - interpmat_N2_5(obs, dx,dz,src(k,3),src(k,4));
+                Q= interpmat_N2_5(out, dx,dz,src(k,1),src(k,2)); %%%%%
+                Q = Q - interpmat_N2_5(out, dx,dz,src(k,3),src(k,4));
 
-                q(:,k) = mkvc(obs, Q)./da;
+                q(:,k) = mkvc(out, Q)./da;
 
             end;
             disp('Done ');
         end
 
-        function [xc,zc] = cell_centre2d(obs, dx,dz);
+        function [xc,zc] = cell_centre2d(out, dx,dz);
             %%[xc,zc] = cell_centre(dx,dz);
             %%Finds the LH coordsystem cartisien coords of the cell centers;
             %%%Adam Pidlisecky, Modified July 2004
 
             %calculate the cartesian cell centered grid for inversion
-            dx = mkvc(obs, dx);
-            dz = mkvc(obs, dz);
+            dx = mkvc(out, dx);
+            dz = mkvc(out, dz);
             %build the 3d grid - numbered fromn 0 to maximum extent
             z = [0; cumsum(dz)];
             x = [0; cumsum(dx)];
@@ -376,7 +350,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             zc = z(1:end-1) +dz/2;
         end
 
-        function [dobs,U] = dcfw2_5D(obs, s,Para);
+        function [dobs,U] = dcfw2_5D(out, s,Para);
             %[U] = dcfw2d(s,Para);
             %Solves the equation (-Div*sigma*grad)*u =q;
             %2.5D forward model using fourier cosine transform in y direction to
@@ -395,7 +369,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             dx =Para.dx;
             dz =Para.dz;
             %%make the sigma matrix
-            R = massf2d(obs, 1./s,dx,dz);
+            R = massf2d(out, 1./s,dx,dz);
             S = spdiags(1./diag(R),0,size(R,1),size(R,2));
             %put it all together to create operator matrix
             A = -Para.D*S*Para.G;
@@ -409,7 +383,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 %%Now we solve the forward problem
 
                 %modify the operator based on the fourier transform
-                L = A +(Para.k(i)^2)*spdiags(mkvc(obs, s),0,size(A,1),size(A,2));
+                L = A +(Para.k(i)^2)*spdiags(mkvc(out, s),0,size(A,1),size(A,2));
 
                 %now integrate for U;
                 U = U+Para.g(i)*(L\(0.5*Para.b));
@@ -419,13 +393,13 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             %%see if the Q is around and pick data otherwise return an empty vector
             try
-                dobs= Qu(obs, Para.Q,U,Para.srcnum);
+                dobs= Qu(out, Para.Q,U,Para.srcnum);
             catch
                 dobs = [];
             end
         end
 
-        function[D,Dx,Dz] = div2d(obs, dx,dz)
+        function[D,Dx,Dz] = div2d(out, dx,dz)
             %[D,Dx,Dz] = div2d(dx,dz)
             %% dx is the x direction cell discretization, a vector length [nx,1];
             %% dz is the z direction cell discretization, a vector length [nz,1];
@@ -466,27 +440,27 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             % Entries (l,j,k)
 
-            lx = mkvc(obs, GRDp(2:end-1,:));
-            jx = mkvc(obs, GRDax(1:end-1,:));
-            kx = mkvc(obs, -1./Dx(2:end-1,:));
+            lx = mkvc(out, GRDp(2:end-1,:));
+            jx = mkvc(out, GRDax(1:end-1,:));
+            kx = mkvc(out, -1./Dx(2:end-1,:));
 
             % Entries (l+1,j,k)
 
             lx = [lx;lx];
-            jx = [jx;mkvc(obs, GRDax(2:end,:))];
+            jx = [jx;mkvc(out, GRDax(2:end,:))];
             kx = [kx;-kx];
 
             % BC at x = 0
 
-            lx = [lx;mkvc(obs, GRDp(1,:))];
-            jx = [jx;mkvc(obs, GRDax(1,:))];
-            kx = [kx;mkvc(obs, 1./Dx(1,:))];
+            lx = [lx;mkvc(out, GRDp(1,:))];
+            jx = [jx;mkvc(out, GRDax(1,:))];
+            kx = [kx;mkvc(out, 1./Dx(1,:))];
 
             % BC at x = end
 
-            lx = [lx;mkvc(obs, GRDp(end,:))];
-            jx = [jx;mkvc(obs, GRDax(end,:))];
-            kx = [kx;mkvc(obs, -1./Dx(end,:))];
+            lx = [lx;mkvc(out, GRDp(end,:))];
+            jx = [jx;mkvc(out, GRDax(end,:))];
+            kx = [kx;mkvc(out, -1./Dx(end,:))];
 
 
             %%%%   Generate d/dz  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -495,25 +469,25 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             % Entries (l,j,k)
 
-            lz = mkvc(obs, GRDp(:,2:end-1));
-            jz = mkvc(obs, GRDaz(:,1:end-1));
-            kz = mkvc(obs, -1./Dz(:,2:end-1));
+            lz = mkvc(out, GRDp(:,2:end-1));
+            jz = mkvc(out, GRDaz(:,1:end-1));
+            kz = mkvc(out, -1./Dz(:,2:end-1));
 
             % Entries (l+1,j,k)
 
             lz = [lz;lz];
-            jz = [jz;mkvc(obs, GRDaz(:,2:end))];
+            jz = [jz;mkvc(out, GRDaz(:,2:end))];
             kz = [kz;-kz];
 
             % BC on z = 0
-            lz = [lz; mkvc(obs, GRDp(:,1))];
-            jz = [jz; mkvc(obs, GRDaz(:,1))];
-            kz = [kz; mkvc(obs, 1./Dz(:,1))];
+            lz = [lz; mkvc(out, GRDp(:,1))];
+            jz = [jz; mkvc(out, GRDaz(:,1))];
+            kz = [kz; mkvc(out, 1./Dz(:,1))];
 
             % BC on z = end
-            lz = [lz; mkvc(obs, GRDp(:,end))];
-            jz = [jz; mkvc(obs, GRDaz(:,end))];
-            kz = [kz; mkvc(obs, -1./Dz(:,end))];
+            lz = [lz; mkvc(out, GRDp(:,end))];
+            jz = [jz; mkvc(out, GRDaz(:,end))];
+            kz = [kz; mkvc(out, -1./Dz(:,end))];
 
             %%%%%%%% Generate the div %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -523,7 +497,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             D = [Dx,Dz];
         end
 
-        function [Para] = get_2_5Dpara(obs, srcloc,dx,dz,BC_cor,num,recloc,srcnum);
+        function [Para] = get_2_5Dpara(out, srcloc,dx,dz,BC_cor,num,recloc,srcnum);
             %%function [Para] = get_2_5Dpara(srcloc,dx,dz,BC_cor,num,recloc,srcnum);
             %%Function generates the structure required for calculating the potential field
             %%using dcfw_2_5d.m%
@@ -570,8 +544,8 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             %%Create Diveragnce and Gradient operators once so we don't need to calculate them
             %%again
-            Para.D = div2d(obs, dx,dz);
-            Para.G = grad2d(obs, dx,dz);
+            Para.D = div2d(out, dx,dz);
+            Para.G = grad2d(out, dx,dz);
 
             %%optimize k and g for the given survey geometry.
             if num == 0;
@@ -580,7 +554,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 Para.g = [0.0463660 0.2365931 1.0382080 5.3648010];
             else
                 disp('Optimizing for Fourier Coeffs');
-                [k,g,obj,err] = get_k_g_opt(obs, dx,dz,srcloc,num);
+                [k,g,obj,err] = get_k_g_opt(out, dx,dz,srcloc,num);
                 %%Assign the k and g values to Para
                 Para.k = k;
                 Para.g = g;
@@ -593,12 +567,12 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             if isempty(BC_cor);
                 %no correctoion, so we interpolate the src locations onto the grid
                 disp('Interpolating source locations');
-                Para.b = calcRHS_2_5(obs, dx,dz,srcloc);
+                Para.b = calcRHS_2_5(out, dx,dz,srcloc);
 
             else
                 %Calculate the RHS with a BC coorection applied
                 disp('Applying BC/Singularity correction');
-                Para.b = boundary_correction_2_5(obs, dx,dz,BC_cor,srcloc,Para.k,Para.g);
+                Para.b = boundary_correction_2_5(out, dx,dz,BC_cor,srcloc,Para.k,Para.g);
             end;
 
 
@@ -606,13 +580,13 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             %%See if we are creating a reciever term
             try
                 %%Get the Q matrix for the observation points
-                Para.Q = interpmat_N2_5(obs, dx,dz,recloc(:,1),recloc(:,2)); %%%%%
+                Para.Q = interpmat_N2_5(out, dx,dz,recloc(:,1),recloc(:,2)); %%%%%
 
                 %% See if it is a dipole survey - if not the other electrode is assumed to
                 %% be at infinitey
                 try
 
-                    Para.Q = Para.Q - interpmat_N2_5(obs, dx,dz,recloc(:,3),recloc(:,4));
+                    Para.Q = Para.Q - interpmat_N2_5(out, dx,dz,recloc(:,3),recloc(:,4));
 
                 end;
 
@@ -621,7 +595,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             Para.srcnum=srcnum;
         end
 
-        function [k,g,obj,err] = get_k_g_opt(obs, dx,dz,srcterm,num);
+        function [k,g,obj,err] = get_k_g_opt(out, dx,dz,srcterm,num);
             %function [k,g,obj,err]= get_k_g_opt(dx,dz,srcterm,num);
             %%Function for generating a selection optimized wavenumbers
             %%and weighting coeff's for use with dcfw_2_5d.m.
@@ -821,7 +795,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             g = ((A'*A)\(A'*I));
         end
 
-        function[G,Gx,Gz] = grad2d(obs, dx,dz)
+        function[G,Gx,Gz] = grad2d(out, dx,dz)
             % [G,Gx,Gz] = grad2d(dx,dz)
             %% dx is the x direction cell discretization, a vector length [nx,1];
             %% dz is the z direction cell discretization, a vector length [nz,1];
@@ -856,14 +830,14 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             Dx =kron(dx',ez)';
             % Entries (l,j,k)
 
-            lx = mkvc(obs, GRDax);
-            jx = mkvc(obs, GRDp(1:end-1,:));
-            kx = mkvc(obs, -2./(Dx(1:end-1,:) + Dx(2:end,:)));
+            lx = mkvc(out, GRDax);
+            jx = mkvc(out, GRDp(1:end-1,:));
+            kx = mkvc(out, -2./(Dx(1:end-1,:) + Dx(2:end,:)));
 
             % Entries (l+1,j,k)
 
             lx = [lx; lx];
-            jx = [jx;mkvc(obs, GRDp(2:end,:))];
+            jx = [jx;mkvc(out, GRDp(2:end,:))];
             kx = [kx;-kx];
 
 
@@ -873,14 +847,14 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             Dz = kron(ex',dz)';
             % Entries (l,j,k)
 
-            lz = mkvc(obs, GRDaz);
-            jz = mkvc(obs, GRDp(:,1:end-1));
-            kz = mkvc(obs, -2./(Dz(:,1:end-1) + Dz(:,2:end)));;
+            lz = mkvc(out, GRDaz);
+            jz = mkvc(out, GRDp(:,1:end-1));
+            kz = mkvc(out, -2./(Dz(:,1:end-1) + Dz(:,2:end)));;
 
             % Entries (l,j,k+1)
 
             lz = [lz; lz];
-            jz = [jz;mkvc(obs, GRDp(:,2:end))];
+            jz = [jz;mkvc(out, GRDp(:,2:end))];
             kz = [kz; -kz];
 
             Gx = sparse(lx,jx,kx,nax,np);
@@ -889,7 +863,7 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             G = [Gx;Gz];
         end
 
-        function [Q] = interpmat_N2_5(obs, dx,dz,xr,zr)
+        function [Q] = interpmat_N2_5(out, dx,dz,xr,zr)
             % [Q] = interpmat(dx,dz,xr,yr,zr)
             %
             % Interpolation program for creating interpoaltion operator
@@ -925,12 +899,12 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
 
             %call linear interp scheme below
 
-            [Q] = linint(obs, xc,zc,xr,zr);
+            [Q] = linint(out, xc,zc,xr,zr);
 
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function[Q] = linint(obs, x,z,xr,zr)
+        function[Q] = linint(out, x,z,xr,zr)
             %
             % This function does local linear interpolation
             % computed for each receiver point in turn
@@ -993,12 +967,12 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 v( ind_x(2), ind_z(2)) = (1-dx(2)/Dx)*(1-dz(2)/Dz);
 
                 % Insert Row into Q matrix
-                Q(i,:) = mkvc(obs, v)';
+                Q(i,:) = mkvc(out, v)';
 
             end
         end
 
-        function[S] = massf2d(obs, s,dx,dz)
+        function[S] = massf2d(out, s,dx,dz)
             % [S] = massf(s,dx,dz)
             %% s is the conductivity structure in 2d with dimensions size[nx nz];
             %% dx is the x direction cell discretization, a vector length [nx,1];
@@ -1045,9 +1019,9 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             lx = []; jx = []; kx = []; rx = [];
 
             %% Coef (i,j,k)
-            lx = mkvc(obs, GRDax);
-            jx = mkvc(obs, GRDax);
-            kx = mkvc(obs, rhof);
+            lx = mkvc(out, GRDax);
+            jx = mkvc(out, GRDax);
+            kx = mkvc(out, rhof);
 
             Sx = sparse(lx,jx,kx);
 
@@ -1066,9 +1040,9 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             lz = []; jz = []; kz = [];
 
             %% Coef (i,j,k)
-            lz = mkvc(obs, GRDaz);
-            jz = mkvc(obs, GRDaz);
-            kz = mkvc(obs, rhof);
+            lz = mkvc(out, GRDaz);
+            jz = mkvc(out, GRDaz);
+            kz = mkvc(out, rhof);
 
             Sz = sparse(lz,jz,kz);
             %%%% Assemble Matrix  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1079,14 +1053,14 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
                 Oxz',  Sz];
         end
 
-        function[v] = mkvc(obs, A)
+        function[v] = mkvc(out, A)
             % v = mkvc(A)
             %Rearrange a matrix into a vector.
             %Can be substituted for v = v(:)
             v = reshape(A,size(A,1)*size(A,2)*size(A,3),1);
         end
 
-        function[v] = Qu(obs, Q,u,srcnum)
+        function[v] = Qu(out, Q,u,srcnum)
             % [v] = Qu(Q,u,srcnum)
             %Selects a subset of data from the entire potential field.
             %Adam Pidlisecky, modified November 2005
@@ -1101,6 +1075,124 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < matlab.mixin.Copyable
             end
 
         end
+
+
+        % function out = store_OUT(out, tile)
+        % 
+        %     t = tile.t;
+        %     forcing = tile.FORCING;
+        %     run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
+        %     result_path = tile.PARA.result_path;
+        %     timestep = tile.timestep;
+        %     out_tag = out.PARA.tag;
+        % 
+        %     if t>=out.OUTPUT_TIME
+        % 
+        %         disp([datestr(t)])
+        %         out.TIMESTAMP=[out.TIMESTAMP t];
+        % 
+        %         CURRENT = tile.TOP.NEXT;
+        %         while ~is_ground_surface(CURRENT) && ~(strcmp(class(CURRENT), 'Bottom'))
+        %             CURRENT = CURRENT.NEXT;
+        %         end
+        % 
+        %         layerThick = [];
+        %         water = [];
+        %         ice = [];
+        %         mineral = [];
+        %         organic = [];
+        % 
+        %         while ~(strcmp(class(CURRENT), 'Bottom'))
+        %             layerThick = [layerThick; CURRENT.STATVAR.layerThick];
+        %             water = [water; CURRENT.STATVAR.water ./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+        %             ice = [ice; CURRENT.STATVAR.ice./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+        %             mineral = [mineral; CURRENT.STATVAR.mineral./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+        %             organic = [organic; CURRENT.STATVAR.organic./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
+        %             CURRENT = CURRENT.NEXT;
+        %         end
+        % 
+        %         %porosity = 1-ice-mineral-organic;
+        %         porosity = 1-mineral-organic;
+        %         saturation = max(water ./ porosity, out.PARA.min_saturation);
+        %         depths = cumsum([0; layerThick]);
+        %         depths = (depths(1:end-1,1)+depths(2:end,1))./2;
+        %         resistances =  out.PARA.tortuosity .* out.PARA.resistance_water .* porosity.^(-out.PARA.cementation_exponent) .* saturation.^(-out.PARA.saturation_exponent);
+        % 
+        %         %calculation of potentials
+        % 
+        %         %assign electrode-positions
+        %         electrode_positions = out.STATVAR.electrode_positions;
+        %         el_pos=[];
+        %         for i=1:4
+        %             el_pos=[el_pos electrode_positions(:,i) electrode_positions(:,i).*0];
+        %         end
+        %         electrode_positions = el_pos;
+        %         electrode_positions_x = electrode_positions(:,1:2:7);
+        % 
+        %         %define grid
+        %         delta_x = out.PARA.horizontal_grid_spacing; %in meter
+        %         length_of_survey = max(electrode_positions_x(:)) - min(electrode_positions_x(:));
+        %         midpoint_of_survey = (max(electrode_positions_x(:)) - min(electrode_positions_x(:)))./2 + min(electrode_positions_x(:));
+        %         electrode_positions_shifted = electrode_positions;
+        %         electrode_positions_shifted(:,1:2:7) = electrode_positions_shifted(:,1:2:7)-midpoint_of_survey;
+        % 
+        %         dx = repmat(delta_x, round(length_of_survey./delta_x)+2, 1); %append some cells on the side
+        %         i=1;
+        %         while 2^i<=64
+        %             dx = [delta_x .* 2.^i; dx; delta_x .* 2.^i];
+        %             i=i+1;
+        %         end
+        % 
+        %         dz = layerThick; %take grid from model, does not seem
+        %         out.TEMP.resistances = [out.TEMP.resistances; resistances'];
+        %         resistances = repmat(resistances, 1, size(dx,1));
+        %         resistances = resistances';
+        % 
+        %         %current electrodes
+        %         tic;
+        %         [fwd_model_para] = get_2_5Dpara(out, electrode_positions_shifted(:,1:4),dx,dz,[],4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+        %         %                [fwd_model_para] = get_2_5Dpara(out, electrode_positions_shifted(:,1:4),dx,dz,1./resistances,4,electrode_positions_shifted(:,5:8),[1:size(electrode_positions,1)]');
+        % 
+        %         toc;
+        %         %Run the forward model
+        %         [result, potential_field] = dcfw2_5D(out, 1./resistances, fwd_model_para);
+        % 
+        %         %current electrodes first, then potential electrodes
+        %         %potential_field could be saved for diagnosis
+        %         out.TEMP.potentials = [out.TEMP.potentials; result'];
+        %         out.TEMP.depths = [out.TEMP.depths; depths'];
+        % 
+        %         out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
+        %         if t>=out.SAVE_TIME
+        %             % It is time to save all the collected model output to disk
+        % 
+        %             out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+        %             out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+        %             out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+        % 
+        %             CG_out = out.TEMP;
+        %             CG_out.timestamp = out.TIMESTAMP';
+        %             CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
+        % 
+        %             if ~(exist([result_path run_name])==7)
+        %                 mkdir([result_path run_name])
+        %             end
+        % 
+        %             save([result_path run_name '/' run_name '_ERT' out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
+        % 
+        %             % Clear the out structure
+        %             out.TIMESTAMP=[];
+        %             out.TEMP.potentials = [];
+        %             out.TEMP.resistances = [];
+        %             if ~isnan(out.PARA.save_interval)
+        %                 % If save_interval is defined, uptate SAVE_TIME for next save opertion
+        %                 out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+        %                 % If save_interval is not defined, we will save at the very end of the model run
+        %                 % and thus do not need to update SAVE_TIME (update would fail because save_interval is nan)
+        %             end
+        %         end
+        %     end
+        % end
 
     end
 end

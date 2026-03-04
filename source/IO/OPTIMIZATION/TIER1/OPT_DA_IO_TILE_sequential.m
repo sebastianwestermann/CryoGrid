@@ -25,6 +25,7 @@ classdef OPT_DA_IO_TILE_sequential < matlab.mixin.Copyable
                     modeled_obs = [modeled_obs; move_out2obs(tile.OUT)];
                 end
             end
+            modeled_obs(da.TEMP.nan_obs,:) = [];
             if da.TEMP.realization_number == 1 %change when parallel + sequential, must represent the first round
                 da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.RUN_INFO.ENSEMBLE.TEMP.ensemble_size) .* NaN);
             end

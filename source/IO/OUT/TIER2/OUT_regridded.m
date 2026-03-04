@@ -1,0 +1,314 @@
+%========================================================================
+% CryoGrid OUT class OUT_all
+% CryoGrid OUT class defining storage format of the output 
+% OUT_all stores identical copies of all GROUND classses (including STATVAR, TEMP, PARA) in the
+% stratigraphy for each output timestep, while lateral classes are not stored.
+% The user can specify the save date and the save interval (e.g. yearly
+% files), as well as the output timestep (e.g. 6 hourly). The output files
+% are in Matlab (".mat") format.
+% S. Westermann, T. Ingeman-Nielsen, J. Scheer, June 2021
+%========================================================================
+
+
+classdef OUT_regridded < OUT_BASE
+ 
+
+    properties
+
+        STATVAR
+    
+    end
+    
+    
+    methods
+        
+        
+        function out = provide_PARA(out)         
+
+            out.PARA.variables = [];
+            out.PARA.upper_elevation = [];
+            out.PARA.lower_elevation = [];
+            out.PARA.relative2surface = [];
+            out.PARA.target_grid_size = [];
+            out.PARA.output_timestep = [];
+            out.PARA.save_date = [];
+            out.PARA.save_interval = [];
+            out.PARA.tag = [];
+            out.PARA.tag2 = [];
+        end
+
+        
+        
+        function out = finalize_init(out, tile)
+
+            out = finalize_init@OUT_BASE(out, tile);
+
+            out.TEMP.variables = [out.PARA.variables; 'class_number'];
+            for i = 1:size(out.TEMP.variables,1)
+               out.STATVAR.(out.TEMP.variables{i,1}) = []; 
+            end
+            out.STATVAR.timestamp = [];
+            out.STATVAR.depths = [];
+            
+            if ~isempty(out.PARA.relative2surface) && ~isnan(out.PARA.relative2surface) && out.PARA.relative2surface
+                out.PARA.upper_elevation = tile.PARA.altitude + out.PARA.upper_elevation;
+                out.PARA.lower_elevation = tile.PARA.altitude - out.PARA.lower_elevation;
+            end
+           
+            out.TEMP.output_var = 'CG_ground';
+            out.TEMP.keyword = 'ground';
+
+        end
+        
+        function out = store_OUT(out, tile)
+
+            if tile.t >= out.OUTPUT_TIME
+
+                disp([datestr(tile.t)])
+
+                out = state2out(out, tile);
+                out.OUTPUT_TIME = out.OUTPUT_TIME + out.PARA.output_timestep;
+
+                if tile.t >= out.SAVE_TIME
+                    out = out2file_CG(out, tile);
+                end
+
+            end
+        end
+
+        function out = state2out(out, tile)
+
+            out.STATVAR.timestamp = [out.STATVAR.timestamp; tile.t];
+            result={};
+            CURRENT = tile.TOP.NEXT;
+            while ~isequal(CURRENT, tile.BOTTOM)
+                if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
+                    res=copy(CURRENT.CHILD);
+                    res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
+                    result=[result; {res}];
+                end
+                res = copy(CURRENT);
+                if isprop(res, 'LUT')
+                    res.LUT =[];  %remove look-up tables, runs out of memeory otherwise
+                end
+                if isprop(res, 'READ_OUT')
+                    res.READ_OUT =[];  %remove look-up tables, runs out of memory otherwise
+                end
+                res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  %cut all dependencies
+                if isprop(res, 'CHILD')
+                    res.CHILD = [];
+                    res.IA_CHILD =[];
+                end
+                result=[result; {res}];
+                CURRENT = CURRENT.NEXT;
+            end
+            %result contains the information needed for regridding
+            %regrid results and append to out.result
+            out = regrid_out(out, result);
+        end
+
+        % function out = store_OUT(out, tile)           
+        % 
+        %     t = tile.t;
+        %     TOP = tile.TOP; 
+        %     BOTTOM = tile.BOTTOM;
+        %     forcing = tile.FORCING;
+        %     run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
+        %     result_path = tile.PARA.result_path;            
+        %     timestep = tile.timestep;
+        %     out_tag = out.PARA.tag;
+        % 
+        %     if t>=out.OUTPUT_TIME
+        %         % It is time to collect output
+        %         % Store the current state of the model in the out structure.
+        % 
+        %         disp([datestr(t)])                
+        %         out.timestamp = [out.timestamp t];
+        % 
+        %         CURRENT =TOP.NEXT;
+        %         if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
+        %             out.MISC= [CURRENT.CHILD.STATVAR.T(1,1); CURRENT.CHILD.STATVAR.layerThick(1,1)]; 
+        %         else
+        %             out.MISC = [NaN; NaN];
+        %         end
+        %         result={};
+        %         while ~isequal(CURRENT, BOTTOM)
+        %             if isprop(CURRENT, 'CHILD') && CURRENT.CHILD ~= 0
+        %                 res=copy(CURRENT.CHILD);
+        %                 res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  res.PARENT = []; %cut all dependencies
+        %                 result=[result; {res}];
+        %             end
+        %             res = copy(CURRENT);
+        %             if isprop(res, 'LUT')
+        %                 res.LUT =[];  %remove look-up tables, runs out of memeory otherwise
+        %             end
+        %             if isprop(res, 'READ_OUT')
+        %                 res.READ_OUT =[];  %remove look-up tables, runs out of memory otherwise
+        %             end
+        %             res.NEXT =[]; res.PREVIOUS=[]; res.IA_NEXT=[]; res.IA_PREVIOUS=[];  %cut all dependencies
+        %             if isprop(res, 'CHILD')
+        %                 res.CHILD = [];
+        %                 res.IA_CHILD =[];
+        %             end
+        %             result=[result; {res}];
+        %             CURRENT = CURRENT.NEXT;
+        %         end
+        %         %result contains the information needed for regridding 
+        %         %regrid results and append to out.result
+        %         out = regrid_out(out, result);
+        % 
+        %         % Set the next OUTPUT_TIME
+        %         out.OUTPUT_TIME = min(out.SAVE_TIME, out.OUTPUT_TIME + out.PARA.output_timestep);
+        % 
+        %         if t>=out.SAVE_TIME
+        %             % It is time to save all the collected model output to disk
+        % 
+        %             out.TEMP.tag = ['_' out.PARA.tag '_' out.PARA.tag2 '_'];
+        %             out.TEMP.tag = strrep(out.TEMP.tag, '___', '_');
+        %             out.TEMP.tag = strrep(out.TEMP.tag, '__', '_');
+        % 
+        %             if ~(exist([result_path run_name])==7)
+        %                 mkdir([result_path run_name])
+        %             end
+        %             CG_out = out.result;
+        %             CG_out.timestamp = out.timestamp;
+        %             CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
+        % 
+        %             save([result_path run_name '/' run_name out.TEMP.tag datestr(t,'yyyymmdd') '.mat'], 'CG_out')
+        % 
+        %             % Clear the out structure
+        %             out.MISC=[];
+        %             %make struct "result" and initialize all variables defined by
+        %             %the user as empty arrays
+        %             out.timestamp = [];
+        %             for i =  1:size(out.PARA.variables,1)
+        %                 out.result.(out.PARA.variables{i,1}) = [];
+        %             end
+        %             out.result.depths = [];
+        %             out.result.class_number = [];
+        % 
+        %             if ~isnan(out.PARA.save_interval)
+        %                 % If save_interval is defined, uptate SAVE_TIME for next save opertion 
+        %                 out.SAVE_TIME = min(forcing.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
+        %                 % If save_interval is not defined, we will save at the very end of the model run
+        %                 % and thus do not need to update SAVE_TIME (update would fail because save_interval is nan)
+		% 			end
+        %         end
+        %     end
+        %end
+        
+        %taken from read_display_out
+        function out = regrid_out(out, result)
+            new_grid = [out.PARA.upper_elevation:-out.PARA.target_grid_size:out.PARA.lower_elevation]';
+            threshold = out.PARA.target_grid_size/10;
+            
+            variableList = out.TEMP.variables; %fieldnames(out.STATVAR);
+            numberOfVariables = size(variableList,1);
+            
+            altitudeLowestCell = result{end,1}.STATVAR.lowerPos;
+
+            %read out and accumulate over all classes
+            
+            layerThick=[];
+            area=[];
+            
+            for j=1:size(result,1)
+                layerThick=[layerThick; result{j,1}.STATVAR.layerThick];
+                area=[area; result{j,1}.STATVAR.area];
+            end
+            layerThick_temp = layerThick;
+            layerThick = zeros(size(layerThick,1).*2, 1).* NaN;
+            layerThick(1:2:size(layerThick,1),1) = threshold;
+            layerThick(2:2:size(layerThick,1),1) = layerThick_temp - threshold;
+            
+            area_temp = area;
+            area=[area; area].* NaN;
+            area(1:2:size(layerThick,1),1) = area_temp;
+            area(2:2:size(layerThick,1),1) = area_temp;
+               
+            temp=repmat(NaN, size(layerThick_temp,1), numberOfVariables);
+            pos=1;
+            for j = 1:size(result,1)
+                fieldLength = size(result{j,1}.STATVAR.layerThick,1);
+                for k=1:numberOfVariables-1
+                    if any(strcmp(fieldnames(result{j,1}.STATVAR), variableList{k,1}))
+                        temp(pos:pos+fieldLength-1,k) = result{j,1}.STATVAR.(variableList{k,1});
+                    end
+                end
+                temp(pos:pos+fieldLength-1,numberOfVariables) = zeros(fieldLength,1) + size(result,1)+1-j; %assign a class number starting with 1 from the bottom
+                pos = pos+fieldLength;
+            end
+            
+            %compute targate variables
+            for k=1:numberOfVariables
+                if strcmp(variableList{k,1}, 'saltConc')
+                    pos_waterIce = find(strcmp(variableList, 'waterIce'));
+                    temp(:,k) = temp(:,k)./ (temp(:,pos_waterIce) ./layerThick_temp./area_temp);  %divide by total water content
+                end
+            end
+            
+            for k=1:numberOfVariables
+                if strcmp(variableList{k,1}, 'water') || strcmp(variableList{k,1}, 'ice') || strcmp(variableList{k,1}, 'waterIce') || strcmp(variableList{k,1}, 'XwaterIce') || strcmp(variableList{k,1}, 'Xwater') || strcmp(variableList{k,1}, 'Xice') || strcmp(variableList{k,1}, 'saltConc')
+                    temp(:,k) = temp(:,k)./layerThick_temp./area_temp;
+                end
+            end
+            
+            temp_temp = temp;
+            temp=[temp; temp].* NaN;
+            temp(1:2:size(layerThick,1),:) = temp_temp;
+            temp(2:2:size(layerThick,1),:) = temp_temp;
+            
+            %interpolate to new grid
+            depths = cumsum(layerThick);
+            depths = depths - threshold/2;
+            depths(1) = 0;
+            depths = -(depths-depths(end,1));
+            depths = depths + altitudeLowestCell;
+            if depths(1)== depths(2)
+                depths=depths(2:end,1);
+                temp=temp(2:end,:);
+            end
+            
+            for k=1:numberOfVariables
+                out.STATVAR.(variableList{k,1}) = [out.STATVAR.(variableList{k,1}) interp1(depths, temp(:,k), new_grid, 'nearest')];
+            end
+            out.STATVAR.depths = new_grid;
+            
+        end
+        
+
+        %-------------param file generation-----
+        function out = param_file_info(out)
+            out = provide_PARA(out);
+
+            out.PARA.STATVAR = [];
+            out.PARA.options = [];
+            out.PARA.class_category = 'OUT';
+            
+            out.PARA.comment.variables = {'select output variables: T, water, ice, waterIce, XwaterIce, Xwater, Xice, saltConc are supported'};
+            out.PARA.options.variables.name = 'H_LIST';
+            out.PARA.options.variables.entries_x = {'T' 'water' 'ice' 'waterIce'};
+      
+            out.PARA.comment.upper_elevation = {'upper elevation of output domain, in m a.s.l.; must match altitude in TILE!'};
+            
+            out.PARA.comment.lower_elevation = {'lower elevation of output domain, in m a.s.l.; must match altitude in TILE!'};
+            
+            out.PARA.default_value.target_grid_size = {0.02};
+            out.PARA.comment.target_grid_size = {'cell size of regular grid that values are interpolated to'};
+           
+            out.PARA.default_value.output_timestep = {0.25};
+            out.PARA.comment.output_timestep = {'timestep of output [days]'};
+
+            out.PARA.default_value.save_date = {'01.09.'};
+            out.PARA.comment.save_date = {'date (dd.mm.) when output file is written'};
+            
+            out.PARA.default_value.save_interval = {1};
+            out.PARA.comment.save_interval = {'interval of output files [years]'};
+            
+            out.PARA.default_value.tag = {''};
+            out.PARA.comment.tag = {'additional tag added to file name'};
+        end
+        
+
+    end
+end

@@ -4,7 +4,6 @@ classdef PROVIDER_EXCEL < BASE_PROVIDER
     methods
         
         function provider = assign_paths_excel(provider, run_name, result_path, constant_file)
-
             
             constant_file = [result_path run_name '/' constant_file '.xlsx'];
             parameter_file = [result_path run_name '/' run_name '.xlsx'];
@@ -14,9 +13,12 @@ classdef PROVIDER_EXCEL < BASE_PROVIDER
             provider.PARA.parameter_file = parameter_file;
             provider.PARA.constant_file = constant_file;
             provider.PARA.identifier = [];
+            provider.PARA.replace_paths = [];
+            provider.PARA.path_placeholders = [];
         end
        
-        
+
+
         function provider = read_const_excel(provider)
             
             data = read_excel2cell(provider, provider.PARA.constant_file);
@@ -160,9 +162,14 @@ classdef PROVIDER_EXCEL < BASE_PROVIDER
                     %ADDED SW Dec 2025: provide a  
                     if strcmp(class(new_class), 'add_parameter_file')
                         for ii=1:size(new_class.PARA.parameter_file_name,1)
-                            if isempty(new_class.PARA.parameter_file_folder) || sum(isnan(new_class.PARA.parameter_file_folder))>0
+                            if ~iscell(new_class.PARA.parameter_file_folder) || isempty(new_class.PARA.parameter_file_folder{ii,1}) || sum(isnan(new_class.PARA.parameter_file_folder{ii,1}))>0
                                 provider.PARA.parameter_file = [provider.PARA.result_path provider.PARA.run_name '/' new_class.PARA.parameter_file_name{ii,1} '.xlsx'];
                             else
+                                if ~isempty(provider.PARA.path_placeholders) %do replacement of paths already here
+                                    for jj=1:size(provider.PARA.path_placeholders,1)
+                                        new_class.PARA.parameter_file_folder{ii,1} = strrep(new_class.PARA.parameter_file_folder{ii,1}, provider.PARA.path_placeholders{jj,1}, provider.PARA.replace_paths{jj,1});
+                                    end
+                                end
                                 provider.PARA.parameter_file = [new_class.PARA.parameter_file_folder{ii,1} new_class.PARA.parameter_file_name{ii,1} '.xlsx'];
                             end
                             provider = read_parameters_excel(provider);

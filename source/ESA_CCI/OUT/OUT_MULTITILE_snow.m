@@ -34,7 +34,7 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
         
         function out = finalize_init(out, tile)
 
-            if ~isempty(out.PARA.tag) && isnan(out.PARA.tag)
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
                 out.PARA.tag = [];
             end
 
@@ -104,6 +104,8 @@ classdef OUT_MULTITILE_snow < matlab.mixin.Copyable
                     else
                         CG_out = out.TEMP;
                     end
+                    CG_out.identifier = tile.RUN_INFO.PPROVIDER.PARA.identifier;
+
 
                     if ~(exist([result_path run_name])==7)
                         mkdir([result_path run_name])

@@ -11,53 +11,33 @@
 %========================================================================
 
 
-classdef OUT_last_timestep < matlab.mixin.Copyable
+classdef OUT_last_timestep < OUT_BASE
 
     properties
-		out_index
+		
         STRATIGRAPHY
-        LATERAL
-        TIMESTAMP
-        TEMP
-        PARA
-        OUTPUT_TIME
-        SAVE_TIME
-        CONST
 		
 	end
     
     
     methods
-		
 
-		
-        %-------initialization--------------
-%         function out = initialize_excel(out)
-%             
-%         end
-        
         
         function out = provide_PARA(out)         
 
             out.PARA.save_timestep = []; %if empty save final state at the end of the run, so that it can serve as initial condition for new runs
             out.PARA.tag = [];
-
+            out.PARA.tag2 = [];
         end
-		
-        function out = provide_CONST(out)
-
-        end
-        
-        function out = provide_STATVAR(out)
-
-        end
-		
-
 		
 		function out = finalize_init(out, tile)
+            
+            if ~isempty(out.PARA.tag) && sum(isnan(out.PARA.tag))>0
+                out.PARA.tag = [];
+            end
 		
 			forcing = tile.FORCING;
-            if isempty(out.PARA.save_timestep) || isnan(out.PARA.save_timestep)
+            if isempty(out.PARA.save_timestep) || sum(isnan(out.PARA.save_timestep))>0
                 out.OUTPUT_TIME = forcing.PARA.end_time;
             else
                 out.OUTPUT_TIME = forcing.PARA.start_time + out.PARA.save_timestep;
@@ -70,18 +50,23 @@ classdef OUT_last_timestep < matlab.mixin.Copyable
         
         function out = store_OUT(out, tile)
             t = tile.t;
-            out_tag = out.PARA.tag;
+
+            out_tag = [out.PARA.tag '_' out.PARA.tag2];
+            if strcmp(out_tag(end), '_')
+                out_tag = out_tag(1:end-1);
+            end
+            if ~isempty(out_tag) && strcmp(out_tag(1), '_')
+                out_tag = out_tag(2:end);
+            end
             
-            if t==out.SAVE_TIME || t == out.OUTPUT_TIME
+            if t>=out.SAVE_TIME || t >= out.OUTPUT_TIME
                 
                 disp([datestr(t)])
                 
                 run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
                 result_path = tile.PARA.result_path;
-                
-                
+                                
                 out.STRATIGRAPHY = copy(tile);
-
 
                 if ~(exist([result_path run_name])==7)
                     mkdir([result_path result_path])

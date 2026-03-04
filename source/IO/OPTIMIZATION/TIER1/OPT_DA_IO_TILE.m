@@ -12,7 +12,7 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
     methods
 
         function da = obs2opt(da_IO, da, tile)
-
+            
             modeled_obs = [];%gather modeled observations in one vector
             for i=1:size(da.PARA.observable_classes,1)
                 if iscell(tile.OUT)
@@ -25,6 +25,7 @@ classdef OPT_DA_IO_TILE < matlab.mixin.Copyable
                     modeled_obs = [modeled_obs; move_out2obs(tile.OUT)];
                 end
             end
+            modeled_obs(da.TEMP.nan_obs,:) = [];
             % save(['test_before_send' num2str(da.RUN_INFO.TEMP.worker_number) '_' num2str(da.TEMP.num_iterations) '.mat'])
             if isempty(da.ENSEMBLE.modeled_obs) || size(da.ENSEMBLE.modeled_obs,3) <= da.TEMP.num_iterations 
                 da.ENSEMBLE.modeled_obs = cat(3, da.ENSEMBLE.modeled_obs, repmat(modeled_obs, 1, da.RUN_INFO.ENSEMBLE.TEMP.ensemble_size) .* NaN);

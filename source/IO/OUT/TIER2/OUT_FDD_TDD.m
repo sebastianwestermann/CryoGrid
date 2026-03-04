@@ -9,17 +9,11 @@
 %========================================================================
 
 
-classdef OUT_FDD_TDD < matlab.mixin.Copyable
+classdef OUT_FDD_TDD < OUT_BASE
  
 
     properties
 
-        TIMESTAMP
-        TEMP
-        PARA
-        OUTPUT_TIME
-        SAVE_TIME
-        CONST
         STATVAR
 		
 	end
@@ -27,9 +21,7 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
     
     methods
 		
-        %initialization
 
-        
         
         function out = provide_PARA(out)         
 
@@ -38,19 +30,10 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
             
             out.PARA.cell_size = 0.02;
             out.PARA.tag = [];
+            out.PARA.tag2 = [];
             
         end
         
-        function out = provide_CONST(out)
-
-        end
-        
-        function out = provide_STATVAR(out)
-
-        end
-		
-
-		
 		function out = finalize_init(out, tile)
             
 			out.OUTPUT_TIME = tile.FORCING.PARA.start_time + out.PARA.output_timestep;
@@ -65,21 +48,26 @@ classdef OUT_FDD_TDD < matlab.mixin.Copyable
 
         end
         
-        %---------------time integration-------------
-		
-% 		function out = store_OUT(out, t, TOP, BOTTOM, forcing, run_number, timestep, result_path)
             
         function out = store_OUT(out, tile)           
             
              t = tile.t;
              TOP = tile.TOP; 
              BOTTOM = tile.BOTTOM;
-             run_name = tile.PARA.run_name; %tile.RUN_NUMBER;
+             run_name = tile.PARA.run_name;
              result_path = tile.PARA.result_path;            
-
             
             if t>=out.OUTPUT_TIME
+
                 disp([datestr(t)])
+
+                out_tag = [out.PARA.tag '_' out.PARA.tag2];
+                if strcmp(out_tag(end), '_')
+                    out_tag = out_tag(1:end-1);
+                end
+                if ~isempty(out_tag) && strcmp(out_tag(1), '_')
+                    out_tag = out_tag(2:end);
+                end
 
                 T=[];
                 layerThick=[];

@@ -141,6 +141,18 @@ classdef TILE_1D < matlab.mixin.Copyable
             end
         end    
 
+        function tile = write_out_before_run(tile)
+            %write output file after intialization, generally no effect,
+            %but needed for optimization
+            if iscell(tile.OUT)
+                for i=1:size(tile.OUT,1)
+                    tile.OUT{i,1} = write_out_init(tile.OUT{i,1}, tile);
+                end
+            else
+                tile.OUT = write_out_init(tile.OUT, tile);
+            end
+        end
+
         function tile = add_OUT_class(tile, out_class, out_class_index)
             if iscell(tile.PARA.out_class)
                 tile.PARA.out_class = [tile.PARA.out_class; out_class];
@@ -252,6 +264,14 @@ classdef TILE_1D < matlab.mixin.Copyable
                 tile = store_OUT_tile_1(tile);
             end
 
+            %trigger final out round, normally not active
+            if iscell(tile.OUT)
+                for i=1:size(tile.OUT,1)
+                    tile.OUT{i,1} = write_out_final(tile.OUT{i,1}, tile);
+                end
+            else
+                tile.OUT = write_out_final(tile.OUT, tile);
+            end
             fprintf('\n\n')
         end
 
@@ -337,6 +357,15 @@ classdef TILE_1D < matlab.mixin.Copyable
 
                 %model
                 tile = store_OUT_tile_2(tile);
+            end
+
+            %trigger final out round, normally not active
+            if iscell(tile.OUT)
+                for i=1:size(tile.OUT,1)
+                    tile.OUT{i,1} = write_out_final(tile.OUT{i,1}, tile);
+                end
+            else
+                tile.OUT = write_out_final(tile.OUT, tile);
             end
 
         end

@@ -43,6 +43,7 @@ classdef LAT3D_HEAT < BASE_LATERAL
                 CURRENT = lateral3D_pull_heat(CURRENT, lateral);
                 CURRENT = CURRENT.NEXT;
             end
+
         end
         
         function lateral = get_derivatives(lateral, tile) %no need to loop through stratigraphy, all the information is in lateral.PARENT
