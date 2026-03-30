@@ -169,13 +169,15 @@ classdef OPT_DA_AdaPBS < OPT_DA_FUNCTIONS
                         disp('maximum number of iterations reached')
                     end
 
-                    da = save_da_results_final(da, run_info);
+                    % da = save_da_results_final(da, run_info);
 
                     da.TEMP.new_iteration = 0;
                     da.TEMP.new_init_tile = 0;
                     da.PARA.new_init_tile = 0;
 
                     da = resample_state_and_parameters(da, run_info);
+
+                   % da = save_da_results_final(da, run_info); %NEW
 
                     da.TEMP.num_iterations = 0; %reset number of iterations for the next DA period
 

@@ -158,6 +158,10 @@ classdef GROUND_house < HEAT_CONDUCTION &  UB_TEMPERATURE_FORCING
             yesNo = 0;
         end
         
+        function yesNo = is_active_LAT_WATER(ground)
+            yesNo = 0;
+        end
+        
         %-----LATERAL-------------------
         
         %-------LAT3D_HEAT-------------

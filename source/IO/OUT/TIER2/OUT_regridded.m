@@ -49,10 +49,16 @@ classdef OUT_regridded < OUT_BASE
             end
             out.STATVAR.timestamp = [];
             out.STATVAR.depths = [];
-            
+
             if ~isempty(out.PARA.relative2surface) && ~isnan(out.PARA.relative2surface) && out.PARA.relative2surface
+                out.TEMP.upper_elevation_surface = out.PARA.upper_elevation;
+                out.TEMP.lower_elevation_surface = out.PARA.lower_elevation;
+
                 out.PARA.upper_elevation = tile.PARA.altitude + out.PARA.upper_elevation;
                 out.PARA.lower_elevation = tile.PARA.altitude - out.PARA.lower_elevation;
+            else
+                out.TEMP.upper_elevation_surface = out.PARA.upper_elevation - tile.PARA.altitude;
+                out.TEMP.lower_elevation_surface = out.PARA.lower_elevation - tile.PARA.altitude;
             end
            
             out.TEMP.output_var = 'CG_ground';
@@ -273,7 +279,8 @@ classdef OUT_regridded < OUT_BASE
                 out.STATVAR.(variableList{k,1}) = [out.STATVAR.(variableList{k,1}) interp1(depths, temp(:,k), new_grid, 'nearest')];
             end
             out.STATVAR.depths = new_grid;
-            
+
+            out.STATVAR.depths_below_ground_surface = -[out.TEMP.upper_elevation_surface:-out.PARA.target_grid_size:-out.TEMP.lower_elevation_surface]';            
         end
         
 

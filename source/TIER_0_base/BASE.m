@@ -199,6 +199,10 @@ classdef BASE < matlab.mixin.Copyable
         function yesNo = is_surface(ground)
             yesNo = 1;
         end
+
+        function yesNo = is_active_LAT_WATER(ground)
+            yesNo = 1;
+        end
         
         %for data assimilation in TILE_1D_DA
         function ground = adjust_stratigraphy(ground, tile)

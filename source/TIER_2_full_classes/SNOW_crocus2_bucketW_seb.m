@@ -43,6 +43,7 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             snow.PARA.wind_factor_fresh_snow = []; %26;
             snow.PARA.albedo_age_factor = [];
             snow.PARA.snow_property_function = []; % function to be used for new snoe properties
+            snow.PARA.T_limit_compaction = -Inf;
             
             snow.PARA.conductivity_function = [];
             snow.PARA.dt_max = [];  %maximum possible timestep [sec]
@@ -133,7 +134,10 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             if isempty(snow.PARA.albedo_age_factor) || sum(isnan(snow.PARA.albedo_age_factor))>0
                 snow.PARA.albedo_age_factor = min(1,max(mean(tile.FORCING.DATA.p)./870e2, 0.5)).*0.2./60; %as in Crocus, Vionnet et al., 2011
             end
-            
+            if isempty(snow.PARA.T_limit_compaction) || sum(isnan(snow.PARA.T_limit_compaction))>0
+                snow.PARA.T_limit_compaction = -Inf;
+            end
+
             snow.PARA.heatFlux_lb = tile.FORCING.PARA.heatFlux_lb;
             snow.PARA.airT_height = tile.FORCING.PARA.airT_height;
             snow.PARA.slope = tile.PARA.slope_angle;
@@ -294,8 +298,9 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
             %timestep1 = get_timestep_heat_coduction(snow);
             %timestep2 = get_timestep_SNOW_mass_balance(snow);
             timestep2 = get_timestep_SNOW_sublimation(snow);
-            timestep3 = get_timestep_water_SNOW(snow);
-            
+            %timestep3 = get_timestep_water_SNOW(snow);
+            timestep3 = get_timestep_water_SNOW2(snow);
+
             %timestep = min(timestep1, timestep2);
             timestep = min(timestep, timestep2);
             timestep = min(timestep, timestep3);
@@ -304,7 +309,8 @@ classdef SNOW_crocus2_bucketW_seb < SEB & HEAT_CONDUCTION & WATER_FLUXES & HEAT_
         function timestep = get_timestep_CHILD(snow, tile)
             timestep = get_timestep_SNOW_CHILD(snow);
             timestep = min(timestep, get_timestep_SNOW_sublimation(snow));
-            timestep = min(timestep, get_timestep_water_SNOW(snow));
+            %timestep = min(timestep, get_timestep_water_SNOW(snow));
+            timestep = min(timestep, get_timestep_water_SNOW2(snow));
             %timestep1 = get_timestep_heat_coduction(snow);
             %timestep2 = get_timestep_SNOW_CHILD(snow);
             %timestep = min(timestep1, timestep2);

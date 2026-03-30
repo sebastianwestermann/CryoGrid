@@ -1,4 +1,4 @@
-classdef OUT_subsidence < OUT_BASE_OBSERVABLES
+classdef OUT_subsidence < OUT_BASE
     
     properties
 
@@ -15,16 +15,19 @@ classdef OUT_subsidence < OUT_BASE_OBSERVABLES
             out.PARA.tag = [];
             out.PARA.tag2 = [];
             out.PARA.seasonal = [];
-            out.PARA.add_Xice_subsidence=1; % only relevant for seasonal == 1
+            out.PARA.add_Xice_subsidence=1; % % only relevant for seasonal == 1, default is including Xice
 
             out.PARA.timestamps = [];
             out.PARA.write_file_mode = 0; %empty/default setting: DA mode, do not write any output; % 0: normal behaviour, no DA, get normal output times and run regularly; 1: store after DA; 2: store after each run
+        
+        
+            out.PARA.logtransform = 0;
         end
         
         
         function out = finalize_init(out, tile)
         
-            out = finalize_init@OUT_BASE_OBSERVABLES(out, tile);
+            out = finalize_init@OUT_BASE(out, tile);
 
             out.STATVAR.subsidence = []; 
             out.STATVAR.timestamp = [];
@@ -47,27 +50,18 @@ classdef OUT_subsidence < OUT_BASE_OBSERVABLES
                 disp([datestr(tile.t)])
 
                 out = state2out(out, tile);
+                out.OUTPUT_TIME = out.OUTPUT_TIME + out.PARA.output_timestep;
 
-                out = set_output_time(out, tile);
-                
-                if tile.t >= out.SAVE_TIME && isempty(out.PARA.timestamps)
-                    if out.PARA.write_file_mode == 0
-                        out = out2file_CG(out, tile);
-                    elseif out.PARA.write_file_mode == 1
-                        out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
-                        out.TEMP.write_out_init = 1;
-                    elseif out.PARA.write_file_mode == 2
-                        out.SAVE_TIME = min(tile.FORCING.PARA.end_time,  datenum([out.PARA.save_date num2str(str2num(datestr(out.SAVE_TIME,'yyyy')) + out.PARA.save_interval)], 'dd.mm.yyyy'));
-                        out.TEMP.write_out_final = 1;
-                    end
+                if tile.t >= out.SAVE_TIME
+                    out = out2file_CG(out, tile);
                 end
-                
+
             end
         end
 
         function out = out2file_CG(out, tile)
 
-            out = out2file_CG@OUT_BASE_OBSERVABLES(out, tile);
+            out = out2file_CG@OUT_BASE(out, tile);
             out.STATVAR.timestamp = [];
             out.STATVAR.subsidence = [];
 
@@ -84,6 +78,8 @@ classdef OUT_subsidence < OUT_BASE_OBSERVABLES
             end
 
             if out.PARA.seasonal == 1
+
+            
                 if year(tile.t) == out.TEMP.current_year  % for all observations after the first (= 0) of this year
 
                     % subsidence from xice
@@ -149,8 +145,14 @@ classdef OUT_subsidence < OUT_BASE_OBSERVABLES
                 end
 
             end
+
+            if out.PARA.logtransform == 1
+                result = -1*result;
+                result(result<0.00001)=0.00001; % lower limit / bound
+                result = log(result/0.01); % zero crossing at 1cm
+            end
+
             out.STATVAR.subsidence = [out.STATVAR.subsidence; result];
-            %ADDED SW
             out.STATVAR.timestamp = [out.STATVAR.timestamp; tile.t];
 
             % sensitivity function heave(saturation) for pore ice
@@ -160,16 +162,6 @@ classdef OUT_subsidence < OUT_BASE_OBSERVABLES
 
         end
 
-
-        function result = move_out2obs(out)
-            result = out.STATVAR.subsidence;
-        end
-            
-        
-        function out = reset_new_stratigraphy(out, tile)
-            
-        end
-        
 
         % function out = store_OUT(out, tile)
         % 

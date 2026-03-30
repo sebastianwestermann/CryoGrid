@@ -54,8 +54,12 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
             lateral.TEMP.open_system = 1; %start with open system
 
             CURRENT = lateral.PARENT.TOP.NEXT;
+            while ~(strcmp(class(CURRENT), 'Bottom')) && ~is_surface(CURRENT)
+                CURRENT = CURRENT.NEXT;
+            end
             CURRENT = lateral3D_pull_water_overland_flow(CURRENT, lateral);
-            
+
+            CURRENT = lateral.PARENT.TOP.NEXT;
             while ~(strcmp(class(CURRENT), 'Bottom')) && lateral.TEMP.open_system == 1
                 CURRENT = lateral3D_pull_water_unconfined_aquifer(CURRENT, lateral);
                 CURRENT = CURRENT.NEXT;
@@ -130,20 +134,23 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
                     if (lateral.PARENT.STATVAR.water_depth > 1e-4 && lateral.PARENT.ENSEMBLE{j,1}.water_depth > 1e-4  && ~isempty(lateral.PARENT.STATVAR.T_water) && ~isempty(lateral.PARENT.ENSEMBLE{j,1}.T_water)) ...
                         || (lateral.PARENT.STATVAR.water_depth <= 1e-4 && lateral.PARENT.ENSEMBLE{j,1}.water_depth > 1e-4  && ~isempty(lateral.PARENT.ENSEMBLE{j,1}.T_water)  && ~isempty(lateral.PARENT.STATVAR.T_water) && lateral.PARENT.STATVAR.depths(1,1) < lateral.PARENT.ENSEMBLE{j,1}.depths(1,1)) ...
                         || (lateral.PARENT.STATVAR.water_depth > 1e-4 && lateral.PARENT.ENSEMBLE{j,1}.water_depth <= 1e-4  && ~isempty(lateral.PARENT.ENSEMBLE{j,1}.T_water)  && ~isempty(lateral.PARENT.STATVAR.T_water) && lateral.PARENT.STATVAR.depths(1,1) > lateral.PARENT.ENSEMBLE{j,1}.depths(1,1)) 
-                        if lateral.PARENT.STATVAR.depths(1,1) < lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) && lateral.PARENT.STATVAR.water_depth < 1e-4
-                            lateral.PARENT.STATVAR.water_depth = 1e-4;
-                            lateral.PARENT.STATVAR.max_flow = 1e-2 .* lateral.PARENT.STATVAR.area_flow;
-                        end
-                        if lateral.PARENT.STATVAR.depths(1,1) > lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) && lateral.PARENT.ENSEMBLE{j,1}.water_depth < 1e-4
-                            lateral.PARENT.ENSEMBLE{j,1}.water_depth = 1e-4;
-                            lateral.PARENT.ENSEMBLE{j,1}.max_flow = 1e-2 .* lateral.PARENT.ENSEMBLE{j,1}.area_flow;
-                        end
+                       
+                        %taken out after crash, that allowed flow from a
+                        %cell that had no surface water
+                       % if lateral.PARENT.STATVAR.depths(1,1) < lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) && lateral.PARENT.STATVAR.water_depth < 1e-4
+                        %     %lateral.PARENT.STATVAR.water_depth = 1e-4;
+                        %     lateral.PARENT.STATVAR.max_flow = 1e-2 .* lateral.PARENT.STATVAR.area_flow;
+                        % end
+                        % if lateral.PARENT.STATVAR.depths(1,1) > lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) && lateral.PARENT.ENSEMBLE{j,1}.water_depth < 1e-4
+                        %     %lateral.PARENT.ENSEMBLE{j,1}.water_depth = 1e-4;
+                        %     lateral.PARENT.ENSEMBLE{j,1}.max_flow = 1e-2 .* lateral.PARENT.ENSEMBLE{j,1}.area_flow;
+                        % end
                         
                         
                         %could be necessary to  limit flow for numerical
                         %stability?
                         gradient = -(lateral.PARENT.STATVAR.depths(1,1) - lateral.PARENT.ENSEMBLE{j,1}.depths(1,1)) ./ (distance.*lateral.PARA.tortuosity);
-                        if gradient < 0  %own realization higher
+                        if gradient <= 0  %own realization higher
                             T_water =  lateral.PARENT.STATVAR.T_water(1,1);
                             depth1 = min(lateral.PARENT.STATVAR.depths(1,1) - (lateral.PARENT.ENSEMBLE{j,1}.depths(1,1) - lateral.PARENT.ENSEMBLE{j,1}.water_depth), lateral.PARENT.STATVAR.water_depth);
                             depth2 = lateral.PARENT.ENSEMBLE{j,1}.water_depth;
@@ -227,6 +234,7 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
         end
 
         function lateral = push(lateral, tile)
+
             if ~isempty(lateral.PARENT.STATVAR.water_flux)
                 
                 %modified Sep2020
@@ -242,6 +250,11 @@ classdef LAT3D_WATER_UNCONFINED_AQUIFER_OVERLAND_FLOW < BASE_LATERAL
                 lateral.PARENT.STATVAR.water_up_energy = 0;
                 
                 CURRENT = lateral.PARENT.TOP.NEXT; %find correct stratigraphy class
+
+                while ~(strcmp(class(CURRENT), 'Bottom')) && ~is_active_LAT_WATER(CURRENT) %skip inactive classes (house, etc)
+                    CURRENT = CURRENT.NEXT;
+                end
+
                 size_to_here = size(CURRENT.STATVAR.energy,1);
                 while ~(strcmp(class(CURRENT), 'Bottom')) && size_to_here < size(lateral.PARENT.STATVAR.water_flux,1)
                     CURRENT = CURRENT.NEXT;

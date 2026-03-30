@@ -323,6 +323,18 @@ classdef VEGETATION_CLM5_seb < SEB & SEB_VEGETATION & WATER_FLUXES & VEGETATION
             canopy.IA_GROUND = get_water_transpiration(canopy.IA_GROUND);
         end
         
+
+        function yesNo = is_ground_surface(ground)
+            yesNo = 0;
+        end
+            
+        function yesNo = is_surface(ground)
+            yesNo = 0;
+        end
+
+        function yesNo = is_active_LAT_WATER(ground)
+            yesNo = 0;
+        end
         
         
         %-------------param file generation-----

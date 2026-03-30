@@ -73,7 +73,7 @@ classdef OUT_BASE < matlab.mixin.Copyable
             save([tile.PARA.result_path tile.PARA.run_name '/' tile.PARA.run_name out.TEMP.tag datestr(tile.t,'yyyymmdd') '.mat'], 'out')
 
             out.STRATIGRAPHY=[];
-            if isfield(out, 'LATERAL')
+            if any(strcmp(fieldnames(out), 'LATERAL'))
                 out.LATERAL=[];
             end
             out.TIMESTAMP=[];

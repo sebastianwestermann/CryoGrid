@@ -343,7 +343,12 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                     ensemble2_number == ensemble2_number_new(i,1)),1);
             end
 
+            da.ENSEMBLE.realization_number_4_posterior = realization_number_new; %NEW
+            da.ENSEMBLE.iteration_number_4_posterior = iteration_number_new3; %NEW
+            
             da = assign_final_state(da, run_info, realization_number_new, iteration_number_new3);
+            
+            da = save_da_results_final(da, run_info); %NEW
 
             da.RUN_INFO.ENSEMBLE = update_ensemble_after_optimization_new_timeSlice(da.RUN_INFO.ENSEMBLE, da);
 
@@ -467,9 +472,9 @@ classdef OPT_DA_FUNCTIONS < matlab.mixin.Copyable
                  da_store.RUN_INFO = [];
                  ensemble = run_info.ENSEMBLE.STATVAR;
                  if isempty(da.PARA.store_file_tag) || isnan(da.PARA.store_file_tag)
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '.mat'], 'da_store', 'ensemble')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_'  datestr(run_info.TILE.t, 'yyyymmdd') '.mat'], 'da_store', 'ensemble')
                  else
-                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name(1:end-2) '/' 'da_store_' datestr(run_info.TILE.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store', 'ensemble')
+                     save([run_info.TILE.PARA.result_path run_info.TILE.PARA.run_name '/' 'da_store_' datestr(run_info.TILE.t, 'yyyymmdd') '_' da.PARA.store_file_tag '.mat'], 'da_store', 'ensemble')
                  end
              end
          end

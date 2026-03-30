@@ -1,7 +1,7 @@
 %cite https://www.sciencedirect.com/science/article/pii/S0098300408001519
 %when using this class
 
-classdef OUT_ERT_forward_ArchiesLaw_1D < OUT_BASE_OBSERVABLES
+classdef OUT_ERT_forward_ArchiesLaw_1D_2 < OUT_BASE_OBSERVABLES
 
     properties
 
@@ -17,10 +17,10 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < OUT_BASE_OBSERVABLES
             out.PARA.horizontal_grid_spacing = []; %assumed the same in x and z-direction
             %Archies law parameters
             out.PARA.resistance_water = [];
-            out.PARA.cementation_exponent = []; %m = 1.3 for soils, make dependent
-            out.PARA.tortuosity = []; %a = 0.6-1
+            out.PARA.cementation_exponent = 1.5; %m = 1.3 for soils, make dependent
+            out.PARA.tortuosity = 1; %a = 0.6-1
             out.PARA.saturation_exponent = 2; %n
-            out.PARA.min_saturation = 0.01;
+            out.PARA.surface_conductivity = 0.0001;
 
             out.PARA.output_timestep = [];
             out.PARA.save_date = [];
@@ -98,9 +98,11 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < OUT_BASE_OBSERVABLES
             ice = [];
             mineral = [];
             organic = [];
+            T = [];
 
             while ~(strcmp(class(CURRENT), 'Bottom'))
                 layerThick = [layerThick; CURRENT.STATVAR.layerThick];
+                T = [T; CURRENT.STATVAR.T];
                 water = [water; CURRENT.STATVAR.water ./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
                 ice = [ice; CURRENT.STATVAR.ice./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
                 mineral = [mineral; CURRENT.STATVAR.mineral./CURRENT.STATVAR.layerThick./CURRENT.STATVAR.area];
@@ -108,23 +110,19 @@ classdef OUT_ERT_forward_ArchiesLaw_1D < OUT_BASE_OBSERVABLES
                 CURRENT = CURRENT.NEXT;
             end
 
-            %porosity = 1-ice-mineral-organic;
-            % porosity = 1-mineral-organic;
-            % saturation = max(water ./ porosity, out.PARA.min_saturation);
-            % depths = cumsum([0; layerThick]);
-            % depths = (depths(1:end-1,1)+depths(2:end,1))./2;
-            % resistances =  out.PARA.tortuosity .* out.PARA.resistance_water .* porosity.^(-out.PARA.cementation_exponent) .* saturation.^(-out.PARA.saturation_exponent);
+            depths = cumsum([0; layerThick]);
+            depths = (depths(1:end-1,1)+depths(2:end,1))./2;        
 
             porosity = 1-mineral-organic;
             saturation = water ./ porosity;
             saturation_unfrozen = (water+ice) ./ porosity;
-            resistances =  out.PARA.tortuosity .* out.PARA.resistance_water .* saturation ./ saturation_unfrozen .* porosity.^(-out.PARA.cementation_exponent) .* saturation.^(-out.PARA.saturation_exponent);
-            
-            depths = cumsum([0; layerThick]);
-            depths = (depths(1:end-1,1)+depths(2:end,1))./2;
+            temperature_dependence_coefficient = 0.022;
+            T0=0;
+            conductivity_bulk = (1+temperature_dependence_coefficient.*(T-T0)) .* (out.PARA.tortuosity .* out.PARA.resistance_water .* saturation ./ saturation_unfrozen .* porosity.^(-out.PARA.cementation_exponent) .* saturation.^(-out.PARA.saturation_exponent)).^(-1);
+            conductivity_surface = (1+temperature_dependence_coefficient.*(T-T0)) .* porosity.^(out.PARA.cementation_exponent-1) .* out.PARA.surface_conductivity;
+            resistances= (conductivity_bulk + conductivity_surface).^(-1);
 
             %calculation of potentials
-
             %assign electrode-positions
             electrode_positions = out.TEMP.electrode_positions;
             el_pos=[];

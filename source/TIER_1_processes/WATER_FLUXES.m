@@ -1295,8 +1295,20 @@ rand_factor = 1e-6 .* (2.*rand(size(ground.STATVAR.waterIce,1),1) -1);
             %Changed SW 01/25, timestep getting too small if only 1st term is there
             % timestep = double(ground.TEMP.d_water <0) .* max(ground.STATVAR.water./ -ground.TEMP.d_water./10, min(0.5, ground.STATVAR.water./ -ground.TEMP.d_water)) + ...
             timestep = double(ground.TEMP.d_water <0) .* ground.STATVAR.water./ -ground.TEMP.d_water./10 + ...
-               double(ground.TEMP.d_water > 0) .* double(1-(ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.waterIce)./(ground.STATVAR.layerThick .* ground.STATVAR.area)>1e-9) .* ...
+               double(ground.TEMP.d_water > 0) .* double(1-(ground.STATVAR.mineral + ground.STATVAR.organic + ground.STATVAR.waterIce)./(ground.STATVAR.layerThick .* ground.STATVAR.area)>1e-6) .* ...
                 (ground.STATVAR.layerThick .* ground.STATVAR.area - ground.STATVAR.mineral - ground.STATVAR.organic - ground.STATVAR.waterIce ) ./ ground.TEMP.d_water;
+
+            timestep(timestep<=0) = ground.PARA.dt_max;
+            timestep=nanmin(timestep);
+            
+        end
+
+        function timestep = get_timestep_water_SNOW2(ground)
+
+            timestep = double(ground.TEMP.d_water <0) .* ground.STATVAR.water./ -ground.TEMP.d_water./10;
+            %first cell can accumulate unlimited water
+            timestep(2:end,1) = timestep(2:end,1) + double(ground.TEMP.d_water(2:end,1) > 0) .* double(1-ground.STATVAR.waterIce(2:end,1)./(ground.STATVAR.layerThick(2:end,1) .* ground.STATVAR.area(2:end,1))>1e-9) .* ...
+                (ground.STATVAR.layerThick(2:end,1) .* ground.STATVAR.area(2:end,1) - ground.STATVAR.waterIce(2:end,1)) ./ ground.TEMP.d_water(2:end,1);
 
             timestep(timestep<=0) = ground.PARA.dt_max;
             timestep=nanmin(timestep);

@@ -445,7 +445,9 @@ classdef SNOW < BASE
             gs = snow.STATVAR.gs;
             D = snow.STATVAR.layerThick;
             W_liq = snow.STATVAR.water ./ snow.STATVAR.area .*1000; 
-            T = snow.STATVAR.T;
+            %Change SW March 202
+            T = max(snow.PARA.T_limit_compaction, snow.STATVAR.T); %limit influence of compaction reduction due to temeprature, as suggested in Domine et al, 2013 - they suggest max 2, we do exp(1)=2.7 here
+            %T = snow.STATVAR.T;
             
             %sigma=9.81.*cosd(snow.PARA.slope).*rho.*D;
             sigma=9.81.*cosd(snow.PARA.slope).*snow.STATVAR.waterIce ./ snow.STATVAR.area .*1000;
